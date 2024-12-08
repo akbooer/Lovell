@@ -81,7 +81,7 @@ local function sqrt(x)
 end
 
 -- returns min, max, mean, standard deviation of RGB in input image
-function _M.stats(image)
+function _M.stats(image, log)
   local elapsed = newTimer()
   
   local w, h = image: getDimensions()
@@ -113,13 +113,14 @@ function _M.stats(image)
                   sqrt(green[4] / n - mean[2]  * mean[2]),
                   sqrt( blue[4] / n - mean[3]  * mean[3]),
                 }
+  if log then
+    _log(elapsed "%.3f ms, results...")
+    _log("RGB min: %6.3f, %6.3f, %6.3f" % min) 
+    _log("RGB max: %6.3f, %6.3f, %6.3f" % max) 
+    _log("RGB avg: %6.3f, %6.3f, %6.3f" % mean) 
+    _log("RGB std: %6.3f, %6.3f, %6.3f" % sdev) 
+  end
   
---  _log(elapsed "%.3f ms, results...")
---  _log("RGB min: %6.3f, %6.3f, %6.3f" % min) 
---  _log("RGB max: %6.3f, %6.3f, %6.3f" % max) 
---  _log("RGB avg: %6.3f, %6.3f, %6.3f" % mean) 
---  _log("RGB std: %6.3f, %6.3f, %6.3f" % sdev) 
-
   return {min = min, max=max, mean=mean, sdev = sdev}
 end
 
@@ -130,21 +131,24 @@ end
 --
 
 local normalise = lg.newShader [[
-  uniform float scale;
+  uniform float min, scale;
   
   vec4 effect(vec4 color, Image image, vec2 tc, vec2 _) {
     vec3 rgb = Texel(image, tc) .rgb;
-    return vec4(scale * rgb, 1.0);
+    return vec4((rgb - vec3(min)) * scale, 1.0);
   }
 ]]
 
 ---- nomalize RGB, collectively, to be between 0 and 1
 function _M.normalise(input, output)
   local stats = _M.stats(input);
-  local max = stats.max
+  local eps = 1.0e-10
+  local max, min = stats.max, stats.min
   local rgb_max = math.max(math.max(max[1], max[2]),max[3])
-  rgb_max = rgb_max <= 0 and 1 or rgb_max
-  normalise: send("scale", 1 / rgb_max)
+  local rgb_min = math.min(math.min(min[1], min[2]),min[3])
+  local scale = 1 / (rgb_max - rgb_min + eps)                 -- avoid division by zero
+  normalise: send("min", rgb_min)
+  normalise: send("scale", scale)
   lg.setShader(normalise)
   output: renderTo(lg.draw, input)
   lg.setShader()

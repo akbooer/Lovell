@@ -28,7 +28,7 @@ local lt = love.timer
 local suit  = require "suit"
 
 local GUIs  = {}
-local MODES = {"main", "test", "settings"}
+local MODES = {"main", "test", "fits", "settings"}
 
 for _, mode in ipairs(MODES) do
   GUIs[mode] = require ("guillaume.%sGUI" % mode) 
@@ -83,14 +83,14 @@ local function opt(x) return setmetatable(x or {}, {__index = buttonMeta}) end
 local function build_modes()
   local w, h = lg.getDimensions()
   layout:reset(margin, h - footer)
---  Suit.ImageButton( lumIcon, {bg, align = "center", cornerRadius = 0}, layout:col())
-  suit.Button( "adjustments", opt(), layout:col((w - 2*margin)/7, footer))
+  
+  suit.Button( "fits header", opt(), layout:col((w - 2*margin)/7, footer))
   suit.Button ("test",        opt(), layout:col())
-  suit.Button( "-", opt(), layout:col())
+  suit.Button( "landscape",   opt(), layout:col())
   suit.Button ("eyepiece",    opt(), layout:col())
-  suit.Button ("snapshot",    opt(), layout:col())
+  suit.Button ("workflow",    opt(), layout:col())
   suit.Button ("settings",    opt(), layout:col())
-  suit.Button ("info",        opt(), layout:col())
+  suit.Button ("exit",        opt(), layout:col())
 end
 
 
@@ -104,26 +104,33 @@ function _M.update(dt)
   local x, y = lm.getPosition()
   local w, h = lg.getDimensions()
   
-  local modes = x < w - margin and y > h - 100 
+  local modes = suit.mouseInRect(margin, h - 2 * footer, w - 2 * margin, 2 * footer - 2)
   if modes then
     build_modes()
   end
   
-  if suit.isHit "eyepiece" and GUI ~= GUIs.main then 
+  if suit.isHit "landscape" then 
+    GUI = GUIs.main
+  end
+  
+  if suit.isHit "eyepiece" then 
     GUI = GUIs.main
   end
   
   if suit.isHit "test" then 
     GUI = GUIs.test
   end
+ 
+  if suit.isHit "fits header" then 
+    GUI = GUIs.fits
+  end
   
   if suit.isHit "settings" then 
     GUI = GUIs.settings
   end
   
-  if suit.isHit "snapshot" then
-   lg.captureScreenshot "snapshots/snapshot.png"
-   _log "snapshot"
+  if suit.isHit "exit" then 
+    love.event.push "quit"
   end
 
   GUI.update(dt)

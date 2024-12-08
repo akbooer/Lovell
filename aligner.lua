@@ -20,7 +20,7 @@ local newTimer = require "utils" .newTimer
 -- so returned matches array may contain nils
 local function matchPairs(stars, keystars, params)
   params = params or {}
-  local maxDist = params.maxDist or math.huge
+  local maxDist = params.maxDist or 20
   local maxLumDiff = params.maxLumDiff or 1
   
   local maxDist2 = maxDist * maxDist

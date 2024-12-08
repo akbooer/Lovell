@@ -25,11 +25,6 @@ local logChannel = love.thread.getChannel "logChannel"
   logFile: setBuffer "line"
   logFile: open "w"
   
---
-
---local logFile = io.open ("Lovell.log", "w")
---logFile:setvbuf "line" 
-
 --------------------
 --
 --  main loop

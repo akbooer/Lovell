@@ -4,7 +4,8 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.11.26",
+  VERSION = "2024.12.07",
+  AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
 
@@ -23,6 +24,9 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 -- 2024.11.18  improve error checking
 -- 2024.11.25  fix operation on missing EXPOINUS field
 -- 2024.11.26  parse filename to provide filter and subtype information
+-- 2024.12.03  return epoch, for session id
+-- 2024.12.04  add additional delay after failed read, to allow write (presumably) to finish
+-- 2024.12.05  add metadata from other capture software
 
 
 local _log = require "logger" (_M)
@@ -32,22 +36,57 @@ local lt = require "love.timer"
 local li = require "love.image"
 
 local fits = require "lib.fits"
+local json = require "lib.json"
+
 local ffi = require "ffi"
 local newTimer = require "utils" .newTimer
 
-local delay = 1     -- interval (seconds) to look for new files
+local delay = 1       -- interval (seconds) to look for new files
 
 local files = {}      -- the growing contents of the watched directory
 
+local mountpoint = "watched/"
+
+local empty = READONLY {}
+
+------------------------
+--
+-- metadata reader - read it if it's there in the dropped folder
 --
 
-local function readImageData(filename)
+local function readMetadata(filename)
+  local metadata
+  local path =  mountpoint .. filename
+  local file = love.filesystem.newFile(path, 'r' )
+  if file then 
+    _log("loading " .. filename)
+    local info = file: read()
+    file: close()
+    metadata = json.decode(info)
+    if metadata then
+      metadata.name = metadata.Name        -- some confusion over naming styles!
+    end
+  end
+  return metadata
+end
+
+-----
+
+local function readImageData(path)
   local elapsed = newTimer()
-  local ok, data, k, h = pcall(fits.read, filename)
+  
+  local file, errorstr = love.filesystem.newFile( path, 'r' )
+  if not file then 
+    _log(errorstr)  -- error on file open
+    return
+  end
+  
+  local ok, data, k, h = pcall(fits.read, file)
   if not ok then 
 --    _log("ERROR on read : " ..(data or '?'))
     return
   end
+  
   local naxis1, naxis2= k["NAXIS1"], k["NAXIS2"]
   local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
   if not ok2 then
@@ -73,20 +112,11 @@ local function readImageData(filename)
   return imageData, k, h
 end
 
--- sanity check on file directories...
-do
-  _log ("USER: " .. lf.getUserDirectory())
-  _log ("APP:  " .. lf.getAppdataDirectory())
-  _log ("SAVE: " .. lf.getSaveDirectory())
-  _log ("SRC:  " .. lf.getSource())
-  _log ("WORK: " .. lf.getWorkingDirectory())
-end
 
 -- analyse file name for sub type and filter
 local scan_name do
-  local subtype = " darkflat flatdark dark bias flat dark light "
+  local subtype = " dark bias flat dark light "
   local filter  = " red green blue lum spec l ha oiii sii r g b h o s  "
---  local COLORMAP = {Grayscale='mono', RAW16='mono'}
   local FILTERMAP = {green='G', red='R', blue='B', ha='H', oiii='O', sii='S', lum='L'}
 
   function scan_name(name)
@@ -101,25 +131,47 @@ local scan_name do
   end
 end
 
--- handle a variety of formats
-
+-- handle a variety of date formats
 local function parse_date(datetime)
-  local d, t = datetime: match "(%d+%D%d%d%D%d%d)%D+(%d%d%D?%d%d)"   -- (YY)YY-MM-DD
-  return (d and t) and (d..'  '..t) or datetime
+  local epoch
+  local y, m, d, H, M
+  if type(datetime)  == "string" then
+    y,m,d, H, M = datetime: match "(%d+)%D(%d%d)%D(%d%d)%D+(%d%d)%D?(%d%d)"   -- (YY)YY-MM-DD
+    if y then
+      y = (#y == 2) and ("20" .. y) or y
+      datetime = os.time {year = y, month = m, day = d, hour=H, min=M, isdst = false}
+    end
+  end
+  if type(datetime) == "number" then
+    epoch = datetime
+    datetime = os.date("%-d-%b-%Y  %H:%M", datetime)      -- Coordinated Universal Time
+  else
+    datetime = ''
+  end
+  return datetime, epoch    -- string representation, and epoch
+end
+
+-- sanity check on file directories...
+do
+  _log ("USER: " .. lf.getUserDirectory())
+  _log ("APP:  " .. lf.getAppdataDirectory())
+  _log ("SAVE: " .. lf.getSaveDirectory())
+  _log ("SRC:  " .. lf.getSource())
+  _log ("WORK: " .. lf.getWorkingDirectory())
 end
 
 --
 --  main loop
 --
 
-local folder
-local mountpoint = "watched/"
 local subNumber  = 0
+local folder          -- current watched folder
 
 
 repeat
   lt.sleep(delay)
 
+  local metadata = empty
   local newFolder = newWatchFolder: pop()
   if newFolder then
     if newFolder == "EXIT" then break end
@@ -133,6 +185,10 @@ repeat
     files = {}              -- empty files list...
     newFITSfile: clear()    -- ...and the pipeline
     subNumber = 0
+    
+    metadata = readMetadata "info3.json" 
+            or readMetadata "metadata.json" 
+            or empty
   end
 
   local dir = lf.getDirectoryItems (mountpoint)
@@ -141,10 +197,12 @@ repeat
   for _,file in ipairs(dir) do
     if file: match "%.fit$" and not files[file] then
       files[file] = true
-      local imageData, keywords, headers = readImageData (mountpoint .. file)
+      local path = mountpoint .. file
+      local imageData, keywords, headers = readImageData (path)
       if not imageData then
         files[file] = false         -- mark as not read and try again later         
         _log "...incomplete file read..."
+        lt.sleep(2 * delay)         -- wait a bit more
         break 
       end
       subNumber = subNumber + 1
@@ -152,13 +210,16 @@ repeat
       local subtype, filter = scan_name(file)
 --      _log(subtype, filter)
       
-      local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] or ''
-      local date, time = parse_date(datetime)
+      local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
+  
+      local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
+      local datestring, epoch = parse_date(datetime or modtime)
       
       local new = {
         name = file, 
-        subNumber = subNumber,
         folder = folder,
+        
+        subNumber = subNumber,
         imageData = imageData, 
         keywords = keywords,
         headers = headers,
@@ -169,11 +230,15 @@ repeat
         exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) *1e-6,
         bayer = k.BAYERPAT, 
         temperature = k.TEMPERAT or k["SET-TEMP"] or k["SET_TEMP"] or k["CCD-TEMP"],
-        date = date,
-        time = time,
+        date = datestring,
+        epoch = epoch,
         gain = k.GAIN or k.EGAIN,
         creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
         camera = k.INSTRUME,
+        
+        -- add extra metadata, if present
+        telescope = metadata.telescope,
+        object = metadata.name
       }
       
       newFITSfile: push(new)

@@ -28,6 +28,14 @@ getmetatable ''.__mod = function(a, b)
 end
 
 
+-- READONLY wrapper for tables
+local readonly = {__index = tbl, __newindex = function() error ("read-only", 2) end}
+
+function _G.READONLY(tbl)
+  return setmetatable({}, readonly)
+end
+
+
 -- return formatted current time (or given time) as a string
 -- ISO 8601 date/time: YYYY-MM-DDThh:mm:ss or other specified format
 local function formatted_time (date_format, now)

@@ -19,11 +19,9 @@ local _log = require "logger" (_M)
 local love = _G.love
 local lg = love.graphics
 
-local badpixel    = require "shaders.badpixel"
-local debayer     = require "shaders.debayer"
-local buffer      = require "utils" .buffer
-
-local stats = require "shaders.stats" .stats
+local badpixel  = require "shaders.badpixel"
+local debayer   = require "shaders.debayer"
+local buffer    = require "utils" .buffer
 
 local r16         -- raw camera data buffer
 local rgba16f      -- general rgb buffer
@@ -48,9 +46,6 @@ local function thumbnail(image)
   return thumb
   end
 
---local rgb_filter = {R = {1,0.01,0.01,1}, G = {0.01,1,0.01,1}, B = {0.01,0.01,1,1}}
---local rgb_filter = {R = 0, G = 1, B = 2}
-
 
 local function prestack(img)
    
@@ -62,21 +57,13 @@ local function prestack(img)
   
   badpixel(rawImage, r16)
   
-  -- 16-bit mono -> floating point RGB
---  local mono_filter = rgb_filter[img.filter: upper()] 
-  
---  img.channel = mono_filter
-  
-  debayer(r16, rgba16f, {bayer = img.bayer}) 
+  debayer(r16, rgba16f, {bayer = img.bayer})   -- 16-bit mono -> floating point RGB
   
   imageData: release()
   rawImage:  release()
  
   img.image = rgba16f
   img.clone = clone
-
---  _log "stats..."
---  stats(img.image)
   
   return img
 end

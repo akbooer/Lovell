@@ -3,7 +3,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.18",
+    VERSION = "2024.11.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -11,7 +11,7 @@ local _M = {
 -- 2024.09.25  Version 0, @akbooer
 -- 2024.11.08  use love.filesystem
 -- 2024.11.18  improve error checkking
-
+-- 2014.11.29  read() now takes an opened file object, rather than a filename
 
 --
 -- see: https://fits.gsfc.nasa.gov/fits_primer.html
@@ -74,14 +74,14 @@ end
 
 --]]
 
-local function read_header_unit(f) 
+local function read_header_unit(file) 
   local done
   local keywords = {}
   local headers = {}
   -- there may be multiple blocks 
   repeat
     for _ = 1, 36 do
-      local record = f: read (80)
+      local record = file: read (80)
       if not done then
         headers[#headers+1] = record
 --        local name, equals, value, slash, comment = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)(/?)(.*)"
@@ -123,15 +123,14 @@ end
 --]]
 
 
-function _M.read(filename)
-  local f, errorstr = love.filesystem.newFile( filename, 'r' )
-  if not f then return nil, table.concat {errorstr, filename, " : "} end
+-- called with an opened file object
+function _M.read(file)
   
-  local k, h = read_header_unit(f)
+  local k, h = read_header_unit(file)
   local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2, k.NAXIS3 or 1
   local size = naxis1 * naxis2 * naxis3 * bitpix/8
-  local data, n = f: read(size)
-  f: close()  
+  local data, n = file: read(size)
+  file: close()  
 
   assert(n == size, "failed to read complete file")
   return data, k, h

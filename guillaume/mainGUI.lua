@@ -5,28 +5,28 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.11.28"
+  _M.VERSION = "2024.12.02"
   _M.DESCRIPTION = "main GÜI"
 
 local _log = require "logger" (_M)
 
 -- 2024.11.01  Version 0
 -- 2024.11.27  added Flip LR/UD checkboxes
+-- 2024.12.02  startup in eyepiece mode
 
 
-local suit    = require "suit"
-local session = require "session"
+local suit      = require "suit"
+local session   = require "session"
+local observer  = require "observer"
 
 local love = _G.love
-local lm = love.mouse
 local lg = love.graphics
 local lk = love.keyboard
-local lt = love.timer
 
-local dsos     = session.dsos
+local dsos      = session.dsos
+local controls  = session.controls
 
-local controls = session.controls
-controls.anyChanges = function() return suit.anyActive() end    -- update the function
+controls.anyChanges = function() return suit.anyActive() end    -- replace dummy function
 
 
 lg.setDefaultFilter("linear", "linear")   -- smoothstars!
@@ -39,23 +39,22 @@ local footer = 30       -- footer height for button aarray
 
 --local lumIcon = lg.newImage "resources/luminance.png"
 
-local display = {
-  flipLR = {checked = false, text = "flip L/R"},
-  flipUD = {checked = false, text = "flip U/D"},
-  }
+local pin_controls = {checked = false, text = nil}
+local pin_info = {checked = false, text = nil}
 
 _M.controls = controls
-_M.display = display
- 
-local popup
-local adjustments, info    -- menu flags
-local showAdjustments, showInfo
+
+local eyepiece = true     -- start in eyepiece mode
+local adjustments, info   -- show side panels
+local popup               -- show popup menu
+
+local X, Y = 0, 0         -- image offset
+local ZOOM, ANGLE = 0.3, 0
 
 -------------
 
---local font11  = lg.newFont(11)
 local layout  = self.layout
---local options = {align = "left", font = XXXfont11,  color = {normal = {fg = {.9,.6,.7}}}}
+
 local options = {align = "left", color = {normal = {fg = {.6,.4,.5}}}}
 local Woptions = {align = "left", color = {normal = {fg = {.6,.6,.6}}}}
 
@@ -69,12 +68,20 @@ local function build_adjustments(controls)
     self: Slider(control, layout:row())
   end
   
-  layout:reset(10,30)             -- position the layout origin...
+  layout:reset(10,10)             -- position the layout origin...
   layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
+--  if not eyepiece then
+  self:Checkbox(pin_controls, {id = "pin_controls"}, layout:row(20, 20))
+--  else
+--    layout:row(20, 20)
+--  end
   local gamma = controls.gammaOptions[controls.gamma]
   local channel = controls.channelOptions[controls.channel]
   
   local w = margin - 20
+  
+--  layout: row(10,10)     -- spacer
+  
   self:Button(channel, {id = "channel"}, layout:row(w,30))
   slider ("Background", w, 10)
   slider ("Brightness")
@@ -85,37 +92,42 @@ local function build_adjustments(controls)
   
   self:Button("Colour", {id = "colour"}, layout:row(w,30))
   slider ("Saturation", w, 10)
-  slider "Red"
-  slider "Blue / Green"
+  slider "Tint"
+--  slider "Red"
+--  slider "Blue / Green"
   
---  self:Button("Post processing", {id = "processing"}, layout:row(w,30))
---  slider ("Noise reduction", w, 10)
---  slider "Sharpen"
-   
-  adjustments = true
+  self:Button("Enhance", {id = "enhance"}, layout:row(w,30))
+  slider ("Denoise", w, 10)
+  slider "Sharpen"
+--  slider "Stars"
 
 end
  
 -- meta needed because Widget options are mutable (by SUIT itself)
 --local buttonMeta = { cornerRadius = 0, bg = {normal =  {bg = {0,0,0}}} }
 --local function opt(x) return setmetatable(x or {}, {__index = buttonMeta}) end
-local eyepiece
 
-
-local search = {text = ''}
-local checkbox = {check = true, text = "pin"}
-
+local search = controls.object
 local OBJ, RA, DEC = '', '', ''
+
 local function build_info()
   
-  info = true
   local stack = session.stack() or {}
 
   local Wcol = margin/2 - 30
   local w, h = lg.getDimensions()
-  layout:reset(w - margin + 10, 30)             -- position the layout origin...
+  layout:reset(w - margin + 10, 10)             -- position the layout origin...
   layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
 
+--  layout: row(10,10)     -- spacer
+--  if not eyepiece then
+    layout: push (w - 30, 10)
+    self:Checkbox(pin_info, {id = "pin_info"}, layout:row(20, 20))
+    layout: pop()
+--  else
+--    layout:row(20, 20)
+--  end
+  
   self:Input(search, {id = "search", align = "left"}, layout:row(margin- 20, 30))
   self:Label("object", options, layout:row(margin, 10))
   self:Label(OBJ, Woptions, layout:row(margin, 15))
@@ -131,10 +143,15 @@ local function build_info()
   
   local image = stack.image
   local temp = stack.temperature
-  local camera = stack.camera or image and ("[%d x %d]" % {image: getDimensions()})  or ''
-  local tcam = temp and (" @ %sC" % temp) or ''
+  local caminfo
+  if image then
+    local w, h = image: getDimensions()
+    caminfo = ("[%d x %d]  %s" % {w, h, stack.bayer or "Mono"})
+  end
+  local camera = stack.camera or image and caminfo  or ''
+  local tcam = temp and (" @ %sºC" % temp) or ''
   
-  local telescope = session.settings.telescope.text
+  local telescope = controls.telescope.text
   
   self:Label("date", options, layout:row(margin, 15))
   self:Label(stack.date or '?', Woptions, layout:row(margin, 10))
@@ -155,13 +172,13 @@ local function build_info()
 --  self:Label("Bayer: " .. (stack.bayer or 'none'), options, layout:row())
 
   
-  layout:reset(w - margin + Wcol + 10, h - 150)             -- position the layout origin...
+  layout:reset(w - margin + 10 + 10, h - 200)             -- position the layout origin...
   layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
-   
-  self:Checkbox (display.flipLR, layout:row(120, 20))
-  self:Checkbox (display.flipUD, layout:row())
-
   
+  self:Button ("snapshot", layout:col(Wcol, 50))
+  self:Checkbox (controls.flipUD, layout:col(120, 20))
+  self:Checkbox (controls.flipLR, layout:row())
+
 end
 
 
@@ -197,14 +214,13 @@ function _M.update(dt)
   
   local w, h = lg.getDimensions()
   
-  local x, y = lm.getPosition()
-  adjustments = x < margin
-  if adjustments or showAdjustments then
+  adjustments = suit.mouseInRect(1,1, margin + 30, h - footer) or eyepiece or pin_controls.checked
+  if adjustments  then
     build_adjustments(controls)
   end
   
-  info = x > w - margin and y < h - 100
-  if info or showInfo then
+  info = suit.mouseInRect(w - margin - 30, 1, margin + 28, h - footer) or eyepiece or pin_info.checked
+  if info then
     build_info()
   end
  
@@ -216,18 +232,20 @@ function _M.update(dt)
     controls.channel = (controls.channel) % #controls.channelOptions + 1
   end
 
+  if suit.isHit "landscape" then
+    eyepiece = false
+  end
+
   if suit.isHit "eyepiece" then
-    eyepiece = not eyepiece
-    showAdjustments = eyepiece
-    showInfo = eyepiece
+    eyepiece = true
   end
-
-  if suit.isHit "adjustments" then
-    showAdjustments = not showAdjustments
-  end
-
-  if suit.isHit "info" then
-    showInfo = not showInfo
+  
+  if self:isHit "snapshot" then
+    local path = "snapshots/%s_%s_%x.png"   -- target, session, epoch in hexadecimal
+    local sess = session.ID or ''
+    local snap = path % {search.text, sess, os.time()}
+    lg.captureScreenshot (snap)
+    _log (snap)
   end
 
 end
@@ -294,29 +312,9 @@ function _M.draw()
   lg.clear(clear,clear,clear,1)
   
   local w, h = lg.getDimensions()             -- screen size
-  
-  if screenImage then
 
-    -- final image polishing
---    final = buffer(screenImage, final, {mipmaps = "auto"})
---    final: renderTo(lg.draw, screenImage)
-    final = screenImage
-    
-    local iw, ih = final:getDimensions()  -- image size
-    local scale = controls.zoom
-    local x, y = controls.x, controls.y
-    local angle = 0
- 
---
--- NAIVE
---
---    local sx = display.flipLR.checked and -scale or scale
---    local sy = display.flipUD and -scale or scale
-    
---    lg.draw(screenImage, w/2 + x - scale*iw/2,  h/2 + y - scale*ih/2, angle, scale, scale)   -- zoom from image centre
-  
   if eyepiece then
---    local t = love.timer.get Time()
+  --    local t = love.timer.get Time()
     local function Oculus()
       local c = 0.09            -- background within the oculus
        lg.setColor(c,c,c,1)
@@ -327,19 +325,41 @@ function _M.draw()
     lg.stencil(Oculus, "replace", 1)
     lg.setStencilTest("greater", 0)
   end
+  
+  if screenImage then
+
+    -- final image polishing
+--    final = buffer(screenImage, final, {mipmaps = "auto"})
+--    final: renderTo(lg.draw, screenImage)
+    final = screenImage
+    
+    local iw, ih = final:getDimensions()  -- image size
+    local scale = ZOOM
+    local x, y = X, Y
+    local angle = ANGLE
+ 
+--
+-- NAIVE
+--
+--    local sx = display.flipLR.checked and -scale or scale
+--    local sy = display.flipUD and -scale or scale
+    
+--    lg.draw(screenImage, w/2 + x - scale*iw/2,  h/2 + y - scale*ih/2, angle, scale, scale)   -- zoom from image centre
+  
 
 
 --
 -- CAMERA
 ----
-    local flipx = display.flipLR.checked and -1 or 1
-    local flipy = display.flipUD.checked and -1 or 1
+    local flipx = controls.flipLR.checked and -1 or 1
+    local flipy = controls.flipUD.checked and -1 or 1
     
     local sx, sy = scale*flipx, scale*flipy
     my_camera: zoomTo(sx, sy)
     my_camera: lookAt(iw/2 - x/sx, ih/2 - y/sy)
-    
+--    my_camera: rotateTo (math.pi/2)
     my_camera: attach()
+    
     lg.draw(final)
 --     _log ("stack mipmaps: %d" % screenImage: getMipmapCount())
 
@@ -348,8 +368,6 @@ function _M.draw()
   end
 
   lg.setStencilTest()  
-  
-  lg.print("fps: " .. lt.getFPS( ), 10, 10)
   
   local r,g,b,a = lg.getColor()
   local c = 1/8
@@ -363,12 +381,15 @@ function _M.draw()
     lg.rectangle("fill", w - margin, 0, margin, h)
     lg.setColor(0.6,0.6,0.6,1)
     lg.getFont(): setLineHeight(1.2)
-    lg.printf(session.settings.ses_notes.text, w - margin + 10, h/2, margin - 40)
+    lg.printf(controls.ses_notes.text or '', w - margin + 10, h/2, margin - 40)  
   end
+  
+--  lg.print("%d, %d" % {lm.getPosition()}, 40,10)
+--  lg.print("fps: " .. lt.getFPS( ), w - 60, h - 30)
+--  lg.print(tostring(love.window.hasFocus()), 80, 10)
   
   lg.setColor(r,g,b,a)
   self:draw()
-
   lg.setColor(1,1,1,1)
 end
   
@@ -379,57 +400,41 @@ end
 --
 
 local function reset_origin()
-  controls.x, controls.y = 0, 0 
+  X, Y = 0, 0 
+end
+
+-- calculate vetical and horizontal ratios of image and screen dimensions
+local function calcScreenRatios(image)
+  if not image then return 1, 1 end
+  local w,h = lg.getDimensions()
+  local iw,ih = image:getDimensions()
+  reset_origin()
+  return h / ih, w / iw
 end
 
 do
   lk.setKeyRepeat(true)
 
   local keypressed =  {
-    home      = function() reset_origin(); controls.zoom = 0.3 end,
+    home      = function() ZOOM = math.max(calcScreenRatios(final)) end,  -- fill the whole screen, clipping image
+    ["end"]   = function() ZOOM = math.min(calcScreenRatios(final)) end,  -- fit whole image to screen, with margin
+    
+    pageup    = function() ZOOM = ZOOM * 1.1 end,
+    pagedown  = function() ZOOM = ZOOM / 1.1 end,
+      
   --  up        = function() y = y - inc end,
   --  down      = function() y = y + inc end,
   --  left      = function() x = x - inc end,
   --  right     = function() x = x + inc end,
-    
-    ["kp="]     = function() 
-                  local h = lg.getHeight()
-                  if not final then return end
-                  local ih = final:getHeight()
-                  reset_origin()
-                  controls.zoom = h / ih
-                end,
-    ["kp/"]     = function() 
-                  local w,h = lg.getDimensions()
-                  if not final then return end
-                  local iw,ih = final:getDimensions()
-                  reset_origin()
-                  controls.zoom = math.max(h / ih, w / iw)
-                end,
-    ["kp*"]     = function() 
-                  reset_origin()
-                  controls.zoom = 1 
-                end,
-    pageup    = function() controls.zoom = controls.zoom * 1.1 end,
-    pagedown  = function() controls.zoom = controls.zoom / 1.1 end,
-    noop      = function() end,
 
-    kp8       = function() controls.stretch.value = controls.stretch.value + 0.05 end,
-    kp6       = function() controls.background.value = controls.background.value - 0.002 end,
-    kp5       = function() controls.stretch.value = 0.3; controls.background.value = 0 end,
-    kp4       = function() controls.background.value = controls.background.value + 0.002 end,
-    kp2       = function() controls.stretch.value = controls.stretch.value - 0.05 end,
+    ["kp*"]     = function() reset_origin(); ZOOM = 1 end,
 
   }
 
   function _M.keypressed(key)
     self:keypressed(key)
     local action = keypressed[key]
-    if not action then
-      action = keypressed.noop
---      print("unimplemented key", key)
-    end
-    action()
+    if action then action() end
   end
 end  
 
@@ -456,7 +461,7 @@ do
 
   function _M.mousepressed(mx, my, btn)
     mx, my = mx, my
-    mousedown = btn == 1 and within(mx, my)
+    mousedown = btn == 1 and (eyepiece and within(mx, my) or mx > margin)
     popup = popup or btn == 2
   end
 
@@ -470,15 +475,15 @@ do
     Mx, My = mx, my
     dx, dy = dx, dy
     if mousedown then
-      controls.x = controls.x + dx
-      controls.y = controls.y + dy
+      X = X + dx
+      Y = Y + dy
     end
   end
 
   function _M.wheelmoved(wx, wy)
     wx, wy = wx, wy
     local mag = 1 + wy / 50
-    controls.zoom = controls.zoom * mag
+    ZOOM = ZOOM * mag
   end
 
 end
