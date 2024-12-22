@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.24",
+    VERSION = "2024.12.09",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -12,6 +12,8 @@ local _M = {
 -- 2024.10.21  add 'fast' mode, which scales down the image before sampling
 -- 2024.11.18  use setBlendMode("replace", "premultiplied")  rather than custom shader to copy
 -- 2024.11.24  remove outliers from samples prior to gradient calculation
+-- 2024.12.09  separate solution and application functions
+-- 2024.12.16  use workflow() buffers
 
 
 local _log = require "logger" (_M)
@@ -101,64 +103,64 @@ local function getImageSamples(data, N)
   return X,Y, R,G,B
 end
 
+local minPoints = 10
+local Nsamples = 512
 
 local mini = lg.newCanvas(100, 100, {format = "rgba16f", dpiscale = 1})  -- tiny canvas to sample the much bigger image
 
-local function background(input, output, controls)
 
+-- solve input image gradients
+function _M.solve(input)
   local elapsed = newTimer()
   
   local w,h = input: getDimensions()
   
   lg.setBlendMode("replace", "premultiplied")
-  mini: renderTo(lg.draw, input, 0,0,0, 100/w, 100/h)
+  mini: renderTo(lg.draw, input, 0,0,0, 100/w, 100/h)   -- scale image to fit mini canvas
   lg.setBlendMode("alpha", "alphamultiply")
-    
-  local Nsamples = 512
-  local gradient = controls.gradient.value or 1
-  
+   
 --  local data = mipBuffer:newImageData(nil, 7, 0,0, w/64,h/64)
   local data = mini:newImageData()
   local x,y, r,g,b = getImageSamples(data, Nsamples) 
   
-  local rx, ry, rz
-  local gx, gy, gz
-  local bx, by, bz
-  do -- solve for planar background in RGB
+  local rx, ry, rz = 0, 0, 0
+  local gx, gy, gz = 0, 0, 0
+  local bx, by, bz = 0, 0, 0
+  
+  local gradients
+  if #x > minPoints then                  -- solve for planar background in RGB
     rz, rx, ry = solver.fitXYZ(x, y, r)   -- note transposition re. solution order
     gz, gx, gy = solver.fitXYZ(x, y, g)
     bz, bx, by = solver.fitXYZ(x, y, b)
+    gradients = {
+        Offset = {rz , gz , bz},
+        Xslope = {rx, gx, bx},
+        Yslope = {ry, gy, by},
+      }
   end
+  _log (elapsed "%.3f ms, gradient solved")
   
-  local Offset, Xslope, Yslope
-  do -- use shader to apply background subtraction
-    Offset = {rz , gz , bz };
-    Xslope = {rx, gx, bx};
-    Yslope = {ry, gy, by};
-    flattener: send ("Offset",  Offset);
-    flattener: send ("Xslope",  Xslope);
-    flattener: send ("Yslope",  Yslope);
-    flattener: send ("gradient", gradient)
-    
-    lg.setShader(flattener) 
-    output:renderTo(lg.draw, input)
-    lg.setShader()
-  
-  end
-  
---  if controls.Nstack == 1 then
---    _log(elapsed "%.3f mS, gradient removal")
+  return gradients
+end
 
---    _log("RGB offset: %9.4f %9.4f %9.4f" % Offset)
---    _log("RGB xslope: %9.4f %9.4f %9.4f" % Xslope)
---    _log("RGB yslope: %9.4f %9.4f %9.4f" % Yslope)
---  end
 
-  return data, Offset, Xslope, Yslope       -- available for further analysis   
+-- use shader to apply background subtraction
+function _M.remove(gradients, input, output, controls)
+  local g = gradients
+  flattener: send ("Offset",  g.Offset);
+  flattener: send ("Xslope",  g.Xslope);
+  flattener: send ("Yslope",  g.Yslope);
+  flattener: send ("gradient", controls.gradient.value or 1)
+  
+  lg.setShader(flattener) 
+  output:renderTo(lg.draw, input)
+  lg.setShader()
+  
+  return output
 end
 
   
-return background
+return _M
 
 -----
 

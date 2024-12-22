@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.08",
+  VERSION = "2024.12.20",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
 }
 
@@ -14,6 +14,7 @@ local _log = logger(_M)
 local session = require "session"
 local masters = require "masters"
 local GUI     = require "guillaume"
+
 
 local love = _G.love
 local lt = love.thread
@@ -76,6 +77,27 @@ function love.load(arg)
   lf.createDirectory "masters"
   
   session.load()
+
+  _log ("separator", package.config:sub(1,1) )
+--[[
+  local OS = love.system.getOS()
+  local lim = lg.getSystemLimits( )
+  local sup = lg.getSupported{}
+  local ren = lg.getRendererInfo()
+  local can = lg.getCanvasFormats()
+  local processorCount = love.system.getProcessorCount( )
+  local fmt = love.graphics.getImageFormats()
+  local info = {
+      limits = lim, 
+      supported = sup, 
+      renderer = ren,
+      imageformats = fmt,
+      processors = processorCount,
+      canvasformats = can,
+      OS = OS}
+  _log (pretty(info))
+--]]
+
 end
 
 function love.update(dt)

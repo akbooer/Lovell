@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.03",
+    VERSION = "2024.12.16",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
@@ -20,89 +20,80 @@ local stretch     = require "shaders.stretcher"
 local filter      = require "shaders.filter"
 local colour      = require "shaders.colour"
 local stats       = require "shaders.stats"
+local moonbridge  = require "shaders.moonbridge"   -- Moonshine proxy
+local newTimer    = require "utils" .newTimer 
 
-local smooth = filter.smooth
+local gaussian  = moonbridge "fastgaussianblur" 
+local gaussianWide  = moonbridge "fastgaussianblur" 
+local gaussianVeryWide  = moonbridge "fastgaussianblur" 
 
-local lum       -- luminance
-local smoothed  -- smoothed image
-local final     -- final image
+gaussian.setters.taps(5)            -- narrow Gaussian
+gaussianWide.setters.taps(17)       -- wider one
+--gaussianVeryWide.setters.taps(19)   -- even wider one
 
--- toggle input/output workflow between two buffers,
--- matched and initialised to input canvas type
-local workflow do    
-  local b1, b2
-  local controls
-  function workflow(canvas, ctrl)
-    local special
-    if type(canvas) == "table" then
-      special = canvas                  -- one-off override of controls
-    elseif canvas then                  -- create buffers first time around,,,
-      b1  = buffer(canvas, b1)
-      b2  = buffer(canvas, b2)
-      controls = ctrl
-      return canvas, b1, controls   -- ... and use input canvas as first input
-    end
-    b1, b2 = b2, b1  -- toggle buffer input/output
-    return b2, b1, special or controls
-  end
-end
+local lum             -- luminance
+local smoothed        -- smoothed image
+local verysmoothed   -- smoothed image
+local final           -- final image
 
 
 local function poststack(stackframe, controls)
-  
   if not stackframe then return end
   
   local stack = stackframe.image
-  lum = buffer(stack, lum, {format = "r16f", dpiscale = 1})    -- single floating-point channel
+  local workflow = stackframe.workflow
+  
+  lum = buffer(stack, lum, {format = "r16f", dpiscale = 1}, "luminance")    -- single floating-point channel
 
-  -- TODO: pre-compute gradients after stack
-  background(workflow(stack, controls))   -- set up workflow buffers and parameters and remove background gradient
+  -- reset workflow buffers with latest stack, and remove gradients
+  background.remove (stackframe.gradients, workflow(stack))   
 --  stats.normalise(workflow())
    
   local bayer = stackframe.bayer
   if bayer and bayer ~= "NONE" then
-    
+--    local elapsed = newTimer()
     controls.synth = {1,1,1}    -- synthetic lum, or could be {.7,.2,.1}, etc.
-    local mono = colour.synthL(workflow())
-    colour.copy(mono, lum)
-    workflow()                        -- revert to previous input buffer, for colour
+    colour.synthL(workflow)
+    workflow.saveOutput(lum)    -- fork into a monochrome buffer
+    workflow()                  -- revert to previous input buffer
    
-    controls.filter = {radius = 4}
-    filter.boxblur(workflow())        -- reduce colour noise
-    colour.scnr(workflow())   
-
-    stats.normalise(workflow())
-    colour.rgb2hsl(workflow())
-    colour.hsl2rgb(workflow())        -- apply saturation stretch
+--    controls.filter = {radius = 4}
     
-    colour.balance_R_GB(workflow())
-    colour.selector(workflow())         -- select channel for display (LRGB, L, R, G, B)
+    filter.smooth(workflow)
+--    gaussian.filter(workflow)        -- reduce colour noise
+    colour.scnr(workflow)   
 
-    colour.lrgb(lum, workflow())      -- create LRBG image
-   
+    stats.normalise(workflow)
+    colour.rgb2hsl(workflow)
+    colour.hsl2rgb(workflow)        -- apply saturation stretch
+    
+    colour.balance_R_GB(workflow)
+    colour.selector(workflow)         -- select channel for display (LRGB, L, R, G, B)
+
+    colour.lrgb(lum, workflow)      -- create LRBG image
+--    _log(elapsed "%.3f ms, synthL, colour smooth, rgb/hsl")
   end
   
   -- apply gamma stretch (of various kinds)
-  stats.normalise(workflow())
+  stats.normalise(workflow)
+--  local elapsed = newTimer()
   local gamma = (controls.gammaOptions[controls.gamma] or '?') : lower()
   gamma = stretch[gamma] or stretch.asinh
-  local stretched = gamma(workflow())
-  final = buffer(stretched, final)
-  colour.copy(stretched, final)
+  gamma(workflow())
+  final = workflow.saveOutput(final)
   
-  -- post-post processing
-  local span = 25
+  -- post-post processing, noise reduction / sharpening
 
-  local blur = filter.boxblur(workflow {filter = {radius = span}})
-  smoothed = buffer(blur, smoothed)
-  colour.copy(blur, smoothed)
- 
-  filter.tnr(smoothed, final, (workflow()), controls)
-  workflow()    -- revert to workflow
+  gaussianWide.filter(workflow)
+  smoothed = workflow.saveOutput(smoothed)
   
-  filter.apf0(smoothed, workflow())
+  filter.tnr(smoothed, workflow(final))     -- noise reduction
+
+  filter.apf(smoothed, workflow)            -- sharpening
+    
+--  _log(elapsed "%.3f ms, stretch, gaussian smooth, noise reduction, sharpen")
   
-  return (workflow())      -- just return the workflow result
+  return workflow.output      -- just return the workflow result
 end
 
 return poststack

@@ -13,26 +13,13 @@ local _log = require "logger" (_M)
 
 local newTimer = require "utils" .newTimer
 
--- 2024.11.07  @akbooer
---
+-- 24.11.07  Version 0, @akbooer
+-- 24.12.09  use workflow() function to acquire buffers and control parameters
+
 
 local love = _G.love
 local lg = love.graphics
 
-
--------------------------------
---
--- MOONSHINE - simple framework to apply Moonshine shaders
--- see: https://github.com/vrld/moonshine
---
-
-local moonshine = {}
-
-function moonshine.Effect(...) return ... end
-
-function moonshine.draw_shader(buffer)
-  
-end
 
 -------------------------------
 --
@@ -65,8 +52,8 @@ local smooth3x3 = lg.newShader [[
 ]]
 
 
-function _M.smooth(input, output)
-  
+function _M.smooth(workflow)
+  local input, output = workflow()      -- get hold of the workflow buffers  
   local w, h = input: getDimensions()
   smooth3x3: send("dx", {1 / w, 0})
   smooth3x3: send("dy", {0, 1 / h})
@@ -95,7 +82,8 @@ local boxblur = love.graphics.newShader[[
     return c / (2.0 * radius + 1.0) * color;
   }]]
 
-function _M.boxblur(input, output, controls)
+function _M.boxblur(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local radius_x = controls.filter.radius
   local radius_y = radius_x
   local shader = boxblur
@@ -141,7 +129,9 @@ local tnr = love.graphics.newShader[[
     return vec4(clamp(tnr, 0.0, 1.0), 1.0);
   }]]
 
-function _M.tnr(background, input, output, controls)
+--function _M.tnr(background, workflow)
+--  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+function _M.tnr(background, input, output, controls)      -- get hold of the workflow buffers and controls
   local strength = 30 * controls.denoise.value
   local shader = tnr
   lg.setShader(shader)
@@ -189,7 +179,8 @@ local apf0 = love.graphics.newShader[[
     return vec4(clamp(image, 0.0, 1.0), 1.0);
   }]]
 
-function _M.apf0(background, input, output, controls)
+function _M.apf0(background, workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf0
   local w, h = input: getDimensions()
@@ -227,7 +218,8 @@ local apf2 = love.graphics.newShader[[
     return vec4(clamp(image, 0.0, 1.0), 1.0);
   }]]
 
-function _M.apf2(background, background2, input, output, controls)
+function _M.apf2(background, background2, workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf2
   lg.setShader(shader)
@@ -261,7 +253,8 @@ local apf = love.graphics.newShader[[
     return vec4(clamp(apf, 0.0, 1.0), 1.0);
   }]]
 
-function _M.apf(background, input, output, controls)
+function _M.apf(background, workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf
   lg.setShader(shader)
@@ -288,7 +281,8 @@ local stars = love.graphics.newShader[[
     return vec4(clamp(stars, 0.0, 1.0), 1.0);
   }]]
 
-function _M.stars(background, input, output, controls)
+function _M.stars(background, workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.stars.value
   local shader = stars
 --  local t = love.timer.getTime() % 1

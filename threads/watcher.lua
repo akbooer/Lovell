@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.07",
+  VERSION = "2024.12.08",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
@@ -27,19 +27,16 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 -- 2024.12.03  return epoch, for session id
 -- 2024.12.04  add additional delay after failed read, to allow write (presumably) to finish
 -- 2024.12.05  add metadata from other capture software
+-- 2014.12.08  move readImageData() to fits.lua
 
 
 local _log = require "logger" (_M)
 
 local lf = require "love.filesystem"
 local lt = require "love.timer"
-local li = require "love.image"
 
 local fits = require "lib.fits"
 local json = require "lib.json"
-
-local ffi = require "ffi"
-local newTimer = require "utils" .newTimer
 
 local delay = 1       -- interval (seconds) to look for new files
 
@@ -47,71 +44,21 @@ local files = {}      -- the growing contents of the watched directory
 
 local mountpoint = "watched/"
 
-local empty = READONLY {}
+local empty = _G.READONLY {}
 
 ------------------------
 --
 -- metadata reader - read it if it's there in the dropped folder
 --
-
 local function readMetadata(filename)
-  local metadata
-  local path =  mountpoint .. filename
-  local file = love.filesystem.newFile(path, 'r' )
-  if file then 
-    _log("loading " .. filename)
-    local info = file: read()
-    file: close()
-    metadata = json.decode(info)
-    if metadata then
-      metadata.name = metadata.Name        -- some confusion over naming styles!
-    end
+  local metadata = json.read(mountpoint .. filename)  
+  if metadata then
+    metadata.name = metadata.Name        -- some confusion over naming styles!
   end
   return metadata
 end
 
 -----
-
-local function readImageData(path)
-  local elapsed = newTimer()
-  
-  local file, errorstr = love.filesystem.newFile( path, 'r' )
-  if not file then 
-    _log(errorstr)  -- error on file open
-    return
-  end
-  
-  local ok, data, k, h = pcall(fits.read, file)
-  if not ok then 
---    _log("ERROR on read : " ..(data or '?'))
-    return
-  end
-  
-  local naxis1, naxis2= k["NAXIS1"], k["NAXIS2"]
-  local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
-  if not ok2 then
-    _log("ERROR on imageData : " ..(imageData or '?'))
-    return
-  end
-  data = nil
-  local ptr = imageData:getFFIPointer()          -- grab byte pointer
-  local byt = ffi.cast('uint8_t*', ptr)
-  local r16 = ffi.cast('uint16_t*', ptr)
-
-  -- swap bytes and add offsets from FITS file header
-  local n = naxis1 * naxis2
-  local j = 0
-  local bzero = k["BZERO"]
-  for i = 0, 2*n-1, 2 do
-    byt[i], byt[i+1] = byt[i+1], byt[i]     -- swap bytes
-    r16[j] = r16[j] + bzero
-    j = j + 1
-  end
-
-  _log(elapsed ("%.3f ms, readImageData [%d x %d %s]", naxis1, naxis2, k.BAYERPAT or 'NONE'))
-  return imageData, k, h
-end
-
 
 -- analyse file name for sub type and filter
 local scan_name do
@@ -194,24 +141,29 @@ repeat
   local dir = lf.getDirectoryItems (mountpoint)
   table.sort(dir)
 
-  for _,file in ipairs(dir) do
+  local retries = 0
+  for _, file in ipairs(dir) do
     if file: match "%.fit$" and not files[file] then
       files[file] = true
       local path = mountpoint .. file
-      local imageData, keywords, headers = readImageData (path)
+      _log("new file read - " .. file)
+      local imageData, keywords, headers = fits.readImageData (path)
       if not imageData then
-        files[file] = false         -- mark as not read and try again later         
-        _log "...incomplete file read..."
-        lt.sleep(2 * delay)         -- wait a bit more
+        retries = retries + 1
+        if retries < 10 then
+          files[file] = false         -- mark as not read and try again later         
+          _log "...incomplete file read..."
+          lt.sleep(2 * delay)         -- wait a bit more
+        else
+          _log("too many retries reading " .. file)
+        end
         break 
       end
       subNumber = subNumber + 1
       local k = keywords
       local subtype, filter = scan_name(file)
---      _log(subtype, filter)
       
       local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
-  
       local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
       local datestring, epoch = parse_date(datetime or modtime)
       
@@ -241,8 +193,7 @@ repeat
         object = metadata.name
       }
       
-      newFITSfile: push(new)
-      _log("new file read - " .. file)
+      local id = newFITSfile: push(new)
     end
   end
 until false

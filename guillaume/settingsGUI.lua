@@ -5,10 +5,12 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.11.28"
+  _M.VERSION = "2024.12.18"
   _M.DESCRIPTION = "settings GÜI, session and observation info"
 
 -- 2024.11.28  Version 0
+-- 2024.12.18  add button to show FITS headers
+
 
 local _log = require "logger" (_M)
 
@@ -16,7 +18,6 @@ local _log = require "logger" (_M)
 local suit = require "suit"
 
 local session   = require "session"
-local observer  = require "observer"
 
 local love = _G.love
 local lg = love.graphics
@@ -24,17 +25,12 @@ local lf = love.filesystem
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
 
-local ses_settings = session.settings
-local obs_settings = observer.settings
 local controls = session.controls
 
 local ses = controls.ses_notes
 local obs = controls.obs_notes
-
-
-local function clearButton(id)
-  self.layout: row()
-end
+local sig = controls.signature
+  
   
 -------------------------
 --
@@ -44,27 +40,48 @@ end
 
 function _M.update(dt)
   dt = dt
+  
   local w,h = lg.getDimensions()
   local layout = self.layout
   layout: reset(20, 100)
   layout: row(80,30)
-  self: Button("Clear", {id = "clearScope"}, layout:row())
-  layout:row()
-  self: Button("Clear", {id = "clearObs"},   layout:row())
-  layout:row()
-  self: Button("Clear", {id = "clearSes"},   layout:row())
   
-  layout: reset(120, 100)
-  self:Label("telescope", {align = "left"}, layout:row(200, 30))
-  
-  -- telescope
   local scope = controls.telescope
-  if self:isHit "clearScope" then 
+  local focal = controls.focal_len
+  local pixel = controls.pixelsize
+  if self: Button("Clear", {id = "clearScope"}, layout:row()) .hit then
     scope.text = ''
+    focal.text = ''
+    pixel.text = ''
   end
   
+  layout:row()
+  if self: Button("Clear", {id = "clearObs"},   layout:row()) .hit then
+    controls.obs_notes.text = ''
+  end
   
-  self:Input(scope, {id = "scope", align = "left"}, layout:row(120, 30))
+  layout:row()
+  if self: Button("Clear", {id = "clearSes"},   layout:row()) .hit then
+    controls.ses_notes.text = ''
+  end
+    
+  -- telescope
+  
+  layout: reset(120, 100)
+  
+  self:Label("telescope", {align = "left"}, layout:col(150, 30))
+  layout: right(60,30)
+  self:Label("focal length (mm)", {align = "left"}, layout:col(120, 30))
+  layout: right(60,30)
+  self:Label("pixel size (µm)", {align = "left"}, layout:col(120, 30))
+  
+  layout: reset(120, 130)
+  self:Input(scope, {id = "scope", align = "left"}, layout:col(150, 30))
+  layout: right(60,30)
+  self:Input(focal, {id = "focal", align = "left"}, layout:col(120, 30))
+  layout: right(60,30)
+  self:Input(pixel, {id = "pixel", align = "left"}, layout:col(120, 30))
+  layout: reset(120, 160)
 
   -- obs notes
   
@@ -75,19 +92,47 @@ function _M.update(dt)
   self:Input(ses, {id = "ses_notes", align = "left"}, layout:row(w - 250, 30))
 
   layout:row(180, 40)
-  self:Button("open log file", { id = "openLog" }, layout:row())
-  layout:col(40,40)
-  self:Button("open snapshot folder", { id = "openSave" }, layout:col(180, 40))
-  
-  if self:isHit "openLog" then
+  if self:Button("open log file", layout:row()) .hit then
     local url = "file://%s/Lövell.log"
+    _log "open log file"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
   end
- 
- if self:isHit "openSave" then
+  
+  layout:right(40,40)
+  if self:Button("open snapshot folder", layout:col(180, 40)) .hit then
     local url = "file://%s/snapshots"
+    _log "open snapshot folder"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
   end  
+  
+  layout:right(40,40)
+  if self:Button("open masters folder", layout:col(180, 40)) .hit then
+    local url = "file://%s/masters"
+    _log "open Masters folder"
+    love.system.openURL(url % love.filesystem.getSaveDirectory())
+  end  
+  
+  layout:right(40,40)
+  if self:Button("open FITS header", layout:col(180, 40)) .hit then
+    local filename = "FITS headers.txt"
+    local file = lf.newFile(filename, 'w')
+    local stack = session.stack()
+    if stack then
+      for _, header in ipairs(stack.headers) do
+        file: write(header)
+        file: write '\n'
+      end
+      file: close()
+      local url = "file://%s/".. filename
+      _log "open FITS header"
+      love.system.openURL(url % love.filesystem.getSaveDirectory())
+    end
+  end
+
+  layout: reset(w - 300, h - 150)
+  self:Label("signature (for images)", {align = "left"}, layout:row(250, 30))
+  self:Input(sig, {id = "signature", align = "left"}, layout:row())
+ 
 end
 
 function _M.draw()

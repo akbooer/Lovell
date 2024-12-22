@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.08",
+    VERSION = "2024.12.20",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -17,8 +17,10 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-local dso = require "lib.dso"
+local dso  = require "lib.dso"
+local csv  = require "lib.csv"
 local json = require "lib.json"
+local utils = require "utils"
 
 local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
@@ -29,8 +31,6 @@ local lf = love.filesystem
 
 local newFITSfile = love.thread.getChannel "newFITSfile"
 
-local empty = _G.READONLY {}
-
 _M.dsos = dso.dsos
 
 
@@ -40,53 +40,110 @@ _M.dsos = dso.dsos
 --
 
 local controls = {    -- most of these are SUIT widgets
-    Nstack = 0,
-    
-    -- hidden (no displayed control)
-    zoom = {value = 1},
     
     -- adjustments panel
     
     channel = 1,
     channelOptions = channelOptions,
-    background = {value = 0.5},
-    brightness = {value = 0.5},
+    background = {default = 0.5},
+    brightness = {default = 0.5},
     
     gamma = 5,
     gammaOptions = gammaOptions,
-    stretch = {value = 0.3, max = 2},
-    gradient = {value = 1, min = -1, max = 3},
+    stretch = {default = 0.3, max = 2},
+    gradient = {default = 1, min = -1, max = 3},
     
-    saturation  = {value = 2.5, min = 0, max = 5},
-    tint        = {value = 0.5},
+    colour = 1,
+    colourOptions = {"Colour", "Hubble", "Wager"},
+    saturation  = {default = 2.5, min = 0, max = 5},
+    tint        = {default = 0.5},
   
-    denoise = {value = 0.25},
-    sharpen = {value = 0},
+    enhance = 1,
+    enhanceOptions = {"Enhance", "TNR", "Bilateral", "FABADA", "———————", "Unsharp", "APF",  "Decon"},
+    denoise = {default = 0.25},
+    sharpen = {default = 0},
+    
+    -- screen appearance
+    X = 0,
+    Y = 0,
+    zoom      = {value = 0.3, max = 3},
+    angle     = {value = 0, min = -360, max = 360},
+    flipUD    = {checked = false, text = "flip U/D"},
+    flipLR    = {checked = false, text = "flip L/R"},
+    eyepiece  = {checked = true},                       -- start in eyepiece mode 
   
+    pin_controls = {checked = false, text = nil},
+    pin_info = {checked = false, text = nil},
+    
     -- info panel
     
-    object = {text = ''},
-    flipUD = {checked = false, text = "flip U/D"},
-    flipLR = {checked = false, text = "flip L/R"},
+    object = {default = ''},
     
     -- settings page
     
-    telescope = {text = ''},      -- per observation (could have more than one scope in a session)
-    ses_notes = {text = ''},
-    obs_notes = {text = ''},
+    telescope = {default = ''},      -- per observation (could have more than one scope in a session)
+    focal_len = {default = ''},
+    pixelsize = {default = ''},
+    
+    -- TODO: add location, for plate solving and planning
+    
+    ses_notes = {default = ''},
+    obs_notes = {default = ''},
+    
+    signature = {text = "made with Löve(ll)"},
+    
+    -- workflow
+    
+    workflow = {
+        badpixel  = {checked = true, text = "bad pixel removal"},
+        badratio  = {value = 0},
+        
+        debayer   = {checked = false, text = "force debayer"},
+        bayerpat  = {text = ''},
+        
+        keystar   = {default = 20, min = 10, max = 50},        -- window to search for star peaks
+        offset    = {default = 20, min = 5,  max = 30},        -- limit to between-frame shifts
+        
+        smooth    = {value = 1},      -- background smoothness (# gaussian taps)
+        sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
+        sharp2    = {value = 17, min = 9, max = 21},
+      },
     
     anyChanges = function() end -- replaced in mainGUI by suit.anyActive()
   }
 
-function controls.reset()
-  controls.Nstack = 0
-  controls.background.value = 0.5      -- initial guess at black point
-  controls.brightness.value = 0.5
-  controls.stretch.value = 0.3
-  controls.gradient.value = 1
+-- set a control to a given value, or its default, or its current value
+function controls.set(name, value)
+  local x = controls[name]
+  if x.text or type(x.default) == "string" then        -- label
+    x.text = value or x.default or x.text or ''        -- unchanged if no given value or default
+  else                                                  -- slider
+    x.value = value or x.default or x.value or 0
+  end
+end
+
+-- reset a control, or a list of controls, to their default
+function controls.reset(ctrl)
+  controls.channel = 1
+  controls.gamma = 5
+  ctrl = ctrl or {"background", "brightness", "stretch", "gradient", 
+                  "saturation", "tint", "denoise", "sharpen", "object"}
+  if type(ctrl) == "table" then
+    for _, name in ipairs(ctrl) do
+      controls.set(name)                -- return to default values
+    end
+  else
+    controls.set(ctrl)      -- reset single control value
+  end
 end
 
 _M.controls = controls    -- export the controls, for GUI, processing, etc...
+
+do -- init settings
+  controls.reset()    
+  -- initialise other control values
+  controls.reset {"telescope", "focal_len", "pixelsize", "ses_notes", "obs_notes"}
+end
 
 -------------------------------
 --
@@ -94,7 +151,6 @@ _M.controls = controls    -- export the controls, for GUI, processing, etc...
 --
 local sessionMetaIndex = {session = {ID = ''}}
 local sessionMeta = {__index = sessionMetaIndex}    -- session file becomes assigned to __index table during load
-local settings = setmetatable ({}, sessionMeta)
 
 ------------------------------
 
@@ -107,9 +163,7 @@ end
 
 -- reset session info
 local function clear_settings()
-  controls.object.text = ''
-  controls.ses_notes.text =  ''
-  controls.obs_notes.text = ''
+  controls.reset()
   sessionMetaIndex.session.ID = ''
   sessionMetaIndex.observations = nil
   sessionMeta.__index = sessionMetaIndex
@@ -131,6 +185,24 @@ end
 
 local function non_blank(text)
   return #text > 0 and text or nil
+end
+
+-------------------------------
+--
+-- TELESCOPE database (CSV)
+--
+
+local telescopes
+
+local function focal_length(scope)
+  local NAME, NUMBER = scope: lower() : match "(%w+)%D*(%d+)"
+  telescopes = telescopes or csv.read "settings/telescopes.csv" or {}
+  for _, info in ipairs(telescopes) do
+    local name, number, focus = unpack(info)  --  info = {name, number, focal length}
+    if name == NAME and number == NUMBER then
+      return focus
+    end
+  end
 end
 
 -------------------------------
@@ -167,16 +239,9 @@ end
 
 local function loadSession(stack)
   if not stack then return end
+
   local obsID, path, info = getInfo(stack)
-  
-  -- reaed file
-  local f = lf.newFile(path, 'r')
-  if f then 
-    _log ("loading " .. path)  
-    local Jinfo = f: read()
-    f: close()
-    info = json.decode(Jinfo)
-  end
+  info = json.read(path) or info                  -- use metadata file if present
   
   -- uodate controls from metadata
   local obs = info.observations or {}
@@ -185,8 +250,21 @@ local function loadSession(stack)
   info.observations = obs
   
 --  _log(pretty {loadSessionInfo = info})
+  local pix = stack.keywords.XPIXSZ
+  if pix then
+    local bin = stack.keywords.XBINNING or 1      -- scale pixel size by binning
+    pix = pix * bin
+  end
+  pix = tostring(pix or '')
+  
+  
+  local scope = stack.telescope or thisObs.telescope or ''
+  
+  controls.focal_len.text = focal_length(scope) or controls.focal_len.text
+
   controls.object.text    = stack.object or thisObs.object or ''
-  controls.telescope.text = stack.telescope or thisObs.telescope or ''
+  controls.telescope.text = scope
+  controls.pixelsize.text = pix
   controls.ses_notes.text = info.session.notes or ''
   controls.obs_notes.text = thisObs.notes or ''
   controls.flipUD.checked = thisObs.flipUD or false
@@ -197,12 +275,13 @@ end
 
 -------------------------------
 
--- start a new observation, by saving the old one
+-- start a new observation, by saving metadata from the old one
 local function newObservation()
   saveSession(stack)
+  controls.reset()        -- start with new default values for processing options
   stack = nil
   screenImage = nil
-  observer.new(controls)      -- reset the observer
+  observer.new()          -- reset the observer
 end
 
 function _M.load()
@@ -211,28 +290,22 @@ end
 
 
 function _M.update()
-  
+
   local newFile = newFITSfile: pop()
-  
+
   if newFile then
     local first_frame = newFile.subNumber == 1
-    if first_frame then newObservation(controls) end
-    
+    if first_frame then newObservation() end
+
     stack = observer.newSub(newFile, controls)
-    
+
     if first_frame then 
-      loadSession(stack) 
-     
-     do  -- set zoom to fit screen  TODO: move this elsewhere
-      local w,h = love.graphics.getDimensions()
-      local iw,ih = stack.image:getDimensions()
-      controls.zoom.value = math.min(h / ih, w / iw)    -- fit to screen
-     end
-    
-    end         -- load relevant session info
+      loadSession(stack)          -- load relevant session info
+      controls.zoom.value = math.max(utils.calcScreenRatios(stack.image))     -- full screen image
+    end
   end
- 
- if newFile or controls.anyChanges() then
+
+  if newFile or controls.anyChanges() then
     screenImage = observer.reprocess(stack, controls)
   end
 

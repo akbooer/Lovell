@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.06",
+    VERSION = "2024.12.20",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -14,13 +14,13 @@ local _M = {
 local _log = require "logger" (_M)
 
 local prestack    = require "prestack"
-local starfinder  = require "shaders.starfinder"
-local stacker     = require "shaders.stacker"
 local aligner     = require "aligner"
 local poststack   = require "poststack"
 
+local starfinder  = require "shaders.starfinder"
+local stacker     = require "shaders.stacker"
+local background  = require "shaders.background"
 
-local buffer  = require "utils" .buffer
 
 local stack           -- the stacked image
 local keystars
@@ -29,30 +29,10 @@ local stackframe
 
 -------------------------------
 --
--- OBSERVATION - specific data
+-- OBSERVATION, start of whole new one
 --
 
-_M.settings = nil
-
-local function clear_settings()
---  _M.settings = {
---    target = nil,
---    notes = nil,
---    telescope = nil,
---    observation = nil,
---  }
-end
-
-clear_settings()
-
--------------------------------
---
--- start of whole new observation
---
-
-function _M.new(controls)
-  clear_settings()
-  controls:reset()        -- start with new default values for processing options
+function _M.new()
   stack = nil
   stackframe = nil
   keystars = nil
@@ -63,49 +43,54 @@ end
 
 -------------------------------
 --
--- new sub frame
+-- new sub frame - 16-bit image input
 --
 
 function _M.newSub(img, controls)
-  
-  controls.Nstack = img.subNumber
-  local Nstack = controls.Nstack
-  
+
   _log ''
-  _log ("newSub #%d %s" % {Nstack, img.name})
- 
-  local subframe = prestack(img)
-  local subimage = subframe.image
-  
-  local span = 50
-  local theta, xshift, yshift = 0, 0, 0
-  
-   if Nstack == 1 then
-     
-     stack = buffer(subimage, stack)
-     stackframe = subframe: clone()           -- copy relevant info from first image
-     stackframe.image = stack
-     keystars = starfinder(subimage, span, stack.channel)
+  _log ("newSub #%d %s" % {(stackframe and #stackframe.subs or 0) + 1, img.name})
+
+  local workflow = prestack(img, controls)
+
+  local theta, xshift, yshift
+
+  if not stackframe then
+    stack = workflow.saveOutput()
+    stackframe = img           -- save info from first image 
+    stackframe.image = stack
+    stackframe.Nstack = 0
+    stackframe.totalExposure = 0
+    stackframe.workflow = workflow
+    keystars = starfinder(workflow)
     _log ("found %d keystars in frame #1" % #keystars)
     theta, xshift, yshift = 0, 0, 0
-   else
-    local stars = starfinder(subimage, span)     -- extracted star positions and intensities
-    theta, xshift, yshift = aligner.transform(stars, keystars, {maxDist = 10})
-  end
-
-  local params = {
-      filter = img.filter,
-      xshift = xshift, 
-      yshift = yshift, 
-      theta  = theta,
-      depth  = Nstack,
-    }
-    
-  if theta and math.sqrt(xshift^2 + yshift^2) < 10 then
-    stacker.stack (subimage, stack, params)
+  else
+    local stars = starfinder(workflow)     -- extracted star positions and intensities
+    theta, xshift, yshift = aligner.transform2(stars, keystars, {maxDist = 20})
   end
   
-  stackframe.Nstack = Nstack
+  -- save the alignment information for restacking later ??
+  local subs = stackframe.subs or {}
+  subs[#subs + 1] = {theta = theta, xshift = xshift, yshift = yshift}
+  stackframe.subs = subs
+  
+  if theta and math.sqrt(xshift * xshift + yshift * yshift) < 25 then
+
+    stackframe.Nstack = stackframe.Nstack + 1
+    stackframe.totalExposure = stackframe.totalExposure + (stackframe.exposure or 0)
+    local params = {
+      filter = img.filter,
+      xshift = -xshift, 
+      yshift = -yshift, 
+      theta  = -theta,
+      depth  = stackframe.Nstack,
+    }
+    stacker.stack (stackframe, params)
+    -- pre-compute gradients after stack
+    stackframe.gradients = background.solve(stack)
+  end
+
   return stackframe
 end
 
@@ -114,5 +99,3 @@ _M.reprocess = poststack
 return _M
 
 -----
-
-

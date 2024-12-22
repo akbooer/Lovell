@@ -133,7 +133,7 @@ end
 -- findPeaks() 
 -- original way to extract star coordinates.
 -- could have been speeded up using FFI pointer
--- but replaced with above shader
+-- but now replaced with above shader
 
 --[[local function findPeaks(img)
   local a = img:newImageData()
@@ -151,9 +151,10 @@ end
 --]]
 
 -- detects stars , returning array 'xyl' of {x, y, luminosity} tuples
-local function starfinder(input, span, channel)
-  span = span or 40  
-  channel = channel or 0
+local function starfinder(workflow)
+  local span = 50  
+  local channel = 0       -- use the red channel (probably monochrome input anyway)
+  local input = workflow.output       -- use the latest workflow output
   local w,h = input: getDimensions()
   local bw, bh = buffer1: getWidth()
   
@@ -162,8 +163,6 @@ local function starfinder(input, span, channel)
     twoD    = lg.newCanvas(w, 1, {dpiscale = 1, format = "r8"})           -- minimal storage, only used for dimensions
     buffer1 = lg.newCanvas(w, h, {dpiscale = 1, format = "r16f"})         -- only single channel needed
     buffer2 = lg.newCanvas(w, h, {dpiscale = 1, format = "r16f"})
---    buffer1 = buffer(input, buffer1)
---    buffer2 = buffer(input, buffer2)
   end
   
   -- find local maxima in star image

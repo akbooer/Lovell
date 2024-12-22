@@ -4,37 +4,68 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.18",
+    VERSION = "2024.12.11",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
 
 -- 2024.10.10  Version 0
 -- 2024.11.18  separate thread for file output and __call() metatable to access other functions
+-- 2025.12.11  add global JSON with .read() 
 
-local gettime = require "socket" .gettime                -- sub-millisecond resolution
 
-_G.pretty = require "pretty"                      -- global access for debugging only
+local gettime = require "socket" .gettime   -- sub-millisecond resolution
+
+_G.pretty = require "lib.pretty"            -- global access for debugging only
+_G.json   = require "lib.json"              -- make this globally accessible, with file read function (see below)
+
 
 local logChannel = love.thread.getChannel "logChannel"
 
 
+-------------------------
+--
 -- Python-like string formatting with % operator
 -- see: http://lua-users.org/wiki/StringInterpolation
+--
 getmetatable ''.__mod = function(a, b)
   return type(b) == "table" 
     and a:format(unpack(b))
     or  a:format(b)
 end
 
-
+-------------------------
+--
 -- READONLY wrapper for tables
-local readonly = {__index = tbl, __newindex = function() error ("read-only", 2) end}
-
-function _G.READONLY(tbl)
-  return setmetatable({}, readonly)
+--
+local function newindex() 
+  error ("read-only", 2) 
 end
 
+function _G.READONLY(tbl)
+  return setmetatable({}, {__index = tbl, __newindex = newindex})
+end
+
+-------------------------
+--
+-- JSON READER
+--
+function _G.json.read(path)
+  local jdata, err
+  local file = love.filesystem.newFile(path, 'r' )
+  if file then 
+--    _log("loading " .. path)
+    local info = file: read()
+    file: close()
+    jdata, err = _G.json.decode(info)
+  end
+  return jdata, err
+end
+
+-------------------------
+--
+-- LOGGING
+--
 
 -- return formatted current time (or given time) as a string
 -- ISO 8601 date/time: YYYY-MM-DDThh:mm:ss or other specified format

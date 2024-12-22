@@ -1,5 +1,7 @@
 -- This file is part of SUIT, copyright (c) 2016 Matthias Richter
 
+-- 2024.12.01  @akbooer  fix the checkbox appearance (narrower tick mark, space before text label)
+
 local BASE = (...):match('(.-)[^%.]+$')
 
 local theme = {}
@@ -68,7 +70,7 @@ function theme.Checkbox(chk, opt, x,y,w,h)
 	love.graphics.setColor(c.fg)
 	if chk.checked then
 		love.graphics.setLineStyle('smooth')
-		love.graphics.setLineWidth(5)
+		love.graphics.setLineWidth(2)               -- @akb, was 5
 		love.graphics.setLineJoin("bevel")
 		love.graphics.line(x+h*.2,y+h*.55, x+h*.45,y+h*.75, x+h*.8,y+h*.2)
 	end
@@ -76,7 +78,7 @@ function theme.Checkbox(chk, opt, x,y,w,h)
 	if chk.text then
 		love.graphics.setFont(opt.font)
 		y = y + theme.getVerticalOffsetForAlign(opt.valign, opt.font, h)
-		love.graphics.printf(chk.text, x + h, y, w - h, opt.align or "left")
+		love.graphics.printf(chk.text, x + h + 5, y, w - h, opt.align or "left")    -- @akb, + 5
 	end
 end
 

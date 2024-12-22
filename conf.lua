@@ -15,9 +15,9 @@ function love.conf(t)
 
   t.window.title = "Lövell"            -- The window title (string)
   -- <a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a
-  t.window.icon = "icons8-gps-antenna-80.png"       -- Filepath to an image to use as the window's icon (string)
+  t.window.icon = "guillaume/icons8-gps-antenna-80.png"  -- Filepath to an image to use as the window's icon (string)
   t.window.width = 1280                -- The window width (number)
-  t.window.height = 800                -- The window height (number)
+  t.window.height = 740                -- The window height (number)
 --  t.window.borderless = false         -- Remove all border visuals from the window (boolean)
   t.window.resizable = true           -- Let the window be user-resizable (boolean)
   t.window.minwidth = 800               -- Minimum window width if the window is resizable (number)

@@ -140,7 +140,8 @@ local normalise = lg.newShader [[
 ]]
 
 ---- nomalize RGB, collectively, to be between 0 and 1
-function _M.normalise(input, output)
+function _M.normalise(workflow)
+  local input, output = workflow()      -- get hold of the workflow buffers
   local stats = _M.stats(input);
   local eps = 1.0e-10
   local max, min = stats.max, stats.min

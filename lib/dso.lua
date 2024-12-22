@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.02",
+    VERSION = "2024.12.11",
     AUTHOR = "AK Booer",
     DESCRIPTION = "DSO manager",
   }
@@ -12,6 +12,7 @@ local _M = {
 -- 2024.11.21  Version 0
 -- 2024.11.27  load DSO catalogues
 -- 2024.12.02  separate module from session
+-- 2024.12.11  add numeric RA and DEC to DSO table
 
 
 local _log = require "logger" (_M)
@@ -35,7 +36,6 @@ end
 -- convert decimal degrees to DDD MM SS
 local floor = math.floor
 local function deg_to_dms(deg)
-  deg = tonumber(deg)
   local sign = 1
   if deg < 0 then
     sign = -1
@@ -80,7 +80,7 @@ function _M.load()
 --        _log (i, table.concat(dso, ' '))
         
         NAME = dso[name]
-        RA, DEC = dso[ra], dso[dec]
+        RA, DEC = tonumber(dso[ra]), tonumber(dso[dec])
         CON, OT = dso[con], dso[ot]
         MAG, DIAM = dso[mag], dso[diam]
         OTHER = dso[other]
@@ -93,6 +93,10 @@ function _M.load()
         dso[6] = one_dp(MAG)
         dso[7] = one_dp(DIAM)
         dso[8] = OTHER or ''
+        
+        -- extras
+        dso[9]  = RA        -- numeric value
+        dso[10] = DEC       -- ditto
         
         dsos[#dsos+1] = dso
       end

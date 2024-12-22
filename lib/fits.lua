@@ -1,9 +1,11 @@
 --
 -- FITS reader
 
+--jit.off(true, true)
+
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.29",
+    VERSION = "2024.12.11",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -11,7 +13,22 @@ local _M = {
 -- 2024.09.25  Version 0, @akbooer
 -- 2024.11.08  use love.filesystem
 -- 2024.11.18  improve error checkking
--- 2014.11.29  read() now takes an opened file object, rather than a filename
+-- 2024.11.29  read() now takes an opened file object, rather than a filename
+-- 2024.12.08  move readImageData() here from watcher.lua (for calibration use by masters.lua)
+-- 2024.12.11  used "ByteData" format for FITS data read (much faster than "String" type)
+
+
+local _log = require "logger" (_M)
+
+
+local ffi = require "ffi"
+local newTimer = require "utils" .newTimer
+
+local love = _G.love
+local li = require "love.image"
+
+--local fits = require "lib.fits"
+--local json = require "lib.json"
 
 --
 -- see: https://fits.gsfc.nasa.gov/fits_primer.html
@@ -74,7 +91,7 @@ end
 
 --]]
 
-local function read_header_unit(file) 
+function _M.readHeaderUnit(file) 
   local done
   local keywords = {}
   local headers = {}
@@ -126,10 +143,10 @@ end
 -- called with an opened file object
 function _M.read(file)
   
-  local k, h = read_header_unit(file)
+  local k, h = _M.readHeaderUnit(file)
   local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2, k.NAXIS3 or 1
   local size = naxis1 * naxis2 * naxis3 * bitpix/8
-  local data, n = file: read(size)
+  local data, n = file: read("data", size)      -- "ByteData" format
   file: close()  
 
   assert(n == size, "failed to read complete file")
@@ -139,6 +156,55 @@ end
 function _M.write()
   --TODO:
 end
+
+-----------
+--
+-- return imageData format
+--
+
+function _M.readImageData(path)
+  local elapsed = newTimer()
+  
+  local file, errorstr = love.filesystem.newFile( path, 'r' )
+  if not file then 
+    _log(errorstr)  -- error on file open
+    return
+  end
+  
+  local ok, data, k, h = pcall(_M.read, file)
+  if not ok then 
+--    _log("ERROR on read : " ..(data or '?'))
+    return
+  end
+  
+  local naxis1, naxis2= k["NAXIS1"], k["NAXIS2"]
+  local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
+  data: release()
+  data = nil
+  if not ok2 then
+    _log("ERROR on imageData : " ..(imageData or '?'))
+    return
+  end
+  
+  local ptr = imageData:getFFIPointer()          -- grab byte pointer
+  local byt = ffi.cast('uint8_t*', ptr)
+  local r16 = ffi.cast('uint16_t*', ptr)
+
+  -- swap bytes and add offsets from FITS file header
+  local n = naxis1 * naxis2
+  local j = 0
+  local bzero = k["BZERO"]
+  
+  for i = 0, 2*n-1, 2 do
+    byt[i], byt[i+1] = byt[i+1], byt[i]     -- swap bytes
+    r16[j] = r16[j] + bzero
+    j = j + 1
+  end
+
+  _log(elapsed ("%.3f ms, readImageData [%d x %d %s]", naxis1, naxis2, k.BAYERPAT or 'NONE'))
+  return imageData, k, h
+end
+
 
 return _M
 

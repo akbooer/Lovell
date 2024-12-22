@@ -4,13 +4,14 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.01",
+    VERSION = "2024.12.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
   
 -- 24.11.10  Version 0
 -- 24.11.26  add colourise() to apply colour filter
+-- 24.12.09  use workflow() function to acquire buffers and control parameters
 
 
 local _log = require "logger" (_M)
@@ -38,7 +39,9 @@ local synth = lg.newShader([[
     }
 ]])
 
-function  _M.synthL(input, output, controls)
+
+function  _M.synthL(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local rgb = controls.synth
   rgb = rgb or {1.0, 1.0, 1.0}
   local sum = rgb[1] + rgb[2] + rgb[3]
@@ -62,8 +65,8 @@ local balance = lg.newShader [[
   }
 ]]
 
-function _M.balance(input, output, controls)
-  
+function _M.balance(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls  
   local c = controls
   local r, g, b = c.red.value, c.green.value, c.blue.value
   local rgb = r + g + b + 1e-3
@@ -88,7 +91,8 @@ local colourise = lg.newShader [[
   }
 ]]
 
-function _M.colourise(input, output, channel)
+function _M.colourise(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local shader = colourise
   shader: send("channel", channel)
   lg.setShader(shader) 
@@ -122,7 +126,8 @@ local monochrome =  lg.newShader[[
 
 local rgb = {LRGB = {1,1,1}, Red = {1,0,0}, Green={0,1,0}, Blue = {0,0,1}}
 
-function _M.selector(input, output, controls)
+function _M.selector(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local selected = controls.channelOptions[controls.channel]
   local shader
   
@@ -150,7 +155,8 @@ local rgb2hsl = lg.newShader (HSL .. [[
     }
 ]])
 
-function _M.rgb2hsl(input, output, controls)
+function _M.rgb2hsl(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local shader = rgb2hsl
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)
@@ -170,7 +176,8 @@ local hsl2rgb = lg.newShader (HSL .. [[
     }
 ]])
 
-function _M.hsl2rgb(input, output, controls)
+function _M.hsl2rgb(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local shader = hsl2rgb
   shader: send("sat", controls.saturation.value)
   lg.setShader(shader) 
@@ -194,7 +201,8 @@ local lrgb = lg.newShader ([[
     }
 ]])
 
-function _M.lrgb(luminance, input, output, controls)
+function _M.lrgb(luminance, workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local shader = lrgb
   shader: send("luminance", luminance)
   lg.setShader(shader) 
@@ -213,7 +221,8 @@ local balance_R_GB = lg.newShader [[
   }
 ]]
 
-function _M.balance_R_GB(input, output, controls)
+function _M.balance_R_GB(workflow)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local log = math.log
   local c = controls
 --  local r, bg  = c.red.value, c["blue / green"].value
@@ -249,25 +258,11 @@ local scnrShader = lg.newShader[[
     }
   ]]
 
-function _M.scnr(input, output)
+function _M.scnr(workflow)
+  local input, output = workflow()      -- get hold of the workflow buffers
   lg.setShader(scnrShader) 
   output:renderTo(lg.draw, input)
   lg.setShader()
-  return output
-end
--------------------------
-
---[[
-% CLONE
-%
-% just make output a copy of the input
-%
---]]
-
-function _M.copy(input, output)
-  lg.setBlendMode("replace", "premultiplied")
-  output:renderTo(lg.draw, input)
-  lg.setBlendMode "alpha"
   return output
 end
 
