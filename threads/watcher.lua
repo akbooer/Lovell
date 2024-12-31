@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.08",
+  VERSION = "2024.12.31",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
@@ -27,7 +27,9 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 -- 2024.12.03  return epoch, for session id
 -- 2024.12.04  add additional delay after failed read, to allow write (presumably) to finish
 -- 2024.12.05  add metadata from other capture software
--- 2014.12.08  move readImageData() to fits.lua
+-- 2024.12.08  move readImageData() to fits.lua
+-- 2024.12.31  fix error in os.date() string which crashed LÖVE on Windows
+-- 2024.12.31  allow .fits files as well as .fit (thanks @Steve in Boulder)
 
 
 local _log = require "logger" (_M)
@@ -38,9 +40,9 @@ local lt = require "love.timer"
 local fits = require "lib.fits"
 local json = require "lib.json"
 
-local delay = 1       -- interval (seconds) to look for new files
+local DELAY = 2       -- interval (seconds) to rescan watched folder for new files
 
-local files = {}      -- the growing contents of the watched directory
+local files = {}      -- the growing list of read files in the watched folder
 
 local mountpoint = "watched/"
 
@@ -91,7 +93,7 @@ local function parse_date(datetime)
   end
   if type(datetime) == "number" then
     epoch = datetime
-    datetime = os.date("%-d-%b-%Y  %H:%M", datetime)      -- Coordinated Universal Time
+    datetime = os.date("%d-%b-%Y  %H:%M", datetime): gsub("^0", '')      -- Coordinated Universal Time
   else
     datetime = ''
   end
@@ -114,86 +116,85 @@ end
 local subNumber  = 0
 local folder          -- current watched folder
 
+local wakeup = 0
 
 repeat
-  lt.sleep(delay)
 
   local metadata = empty
   local newFolder = newWatchFolder: pop()
   if newFolder then
     if newFolder == "EXIT" then break end
-    if folder then lf.unmount(folder) end
-    local mount = lf.mount(newFolder, mountpoint)
-    if not mount then 
-      _log "mount failed" 
-    end
-    _log("new folder " .. (newFolder))
     folder = newFolder
     files = {}              -- empty files list...
     newFITSfile: clear()    -- ...and the pipeline
     subNumber = 0
+    wakeup = 0              -- reset wakeup time
     
     metadata = readMetadata "info3.json" 
             or readMetadata "metadata.json" 
             or empty
   end
 
-  local dir = lf.getDirectoryItems (mountpoint)
-  table.sort(dir)
-
-  local retries = 0
-  for _, file in ipairs(dir) do
-    if file: match "%.fit$" and not files[file] then
-      files[file] = true
-      local path = mountpoint .. file
-      _log("new file read - " .. file)
-      local imageData, keywords, headers = fits.readImageData (path)
-      if not imageData then
-        retries = retries + 1
-        if retries < 10 then
-          files[file] = false         -- mark as not read and try again later         
-          _log "...incomplete file read..."
-          lt.sleep(2 * delay)         -- wait a bit more
-        else
-          _log("too many retries reading " .. file)
+  local t = lt.getTime()
+  if t > wakeup then
+    wakeup = lt.getTime() + DELAY
+    local dir = lf.getDirectoryItems (mountpoint)
+    table.sort(dir)
+    
+    local retries = 0
+    for _, file in ipairs(dir) do
+      if file: match "%.fits?$" and not files[file] then
+        files[file] = true
+        local path = mountpoint .. file
+        _log("new file read - " .. file)
+        local imageData, keywords, headers = fits.readImageData (path)
+        if not imageData then
+          retries = retries + 1
+          if retries < 10 then
+            files[file] = false         -- mark as not read and try again later         
+            _log "...incomplete file read..."
+            lt.sleep(DELAY)             -- wait a bit more
+          else
+            _log("too many retries reading " .. file)
+          end
+          break 
         end
-        break 
-      end
-      subNumber = subNumber + 1
-      local k = keywords
-      local subtype, filter = scan_name(file)
-      
-      local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
-      local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
-      local datestring, epoch = parse_date(datetime or modtime)
-      
-      local new = {
-        name = file, 
-        folder = folder,
+        subNumber = subNumber + 1
+        local k = keywords
+        local subtype, filter = scan_name(file)
         
-        subNumber = subNumber,
-        imageData = imageData, 
-        keywords = keywords,
-        headers = headers,
+        local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
+        local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
+        local datestring, epoch = parse_date(datetime or modtime)
         
-        subtype = subtype,
-        filter = filter,
+        local new = {
+          name = file, 
+          folder = folder,
+          
+          subNumber = subNumber,
+          imageData = imageData, 
+          keywords = keywords,
+          headers = headers,
+          
+          subtype = subtype,
+          filter = filter,
 
-        exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) *1e-6,
-        bayer = k.BAYERPAT, 
-        temperature = k.TEMPERAT or k["SET-TEMP"] or k["SET_TEMP"] or k["CCD-TEMP"],
-        date = datestring,
-        epoch = epoch,
-        gain = k.GAIN or k.EGAIN,
-        creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
-        camera = k.INSTRUME,
+          exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) *1e-6,
+          bayer = k.BAYERPAT, 
+          temperature = k.TEMPERAT or k["SET-TEMP"] or k["SET_TEMP"] or k["CCD-TEMP"],
+          date = datestring,
+          epoch = epoch,
+          gain = k.GAIN or k.EGAIN,
+          creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
+          camera = k.INSTRUME,
+          
+          -- add extra metadata, if present
+          telescope = metadata.telescope,
+          object = metadata.name
+        }
         
-        -- add extra metadata, if present
-        telescope = metadata.telescope,
-        object = metadata.name
-      }
-      
-      local id = newFITSfile: push(new)
+        newFITSfile: push(new)
+      end
     end
   end
 until false

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.20",
+    VERSION = "2024.12.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -37,13 +37,18 @@ local function thumbnail(image)
 local function prestack(img, controls)
    
   local imageData = img.imageData     -- this is in R16 format
-  _log "creating R16 format image..."
+  _log "creating R16 format image"
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
-  _log "...done"
   
-  badpixel(workflow(rawImage,controls, {format = "rgba16f", dpiscale = 1}))
+  -- decide whether workflow chain is monochrome or RGB
+  local w = controls.workflow
+  local bayerpat = w.debayer.checked and w.bayerpat.text or img.bayer
+--  local bufferFormat = bayerpat and "rgba16f" or "r16"
+  local bufferFormat = "rgba16f" 
   
-  debayer(workflow {bayer = img.bayer})   -- 16-bit mono -> floating point RGB
+  badpixel(workflow(rawImage, controls, {format = bufferFormat, dpiscale = 1}))
+  
+  debayer(workflow {bayer = bayerpat})   -- 16-bit mono -> floating point RGB, possibly
   
   rawImage:  release()
   imageData: release()

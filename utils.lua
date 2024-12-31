@@ -40,6 +40,7 @@ end
 --
 -- IMAGE BUFFER
 --
+
 function _M.getImageInfo(image)
   local width, height = image:getDimensions()
   local dpiscale= image: getDPIScale()
@@ -127,32 +128,6 @@ function _M.calcScreenRatios(image, screen)
   local w,h = _M.getDimensions(screen)
   local iw,ih = image:getDimensions()
   return h / ih, w / iw
-end
-
-
--- Oculus draw the eyepiece on the screen
-_M.Oculus = {}
-
-local Oculus = _M.Oculus
-
-function Oculus.radius()
-  local margin = 30  -- default footer size
-  local w, h = _M.getDimensions()             -- screen size
-  return math.min(w, h) / 2 - margin - 10, w, h
-end
-
-function Oculus.stencil()
-  local c = 0.09            -- background within the oculus
-  lg.setColor(c,c,c,1)
-  lg.setColorMask(true, true, true, true)
-  local radius, w, h = Oculus.radius()
-  lg.circle("fill", w/2, h/2, radius)
-  lg.setColor(1,1,1,1)
-end
-
-function Oculus.draw()
-  lg.stencil(Oculus.stencil, "replace", 1)
-  lg.setStencilTest("greater", 0)
 end
 
 

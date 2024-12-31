@@ -59,8 +59,8 @@ local function poststack(stackframe, controls)
    
 --    controls.filter = {radius = 4}
     
-    filter.smooth(workflow)
---    gaussian.filter(workflow)        -- reduce colour noise
+--    filter.smooth(workflow)
+    gaussian.filter(workflow)        -- reduce colour noise
     colour.scnr(workflow)   
 
     stats.normalise(workflow)

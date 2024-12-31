@@ -145,6 +145,17 @@ function _M.selector(workflow)
   return output  
 end
 
+--local t, f = true, false
+--local rgba = {LRGB = {t,t,t,t}, Red = {t,f,f,t}, Green={f,t,f,t}, Blue = {f,f,t,t}}
+
+--function _M.selector(workflow)
+--  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+--  local selected = controls.channelOptions[controls.channel]
+--  love.graphics.setColorMask(unpack(rgba[selected] or rgba.LRGB))
+--  workflow()
+--  return output  
+--end
+
 -------------------------
 
 local rgb2hsl = lg.newShader (HSL .. [[

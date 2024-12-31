@@ -4,17 +4,22 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.19",
+    VERSION = "2024.12.30",
     AUTHOR = "AK Booer",
     DESCRIPTION = "popup menus",
   }
 
 -- 2024.12.19  Version 0, extracted from mainGUI
+-- 2024.12.30  correct Z-ordering for popup items (TODO: disable menus behind)
+
 
 local _log = require "logger" (_M)
 
 local suit    = require "suit"
-local layout = suit.layout
+
+local self = suit.new()
+
+local layout = self.layout
 
 local love = _G.love
 local lm = love.mouse
@@ -25,8 +30,13 @@ _M.height = 30     -- height of each menu item
 _M.hit = nil 
 _M.active = nil    -- {index = index, list = list}
 
+function _M.draw()
+  self: draw()
+end
 
-function _M.draw(info)
+function _M.popup()
+  local info = _M.active
+  
   layout: push(info.x, info.y)
   layout: padding(0,0)
   
@@ -48,7 +58,7 @@ function _M.new(pop, ...)
   local index = pop.index
   local list = pop.list
   local name = list[index]
-  local q = suit.Button(name, ...)
+  local q = self:Button(name, ...)
 
   if q.hit then                   -- click on button advances list item
     return (index % #list) + 1
@@ -64,12 +74,13 @@ function _M.new(pop, ...)
   local info = _M.active
   if not info then return end       -- popup not active
   
-  _M.draw(info)  -- draw the menu
-  
   if not suit.mouseInRect(info.x, info.y, _M.width, _M.height * #info.list) then
     _M.active = nil     -- you've wandered outside the box
     return 
   end
+    
+  _M.popup()  -- draw the menu
+
   return _M.hit
 end
 

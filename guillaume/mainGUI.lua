@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.12.19"
+  _M.VERSION = "2024.12.31"
   _M.DESCRIPTION = "main GÜI"
 
 local _log = require "logger" (_M)
@@ -23,12 +23,14 @@ local utils     = require "utils"
 
 local Popup     = require "guillaume.popup"
 local panels    = require "guillaume.panels"
+local Oculus    = require "guillaume.objects" .Oculus
 
 local love = _G.love
 local lg = love.graphics
 local lk = love.keyboard
 
 local controls  = session.controls
+
 
 
 --lg.setDefaultFilter("nearest", "nearest")   -- smoothstars! ... but blocky if enlarged too much
@@ -48,9 +50,7 @@ _M.controls = controls
 
 local adjustments, info   -- show side panels
 local DRAGGING            -- drag the image
-
-
-local Oculus = utils.Oculus
+local ROTATING            -- rotate the image
 
 -- replace dummy function set in session
 function controls.anyChanges()
@@ -147,70 +147,23 @@ end
 
 -------------
 --
--- my camera
---
-
-local my_camera = {
-    x = 0, y = 0,
-    scale = 1,
-    rot = 0,
-  }
-
-function my_camera: zoomTo(zoom, yoom)
-  self.scalex = zoom
-  self.scaley = yoom or zoom
-end
-
-function my_camera:lookAt(x,y)
-	self.x, self.y = x, y
-	return self
-end
-
-function my_camera: rotateTo(phi)
-	self.rot = phi
-	return self
-end
-
-function my_camera:lookAt(x,y)
-	self.x, self.y = x, y
-	return self
-end
-
-function my_camera:attach(x,y,w,h)
-	x,y = x or 0, y or 0
-	w,h = w or love.graphics.getWidth(), h or love.graphics.getHeight()
-
-	local cx,cy = x+w/2, y+h/2
-	love.graphics.push()
-	love.graphics.translate(cx, cy)
-	love.graphics.scale(self.scalex, self.scaley)
-	love.graphics.rotate(self.rot)
-	love.graphics.translate(-self.x, -self.y)
-end
-
-function my_camera:detach()
-	love.graphics.pop()
---	love.graphics.setScissor(self._sx,self._sy,self._sw,self._sh)
-end
-
-
--------------
---
 -- DRAW
 --
 local final 
 
-
 function _M.draw()
+  
   local screenImage = session.image()
   local eyepiece = controls.eyepiece.checked
+  local flipx = controls.flipLR.checked and -1 or 1
+  local flipy = controls.flipUD.checked and -1 or 1
   
   local clear = 0.12
   lg.clear(clear,clear,clear,1)
   
   local w, h = lg.getDimensions()             -- screen size
 
-  if eyepiece then Oculus.draw() end
+  if eyepiece then Oculus.draw(controls, ROTATING) end
   
   if screenImage then
 
@@ -219,33 +172,15 @@ function _M.draw()
     local iw, ih = final:getDimensions()  -- image size
     local scale = controls.zoom.value
     local x, y = controls.X, controls.Y
-    local angle = controls.zoom.angle
- 
---
--- NAÏVE
---
---    local sx = display.flipLR.checked and -scale or scale
---    local sy = display.flipUD and -scale or scale
+    local sx = scale * flipx
+    local sy = scale * flipy
+    local angle = controls.rotate.value
     
---    lg.draw(screenImage, w/2 + x - scale*iw/2,  h/2 + y - scale*ih/2, angle, scale, scale)   -- zoom from image centre
-  
-
---
--- CAMERA
-----
-    local flipx = controls.flipLR.checked and -1 or 1
-    local flipy = controls.flipUD.checked and -1 or 1
+--    local dx, dy = iw/2 - x/sx , ih/2 - y/sy
+--    lg.draw(screenImage, w/2,  h/2, angle, sx, sy, dx, dy)   
     
-    local sx, sy = scale*flipx, scale*flipy
-    my_camera: zoomTo(sx, sy)
-    my_camera: lookAt(iw/2 - x/sx, ih/2 - y/sy)
---    my_camera: rotateTo (math.pi/2)
-    my_camera: attach()
-    
-    lg.draw(final)
---     _log ("stack mipmaps: %d" % screenImage: getMipmapCount())
-
-    my_camera: detach()
+    local dx, dy = iw/2 , ih/2
+    lg.draw(screenImage, w/2 + x,  h/2 + y, angle, sx, sy, dx, dy)   
   
   end
 
@@ -268,6 +203,8 @@ function _M.draw()
   lg.setColor(r,g,b,a)
   self:draw()
   lg.setColor(1,1,1,1)
+
+  Popup.draw()    -- ensure this is on top of other widgets (TODO: disable them!)
 end
   
   
@@ -287,17 +224,21 @@ local keypressed =  {
   home      = function() 
                 reset_origin()
                 controls.zoom.value = math.max(utils.calcScreenRatios(final)) 
+                controls.rotate.value = 0
               end,
   -- fit whole image to screen, with margin
   ["end"]   = function() 
                 reset_origin()
                 controls.zoom.value = math.min(utils.calcScreenRatios(final)) 
+                controls.rotate.value = 0
               end,  
   
   pageup    = function() controls.zoom.value = controls.zoom.value * 1.1 end,
   pagedown  = function() controls.zoom.value = controls.zoom.value / 1.1 end,
 
   ["kp*"]     = function() reset_origin(); controls.zoom.value = 1 end,
+  
+  ["kp="]     = function() controls.rotate.value = 0 end,
     
 --  up        = function() y = y - inc end,
 --  down      = function() y = y + inc end,
@@ -321,38 +262,37 @@ end
 -- Mouse
 --
 
-local function within(mx, my)
-  local w, h = lg.getDimensions()
-  local radius2 = (math.min(w,h) / 2 - footer - 10)^2
-  local dist2  = (mx - w/2)^2 + (my - h/2)^2
-  return dist2 < radius2
-end
-
-local Mx,My = 0,0
-
 function _M.mousepressed(mx, my, btn)
-  mx, my = mx, my
   local eyepiece = controls.eyepiece.checked
-  DRAGGING = btn == 1 and ((eyepiece and within(mx, my)) or (not eyepiece and mx > margin))
+  if btn ~= 1 then
+    DRAGGING, ROTATING = false, false
+   else    
+    DRAGGING, ROTATING = 
+          not ROTATING and ((eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)),
+          not DRAGGING and   eyepiece and Oculus.without(mx, my)
+  end
+  if ROTATING then _M.mousemoved(mx, my, 0,0) end   -- immediately move to clicked angle
 end
 
 function _M.mousereleased(mx, my, btn)
   btn = btn
-  mx, my = mx, my
-  DRAGGING = false
+  mx, my = mx, my           -- not used
+  DRAGGING, ROTATING = false, false
 end
 
 function _M.mousemoved(mx, my, dx, dy)
-  Mx, My = mx, my
-  dx, dy = dx, dy
+  mx, my = mx, my           -- not used
   if DRAGGING then
     controls.X = controls.X + dx
     controls.Y = controls.Y + dy
+  elseif ROTATING then
+    local w, h = lg.getDimensions()
+    controls.rotate.value = math.atan2(mx - w/2,  h/2 - my + 0.5)
   end
 end
 
 function _M.wheelmoved(wx, wy)
-  wx, wy = wx, wy
+  wx = wx                   -- not used
   local mag = 1 + wy / 50
   controls.zoom.value = controls.zoom.value * mag
 end

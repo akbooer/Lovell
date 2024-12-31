@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.20",
+  VERSION = "2024.12.31",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
 }
 
@@ -19,6 +19,8 @@ local GUI     = require "guillaume"
 local love = _G.love
 local lt = love.thread
 local lf = love.filesystem
+local lg = love.graphics
+local ls = love.system
 
 -------------------------
 --
@@ -44,11 +46,25 @@ local newWatchFolder = lt.getChannel "newWatchFolder"
 
 --
 
+local mountpoint = "watched/"
+local folder      -- current watched folder
+
 -- start watching a new folder, the beginning of a new (or old) observation
 function love.directorydropped(path)
   _log "------------------------"
   _log("folder dropped " .. path)
-  newWatchFolder: push(path)      -- tell the watcher to look somewhere else
+  if folder then 
+    lf.unmount(folder) 
+    folder = nil
+  end
+  local mount = lf.mount(path, mountpoint)
+  if mount then 
+    folder = path
+  else
+    _log "mount failed" 
+  end
+--  session.new(folder)
+  newWatchFolder: push(path)      -- tell the watcher we're looking somewhere else
 end
 
 -- dropped file should be a calibration file: BIAS, DARK, FLAT, ...
@@ -78,23 +94,17 @@ function love.load(arg)
   
   session.load()
 
-  _log ("separator", package.config:sub(1,1) )
+  local OS = ls.getOS()
+  local processorCount = ls.getProcessorCount( )
+  local renderer = tostring(lg.getRendererInfo())
+  _log ("%s, %d processors, %s" % {OS, processorCount, renderer})
 --[[
-  local OS = love.system.getOS()
-  local lim = lg.getSystemLimits( )
-  local sup = lg.getSupported{}
-  local ren = lg.getRendererInfo()
-  local can = lg.getCanvasFormats()
-  local processorCount = love.system.getProcessorCount( )
-  local fmt = love.graphics.getImageFormats()
   local info = {
-      limits = lim, 
-      supported = sup, 
-      renderer = ren,
-      imageformats = fmt,
-      processors = processorCount,
-      canvasformats = can,
-      OS = OS}
+      limits = lg.getSystemLimits( ), 
+      supported = lg.getSupported(), 
+      imageformats = lg.getImageFormats(),
+      canvasformats = lg.getCanvasFormats(),
+     }
   _log (pretty(info))
 --]]
 

@@ -48,6 +48,9 @@ function _M.snap(panels)
 --  else                -- retain full frame aspect ratio, possibly plus annotation (if pinned)
     W = w * ratio + panels.width
 --  end
+    
+  local flipx = controls.flipLR.checked and -1 or 1
+  local flipy = controls.flipUD.checked and -1 or 1
   
   local canvas = lg.newCanvas(W, H, {format = "normal", dpiscale = 1})
   
@@ -57,6 +60,7 @@ function _M.snap(panels)
   canvas: renderTo(function()
       lg.clear(0,0,0)
 --      if eyepiece then Oculus.draw() end
+--      lg.draw(image, 0,0, 0, ratio * flipx, ratio * flipy)
       lg.draw(image, 0,0, 0, ratio)
       self: draw()
     end)

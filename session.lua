@@ -66,8 +66,8 @@ local controls = {    -- most of these are SUIT widgets
     -- screen appearance
     X = 0,
     Y = 0,
-    zoom      = {value = 0.3, max = 3},
-    angle     = {value = 0, min = -360, max = 360},
+    zoom      = {default = 0.3, value = 0.3, max = 3},
+    rotate    = {default = 0, value = 0, min = -360, max = 360},
     flipUD    = {checked = false, text = "flip U/D"},
     flipLR    = {checked = false, text = "flip L/R"},
     eyepiece  = {checked = true},                       -- start in eyepiece mode 
@@ -96,13 +96,13 @@ local controls = {    -- most of these are SUIT widgets
     
     workflow = {
         badpixel  = {checked = true, text = "bad pixel removal"},
-        badratio  = {value = 0},
+        badratio  = {value = 1.5, min = 1, max = 10 },
         
         debayer   = {checked = false, text = "force debayer"},
         bayerpat  = {text = ''},
         
-        keystar   = {default = 20, min = 10, max = 50},        -- window to search for star peaks
-        offset    = {default = 20, min = 5,  max = 30},        -- limit to between-frame shifts
+        keystar   = {value = 50, min = 10, max = 90},        -- window to search for star peaks
+        offset    = {value = 20, min = 5,  max = 30},        -- limit to between-frame shifts
         
         smooth    = {value = 1},      -- background smoothness (# gaussian taps)
         sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
@@ -222,6 +222,7 @@ local function saveSession(stack)
   obs.notes = non_blank(controls.obs_notes.text)
   obs.flipUD = controls.flipUD.checked or nil
   obs.flipLR = controls.flipLR.checked or nil
+  obs.rotate = controls.rotate.value ~= 0 and controls.rotate.value or nil
   obs.telescope = non_blank(controls.telescope.text)
   info.observations[obsID] = obs
   
@@ -269,6 +270,7 @@ local function loadSession(stack)
   controls.obs_notes.text = thisObs.notes or ''
   controls.flipUD.checked = thisObs.flipUD or false
   controls.flipLR.checked = thisObs.flipLR or false
+  controls.rotate.value   = thisObs.rotate or 0
   sessionMeta.__index = info
   
 end

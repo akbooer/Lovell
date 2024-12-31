@@ -152,7 +152,7 @@ end
 
 -- detects stars , returning array 'xyl' of {x, y, luminosity} tuples
 local function starfinder(workflow)
-  local span = 50  
+  local span = workflow.controls.workflow.keystar.value
   local channel = 0       -- use the red channel (probably monochrome input anyway)
   local input = workflow.output       -- use the latest workflow output
   local w,h = input: getDimensions()
@@ -175,6 +175,7 @@ local function starfinder(workflow)
   local xyl = findPeaksUsingShader(buffer1, w, h)
   table.sort(xyl, function(a,b) return a[3] > b[3] end)
   _log(elapsed ("%.3f ms, detected %d stars", #xyl))
+  _log("min, max = %.3f, %.3f" % {xyl[#xyl][3], xyl[1][3]})
   
   return xyl
 end

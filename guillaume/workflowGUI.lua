@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.12.18"
+  _M.VERSION = "2024.12.23"
   _M.DESCRIPTION = "workflow GÜI"
 
 local _log = require "logger" (_M)
@@ -52,9 +52,10 @@ function _M.update(dt)
   reset()
   self: Checkbox(w.badpixel, layout: row(200, 20))
   down()
-  self: Label("ratio", ralign, layout:col(W, 10))
+  self: Label("ratio", ralign, layout: col(W, 10))
   self: Slider(w.badratio, layout: col(W, 10))
-
+  self: Label("%.1f" % w.badratio.value, layout: col(W/3, 10))
+  
   reset()
   self: Checkbox(w.debayer, layout: row(W, 20))
   down()
@@ -63,6 +64,10 @@ function _M.update(dt)
 
   reset()
   self: Label("star finder", lalign, layout: row(W, 20))
+  down()
+  self: Label("radius", ralign, layout: col(W, 10))
+  self: Slider(w.keystar, layout: col(W, 10))
+  self: Label("%.1f" % w.keystar.value, layout: col(W/3, 10))
   
   reset()
   self: Label("alignment", lalign, layout: row(W, 20))

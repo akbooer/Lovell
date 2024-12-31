@@ -18,7 +18,7 @@ local controls  = session.controls
 local dsos      = session.dsos
 
 local utils = require "utils"
-local Oculus = utils.Oculus
+local Oculus = require "guillaume.objects" .Oculus
 local getDimensions = utils.getDimensions
 
 local love = _G.love
@@ -36,6 +36,11 @@ local Toptions = {align = "left",  color = {normal = {fg = {.6,.6,.6}}}, valign 
 -- return degrees / minutes / seconds of input angle (in arc seconds)
 local function format_angle(x)
   return os.date([[!%Hº %M']], x + 30)    -- round to nearest minute
+end
+
+-- return degrees given radians
+local function degrees(x)
+  return "%dº" % (x * 180 / math.pi + 0.5)
 end
 
 -------------------------
@@ -129,19 +134,26 @@ function _M.update(self, screen)
   
   local pixel = tonumber(controls.pixelsize.text) or 0
   local focal = tonumber(controls.focal_len.text) or 0
+  local angle = degrees(controls.rotate.value or 0)
   if focal > 0 and pixel > 0 then
     local arcsize = 36 * 18 / math.pi * pixel / focal     -- camera pixel size in arc seconds (assume square)
     arcsize = arcsize / controls.zoom.value                -- screen pixel size
     local radius, w, h = Oculus.radius()
-    self: Label("fov", Loptions, layout:row(margin, 15))
+    self: Label("fov", Loptions, layout:row(Wcol, 15))
+    self: Label("rotator", Loptions, layout:col(Wcol, 15))
+    layout: left()
     local fov
     if eyepiece then
       fov = format_angle(arcsize * radius * 2)
     else
       fov = table.concat({format_angle(w * arcsize), format_angle(h * arcsize)}, "  x  ")
     end
-    self: Label(fov, Woptions, layout:row(margin, 15))
+    self: Label(fov, Woptions, layout:row(Wcol, 15))
+    self: Label(angle, Woptions, layout:col(Wcol, 15))
+    layout: left()
   end
+  
+  
   
   self:Label ('', layout:row())
   
