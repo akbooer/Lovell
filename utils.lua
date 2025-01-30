@@ -4,13 +4,14 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.10.29",
+    VERSION = "2025.01.28",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry utilities",
   }
 
 -- 2024.10.29  Version 0
--- 2024.12.16  move workflow() utility to here
+
+-- 2025.01.28  separate workflow into its own module
 
 
 local _log = require "logger" (_M)
@@ -38,78 +39,6 @@ end
 
 -------------------------
 --
--- IMAGE BUFFER
---
-
-function _M.getImageInfo(image)
-  local width, height = image:getDimensions()
-  local dpiscale= image: getDPIScale()
-  local imageFormat = image:getFormat()
-  return width, height, imageFormat, dpiscale
-end
-  
--- ensure buffer, if it exists, is the right size for image
--- otherwise create and return one that matches
--- settings, if present, overrides selected image settings
-function _M.buffer(image, buffer, settings, comment)
-  local w1, h1, f1, d1 = _M.getImageInfo(image)
-  settings = setmetatable(settings or {}, {__index = {format = f1, dpiscale = d1}})
-  if buffer then
-    local w2, h2 = _M.getImageInfo(buffer)
-    if w2 ~= w1 or h2 ~= h1 then
-      buffer: release()
-      buffer = nil
-    end
-  end
-  if not buffer then _log ("new buffer [%dx%d %s] %s" % {w1,h1, settings.format, comment or ''}) end
-  return buffer or lg.newCanvas(w1, h1, settings)
-end
-
-
--------------------------
---
--- WORKFLOW - toggle between two buffers
---            inspired by the code in Moonshine
---
-
-_M.workflow = {
-  input = nil,            -- the two working buffers...
-  output = nil,           -- .. yet to be initialised
-  controls = nil          -- saved default control settings
-  }
-
-local W = _M.workflow
-
--- toggle input/output workflow between two buffers,
--- matched and initialised to input canvas type
-function W:new(canvas, ctrl, settings)
-  local special
-  if type(canvas) == "table" then
-    special = canvas                  -- one-off override of controls
-  elseif canvas then                  -- create buffers first time around,,,
-    W.input  = _M.buffer(canvas, W.input, settings, "workflow")
-    W.output  = _M.buffer(canvas, W.output, settings, "workflow")
-    W.controls = ctrl or W.controls       -- use existing controls if not otherwise specified
-    return canvas, W.output, W.controls   -- ... and use input canvas as first input
-  end
-  W.input, W.output = W.output, W.input  -- toggle buffer input/output
-  return W.input, W.output, special or W.controls
-end
-
--- make a new copy of the latest workflow output buffer
-function W.saveOutput(saved) 
-  saved = _M.buffer(W.output, saved, nil, "workflow.saveOutput")    -- create new canvas, like the output buffer, if none given
-  lg.setBlendMode("replace", "premultiplied")
-  saved:renderTo(lg.draw, W.output)
-  lg.setBlendMode "alpha"
-  return saved
-end
-
-setmetatable (W, {__call = W.new})
-
-
--------------------------
---
 -- SCREEN 
 --
 
@@ -127,7 +56,7 @@ function _M.calcScreenRatios(image, screen)
   if not image then return 1, 1 end
   local w,h = _M.getDimensions(screen)
   local iw,ih = image:getDimensions()
-  return h / ih, w / iw
+  return w / iw, h / ih
 end
 
 

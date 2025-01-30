@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.18",
+    VERSION = "2025.01.22",
     DESCRIPTION = "GÜI Library for LÖVELL App Using Minimal Effort (built on SUIT)",
   }
 
@@ -13,16 +13,27 @@ local _M = {
 -- 2024.11.05  use SUIT (Simple User Interface Toolkit)
 -- 2024.12.18  search in guillaume folder for loadable GUI modules
 
+-- 2025.01.05  add SUIT-able extensions
+-- 2025.01.17  add GUI-wide CLOSE button
+
 
 local _log = require "logger" (_M)
+
+local suit    = require "suit"
 
 local love = _G.love
 local lg = love.graphics
 local lf = love.filesystem
 
-local suit  = require "suit"
+suit.theme.color.text = suit.theme.color.hovered.bg 
+
+require "guillaume.suitable"    -- add our own SUIT extensions
+
+local layout  = suit.layout
 
 -------------------------------
+--
+-- LOAD
 --
 -- Load all the GUI modules
 -- Different display modes use different GUI object instances
@@ -40,39 +51,8 @@ for _, file in ipairs(dir) do
 end
 
 local GUI = GUIs.main
+GUI.set "main"
 
--------------
---
--- INIT
---
-
-local layout  = suit.layout
-local margin = 220      -- margin width for left- and right-hand panels
-local footer = 30       -- footer height for button array
-
-local buttonMeta = { cornerRadius = 0, bg = {normal =  {bg = {0,0,0}}} }
-local function opt(x) return setmetatable(x or {}, {__index = buttonMeta}) end
-
-local modes = {"workflow", "settings", "landscape", "eyepiece", "test", "exit"}
-
-GUIs.landscape = GUIs.main      -- set up aliases
-GUIs.eyepiece  = GUIs.main 
-
-GUIs.exit = {
-    update = function() love.event.push "quit" end,
-    draw = function() end,
-  }
-
-local function build_modes()
-  local w, h = lg.getDimensions()
-  layout:reset(margin, h - footer)
-  
-  for _, mode in ipairs(modes) do
-    if suit.Button(mode,    opt(), layout:col((w - 2*margin)/#modes, footer)) .hit then
-      GUI = GUIs[mode]
-    end
-  end
-end
 
 -------------
 --
@@ -80,13 +60,17 @@ end
 --
 
 function _M.update(dt) 
-  local w, h = lg.getDimensions()
+  local mode = GUI.get()
   
-  local modes = suit.mouseInRect(margin, h - 1.5 * footer, w - 2 * margin, 1.5 * footer - 2)
-  if modes then
-    build_modes()
+  if mode ~= "main" then   -- add close button for window
+    layout: reset(10,10, 10, 10)
+    if suit.Button("Close", layout: row(80, 50)) .hit then
+      GUI.set "main"
+      mode = "main"
+    end
   end
 
+  GUI = GUIs[mode]
   GUI.update(dt)
 end
 
@@ -95,11 +79,11 @@ end
 -- DRAW
 --
 
-function _M.draw(screenImage) 
+function _M.draw() 
   local clear = 1/8
   lg.clear(clear,clear,clear,1)
-  GUI.draw(screenImage)           -- draw the mode-specific stuff
-  suit.draw()                     -- and the modes menu at the bottom
+  GUI.draw()                      -- draw the mode-specific stuff
+  suit.draw()                     -- and the CLOSE button
 end
   
 -------------------------

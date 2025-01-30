@@ -4,43 +4,28 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.02",
+    VERSION = "2025.01.29",
     AUTHOR = "Martin Meredith / AK Booer",
     DESCRIPTION = "stretches of various sorts on final stack",
   }
 
 local _log = require "logger" (_M)
 
---  2024.10.18  Version 0, copied from Jocular stretches
---  2024.11.12  add modgamma() and the rest!
+-- 2024.10.18  Version 0, copied from Jocular stretches
+-- 2024.11.12  add modgamma() and the rest!
+
+-- 2025.01.29  integrate into workflow chain
+
 
 local love = _G.love
 local lg = require "love.graphics"
 
-local stats = require "shaders.stats" .stats
 
-_M.gammaOptions = {"Linear", "Log", "Gamma", "ModGamma", "Asinh", "Hyper"}
+_M.gammaOptions = {"Linear", "Log", "Gamma", "ModGamma", "Asinh", "Hyper", selected = 5}
 
---
--- apply scale inputs to stretches with black/white points and number of stacked images
---
-local function applyShader(shader, input, output, controls)
-  
-  local black = 0.01 * (0.5 - controls.background.value)
-  local white = 1 - controls.brightness.value
-    
-  shader: send("black", black)
-  shader: send("white", math.max(0.02, white))
-
-  lg.setShader(shader) 
-  output:renderTo(lg.draw, input)
-  lg.setShader()
-  return output
- end
 
 -------------------------
 
-  
 local asinh = love.graphics.newShader[[
     uniform float black, white, c;
     
@@ -62,13 +47,11 @@ local asinh = love.graphics.newShader[[
   ]]
   
 
-function _M.asinh(input, output, controls)
-  
-  local c = controls.stretch.value * 2000
-  asinh: send("c", c)
-  
-  return applyShader(asinh, input, output, controls) 
-  
+function _M.asinh(stretch)
+  local c = stretch * 2000
+  local shader = asinh
+  shader: send("c", c)
+  return shader
 end
 
 
@@ -91,23 +74,22 @@ local modgamma = lg.newShader [[
     }
   ]]
 
-function _M.modgamma(input, output, controls)
+function _M.modgamma(stretch)
   -- This is used for processing colour channels
   -- with noise reduction, linear from x=0-a, with slope s
 
-  local g = math.max(.01, 1 - controls.stretch.value)   -- or 0.5
+  local g = math.max(.01, 1 - stretch)   -- or 0.5
   local a0 = 0.01
 
   local s = g / (a0 * (g - 1) + a0 ^ (1 - g))
   local d = (1 / (a0 ^ g * (g - 1) + 1)) - 1
 
-  modgamma: send("a0", a0)
-  modgamma: send("g",  g)
-  modgamma: send("s",  s)
-  modgamma: send("d",  d)
-
-  return applyShader(modgamma, input, output, controls) 
-
+  local shader = modgamma
+  shader: send("a0", a0)
+  shader: send("g",  g)
+  shader: send("s",  s)
+  shader: send("d",  d)
+  return shader
 end
 
 
@@ -126,15 +108,12 @@ local gamma = lg.newShader [[
     }
   ]]
 
-function _M.gamma(input, output, controls)
-  
-  local c = math.max (0.01, 1 - controls.stretch.value)
-  gamma: send("c", {c, c, c})
-  
-  return applyShader(gamma, input, output, controls) 
-   
+function _M.gamma(stretch)
+  local c = math.max (0.01, 1 - stretch)
+  local shader = gamma
+  shader: send("c", {c, c, c})
+  return shader
 end
-
 
 
 -------------------------
@@ -152,13 +131,11 @@ local log = lg.newShader [[
     }
   ]]
 
-function _M.log(input, output, controls)
-  
-  local c = 200 * controls.stretch.value + 1e-3
-  log: send("c",  c)
-   
-  return applyShader(log, input, output, controls) 
-   
+function _M.log(stretch)  
+  local c = 200 * stretch + 1e-3
+  local shader = log
+  shader: send("c",  c)
+  return shader
 end
 
 
@@ -177,24 +154,49 @@ local hyper = lg.newShader [[
     }
   ]]
 
-function _M.hyper(input, output, controls)
-
+function _M.hyper(stretch)
   local d = 0.02
-  local c = d * (1 + d - controls.stretch.value)
-  hyper: send("c",  c)
-
-  return applyShader(hyper, input, output, controls) 
-
+  local c = d * (1 + d - stretch)
+  local shader = hyper
+  shader: send("c",  c)
+  return shader
 end
 
 
 -------------------------
 
-function _M.linear(input, output, controls)
-  gamma: send("c", {1, 1, 1})
-  
-  return applyShader(gamma, input, output, controls) 
+function _M.linear()
+  local shader = gamma      -- use gamma shader
+  shader: send("c", {1, 1, 1})
+  return shader
+end
 
+
+-------------------------
+--
+-- apply scale inputs to stretches with black/white points
+--
+
+function _M.stretch(workflow, stretch)
+  local input, output, controls = workflow()
+  
+  local opt = _M.gammaOptions
+  local selected = opt[opt.selected]: lower()
+  local setup = _M[selected]
+
+  local black = 0.01 * (0.5 - controls.background.value)
+  local white = 1 - controls.brightness.value
+  stretch = stretch or controls.stretch.value
+    
+  local shader = setup (stretch) 
+  shader: send("black", black)
+  shader: send("white", math.max(0.02, white))
+
+  lg.setShader(shader) 
+  output:renderTo(lg.draw, input)
+  lg.setShader()
+  
+  return output
 end
 
 

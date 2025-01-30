@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.09",
+    VERSION = "2025.01.29",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -14,6 +14,8 @@ local _M = {
 -- 2024.11.24  remove outliers from samples prior to gradient calculation
 -- 2024.12.09  separate solution and application functions
 -- 2024.12.16  use workflow() buffers
+
+-- 2025.01.29  integrate into workflow
 
 
 local _log = require "logger" (_M)
@@ -145,7 +147,9 @@ end
 
 
 -- use shader to apply background subtraction
-function _M.remove(gradients, input, output, controls)
+function _M.remove(workflow, gradients)
+  if not gradients then return end
+  local input, output, controls = workflow()
   local g = gradients
   flattener: send ("Offset",  g.Offset);
   flattener: send ("Xslope",  g.Xslope);
@@ -155,8 +159,6 @@ function _M.remove(gradients, input, output, controls)
   lg.setShader(flattener) 
   output:renderTo(lg.draw, input)
   lg.setShader()
-  
-  return output
 end
 
   

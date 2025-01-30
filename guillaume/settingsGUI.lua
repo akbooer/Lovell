@@ -30,7 +30,9 @@ local controls = session.controls
 local ses = controls.ses_notes
 local obs = controls.obs_notes
 local sig = controls.signature
-  
+
+local lat, long = {text = ''}, {text = ''}
+
   
 -------------------------
 --
@@ -91,6 +93,8 @@ function _M.update(dt)
   self:Label("session notes", {align = "left"}, layout:row())
   self:Input(ses, {id = "ses_notes", align = "left"}, layout:row(w - 250, 30))
 
+  
+  layout:push(layout: row(0,0))
   layout:row(180, 40)
   if self:Button("open log file", layout:row()) .hit then
     local url = "file://%s/Lövell.log"
@@ -128,6 +132,19 @@ function _M.update(dt)
       love.system.openURL(url % love.filesystem.getSaveDirectory())
     end
   end
+  
+  layout: pop()
+  layout: row(10,100)
+  layout: push(layout: row(0,0))
+  self:  Label("latitude", layout: row(120, 30))
+  layout: col(40,30)
+  self: Label("longitude", layout: col(120, 30))
+  
+  layout: pop()
+--  layout: row(10, 30)
+  self: Input(lat, layout: row(120, 30))
+  layout: col(40, 30)
+  self: Input(long, layout: col(120, 30))
 
   layout: reset(w - 300, h - 150)
   self:Label("signature (for images)", {align = "left"}, layout:row(250, 30))

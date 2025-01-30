@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.20",
+    VERSION = "2025.01.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -14,24 +14,27 @@ local _M = {
 -- 2024.12.02  separate DSO module
 -- 2024.12.08  correct object metadata handling
 
+-- 2025.01.09  remove session.load method, databases now autoload on demand
+
 
 local _log = require "logger" (_M)
 
-local dso  = require "lib.dso"
-local csv  = require "lib.csv"
 local json = require "lib.json"
 local utils = require "utils"
 
 local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
+local databases       = require "databases"
+
+local focal_length    = databases.telescopes.focal_length
 
 local love = _G.love
 local lf = love.filesystem
 
 local newFITSfile = love.thread.getChannel "newFITSfile"
 
-_M.dsos = dso.dsos
+--_M.dsos = dso.dsos
 
 
 -------------------------------
@@ -43,22 +46,18 @@ local controls = {    -- most of these are SUIT widgets
     
     -- adjustments panel
     
-    channel = 1,
     channelOptions = channelOptions,
     background = {default = 0.5},
     brightness = {default = 0.5},
     
-    gamma = 5,
     gammaOptions = gammaOptions,
     stretch = {default = 0.3, max = 2},
     gradient = {default = 1, min = -1, max = 3},
     
-    colour = 1,
-    colourOptions = {"Colour", "Hubble", "Wager"},
+    colourOptions = {"RGB Colour", "Hubble", "Wager"},
     saturation  = {default = 2.5, min = 0, max = 5},
     tint        = {default = 0.5},
   
-    enhance = 1,
     enhanceOptions = {"Enhance", "TNR", "Bilateral", "FABADA", "———————", "Unsharp", "APF",  "Decon"},
     denoise = {default = 0.25},
     sharpen = {default = 0},
@@ -101,10 +100,10 @@ local controls = {    -- most of these are SUIT widgets
         debayer   = {checked = false, text = "force debayer"},
         bayerpat  = {text = ''},
         
-        keystar   = {value = 50, min = 10, max = 90},        -- window to search for star peaks
-        offset    = {value = 20, min = 5,  max = 30},        -- limit to between-frame shifts
+        keystar   = {value = 20, min = 5, max = 50},        -- window to search for star peaks
+        offset    = {value = 30, min = 0,  max = 50},        -- limit to between-frame shifts
         
-        smooth    = {value = 1},      -- background smoothness (# gaussian taps)
+        smooth    = {value = 15},      -- background smoothness (# gaussian taps)
         sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
         sharp2    = {value = 17, min = 9, max = 21},
       },
@@ -124,8 +123,7 @@ end
 
 -- reset a control, or a list of controls, to their default
 function controls.reset(ctrl)
-  controls.channel = 1
-  controls.gamma = 5
+  -- TOS: reset LRGB, Gamma, etc. to defaults?
   ctrl = ctrl or {"background", "brightness", "stretch", "gradient", 
                   "saturation", "tint", "denoise", "sharpen", "object"}
   if type(ctrl) == "table" then
@@ -189,24 +187,6 @@ end
 
 -------------------------------
 --
--- TELESCOPE database (CSV)
---
-
-local telescopes
-
-local function focal_length(scope)
-  local NAME, NUMBER = scope: lower() : match "(%w+)%D*(%d+)"
-  telescopes = telescopes or csv.read "settings/telescopes.csv" or {}
-  for _, info in ipairs(telescopes) do
-    local name, number, focus = unpack(info)  --  info = {name, number, focal length}
-    if name == NAME and number == NUMBER then
-      return focus
-    end
-  end
-end
-
--------------------------------
---
 -- SAVE/LOAD SESSION 
 --
 
@@ -239,6 +219,7 @@ end
 
 
 local function loadSession(stack)
+
   if not stack then return end
 
   local obsID, path, info = getInfo(stack)
@@ -271,6 +252,7 @@ local function loadSession(stack)
   controls.flipUD.checked = thisObs.flipUD or false
   controls.flipLR.checked = thisObs.flipLR or false
   controls.rotate.value   = thisObs.rotate or 0
+  controls.X, controls.Y = 0, 0
   sessionMeta.__index = info
   
 end
@@ -286,29 +268,24 @@ local function newObservation()
   observer.new()          -- reset the observer
 end
 
-function _M.load()
-  dso.load()  
-end
-
 
 function _M.update()
+  
+  local frame = newFITSfile: pop()
+  if frame then
+    
+    if frame.first then newObservation() end
 
-  local newFile = newFITSfile: pop()
+    stack = observer.newSub(frame, controls)
 
-  if newFile then
-    local first_frame = newFile.subNumber == 1
-    if first_frame then newObservation() end
-
-    stack = observer.newSub(newFile, controls)
-
-    if first_frame then 
+    if frame.first then 
       loadSession(stack)          -- load relevant session info
       controls.zoom.value = math.max(utils.calcScreenRatios(stack.image))     -- full screen image
     end
   end
 
-  if newFile or controls.anyChanges() then
-    screenImage = observer.reprocess(stack, controls)
+  if frame or (controls.anyChanges() and not controls.rotate.changed) then
+    screenImage = observer.reprocess(stack)
   end
 
 end

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.31",
+  VERSION = "2025.01.26",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
@@ -31,6 +31,9 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 -- 2024.12.31  fix error in os.date() string which crashed LÖVE on Windows
 -- 2024.12.31  allow .fits files as well as .fit (thanks @Steve in Boulder)
 
+-- 2025.01.05  limit idle cycles (dramatically reduce CPU usage for this thread)
+-- 2025.01.26  remove sub numbering, use 'newfolder' flag instead
+
 
 local _log = require "logger" (_M)
 
@@ -39,6 +42,8 @@ local lt = require "love.timer"
 
 local fits = require "lib.fits"
 local json = require "lib.json"
+
+local IDLE = 1 / 10   -- limit idle cycles to ten per second
 
 local DELAY = 2       -- interval (seconds) to rescan watched folder for new files
 
@@ -109,25 +114,34 @@ do
   _log ("WORK: " .. lf.getWorkingDirectory())
 end
 
+
+------------------------
 --
---  main loop
+--  MAIN LOOP
 --
 
-local subNumber  = 0
 local folder          -- current watched folder
+local first           -- new folder flag
 
 local wakeup = 0
 
 repeat
+  
+  lt.sleep(IDLE)       -- 2025.01.05  limit idle cycles 
 
+  ------------------------
+  --
+  --  NEW FOLDER
+  --
+  
   local metadata = empty
   local newFolder = newWatchFolder: pop()
   if newFolder then
     if newFolder == "EXIT" then break end
     folder = newFolder
+    first = true
     files = {}              -- empty files list...
     newFITSfile: clear()    -- ...and the pipeline
-    subNumber = 0
     wakeup = 0              -- reset wakeup time
     
     metadata = readMetadata "info3.json" 
@@ -135,11 +149,22 @@ repeat
             or empty
   end
 
+  ------------------------
+  --
+  --  REFRESH FOLDER DIRECTORY
+  --
+  
   local t = lt.getTime()
   if t > wakeup then
     wakeup = lt.getTime() + DELAY
     local dir = lf.getDirectoryItems (mountpoint)
-    table.sort(dir)
+--    table.sort(dir)
+    
+
+    ------------------------
+    --
+    --  READ NEW FILES
+    --
     
     local retries = 0
     for _, file in ipairs(dir) do
@@ -159,7 +184,6 @@ repeat
           end
           break 
         end
-        subNumber = subNumber + 1
         local k = keywords
         local subtype, filter = scan_name(file)
         
@@ -167,19 +191,25 @@ repeat
         local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
         local datestring, epoch = parse_date(datetime or modtime)
         
-        local new = {
-          name = file, 
-          folder = folder,
+        ------------------------
+        --
+        --  create new IMAGE FRAME
+        --
+        
+        local frame = {
+          name = file,                  -- file name
+          folder = folder,              -- file path
+          first = first,          -- start of new stack sequence
           
-          subNumber = subNumber,
-          imageData = imageData, 
-          keywords = keywords,
-          headers = headers,
+--          subNumber = subNumber,
+          imageData = imageData,        -- for conversion to image
+          headers = headers,            -- raw FITS file headers
+          keywords = keywords,          -- extracted from headers
           
-          subtype = subtype,
-          filter = filter,
+          subtype = subtype,            -- bias, dark, light, flat, etc...
+          filter = 'lum',  -- filter,              -- lum, red, green, blue, etc... * * * *
 
-          exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) *1e-6,
+          exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) * 1e-6,
           bayer = k.BAYERPAT, 
           temperature = k.TEMPERAT or k["SET-TEMP"] or k["SET_TEMP"] or k["CCD-TEMP"],
           date = datestring,
@@ -190,10 +220,11 @@ repeat
           
           -- add extra metadata, if present
           telescope = metadata.telescope,
-          object = metadata.name
+          object = metadata.name,
         }
         
-        newFITSfile: push(new)
+        first = false
+        newFITSfile: push(frame)
       end
     end
   end

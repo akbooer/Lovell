@@ -1,20 +1,22 @@
 --
--- smoother – 3x3 shader
+-- filter – 
 --
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.07",
+    VERSION = "2025.01.29",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "3x3 box smoother",
+    DESCRIPTION = "sundry processing filters (BOX, TNR, APF, ...)",
   }
 
 local _log = require "logger" (_M)
 
-local newTimer = require "utils" .newTimer
+local moonbridge  = require "shaders.moonbridge"   -- Moonshine proxy
 
--- 24.11.07  Version 0, @akbooer
--- 24.12.09  use workflow() function to acquire buffers and control parameters
+-- 2024.11.07  Version 0, @akbooer
+-- 2024.12.09  use workflow() function to acquire buffers and control parameters
+
+-- 2025.01.29  incoporate moonshine bridge shaders
 
 
 local love = _G.love
@@ -23,96 +25,50 @@ local lg = love.graphics
 
 -------------------------------
 --
+-- BOXBLUR, from Moonshine
+--
 
-local smooth3x3 = lg.newShader [[
-  uniform vec2 dx;
-  uniform vec2 dy;
-  
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
-  
-      vec2 y = tc;
-      vec4 d = vec4(0.0);
-      
-      d += Texel(texture, y     );
-      d += Texel(texture, y + dx);
-      d += Texel(texture, y - dx);
-      
-      y = tc + dy;
-      d += Texel(texture, y     );
-      d += Texel(texture, y + dx);
-      d += Texel(texture, y - dx);
-      
-      y = tc - dy;
-      d += Texel(texture, y     );
-      d += Texel(texture, y + dx);
-      d += Texel(texture, y - dx);
-      
-      return d / 9.0;
-  }
-]]
+local boxblur = moonbridge "boxblur"
 
-
-function _M.smooth(workflow)
-  local input, output = workflow()      -- get hold of the workflow buffers  
-  local w, h = input: getDimensions()
-  smooth3x3: send("dx", {1 / w, 0})
-  smooth3x3: send("dy", {0, 1 / h})
-  
-  lg.setShader(smooth3x3) 
-  output:renderTo(lg.draw, input)
-  lg.setShader()
-  return output
+function _M.boxblur(workflow, radius)
+  boxblur.setters.radius(radius or 3)
+  boxblur.filter(workflow)
 end
 
 -------------------------------
 --
--- BOXBLUR, from Moonshine
+-- GAUSSIAN (fast), from Moonshine
 --
 
-local boxblur = love.graphics.newShader[[
-  extern vec2 direction;
-  extern number radius;
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
-    vec4 c = vec4(0.0);
+local gaussian = {}        -- list of already built gaussians
 
-    for (float i = -radius; i <= radius; i += 1.0)
-    {
-      c += Texel(texture, tc + i * direction);
-    }
-    return c / (2.0 * radius + 1.0) * color;
-  }]]
-
-function _M.boxblur(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local radius_x = controls.filter.radius
-  local radius_y = radius_x
-  local shader = boxblur
-  local w,h = input: getDimensions()
-  lg.setShader(shader)
-  shader:send('direction', {1 / w, 0})
-  shader:send('radius', math.floor(radius_x + .5))
-  output: renderTo (lg.draw, input)
-
-  shader:send('direction', {0, 1 / h})
-  shader:send('radius', math.floor(radius_y + .5))
-  input: renderTo (lg.draw, output)
-  lg.setShader()
+function _M.gaussian(workflow, taps)
+  local gauss = gaussian[taps]
+  if not gauss then
+    _log ("creating moonshine FastGaussianBlur shader, #taps = " .. taps)
+    gauss = moonbridge "fastgaussianblur"
+    gauss.setters.taps = taps
+    gaussian[taps] = gauss
+  end
   
-  output: renderTo(lg.draw, input)    -- swap input to output
-  return output
+  gauss.filter(workflow)
 end
 
 -------------------------------
 --
 -- TNR - Tony's noise reduction
 --
---[[
-Radius = 17;
-Strength = 30;
 
-($T - medfilt($T, Radius))                   // signal - model
-   * (1 / (1 + Strength * exp (-27 * $T)))   // window
-   + medfilt($T, Radius)                     // + model
+--[[
+
+  this is the PixInsight implementation:
+  
+  Radius = 17;
+  Strength = 30;
+
+  ($T - medfilt($T, Radius))                   // signal - model
+     * (1 / (1 + Strength * exp (-27 * $T)))   // window
+     + medfilt($T, Radius)                     // + model
 
 ]]
 
@@ -129,9 +85,9 @@ local tnr = love.graphics.newShader[[
     return vec4(clamp(tnr, 0.0, 1.0), 1.0);
   }]]
 
---function _M.tnr(background, workflow)
---  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-function _M.tnr(background, input, output, controls)      -- get hold of the workflow buffers and controls
+function _M.tnr(workflow, background)
+  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+--function _M.tnr(background, input, output, controls)      -- get hold of the workflow buffers and controls
   local strength = 30 * controls.denoise.value
   local shader = tnr
   lg.setShader(shader)
@@ -218,7 +174,7 @@ local apf2 = love.graphics.newShader[[
     return vec4(clamp(image, 0.0, 1.0), 1.0);
   }]]
 
-function _M.apf2(background, background2, workflow)
+function _M.apf2(workflow, background, background2)
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf2
@@ -253,7 +209,11 @@ local apf = love.graphics.newShader[[
     return vec4(clamp(apf, 0.0, 1.0), 1.0);
   }]]
 
-function _M.apf(background, workflow)
+function _M.apf(...)
+  local workflow, background, background2 = ...
+  if background2 then
+    return _M.apf2(...)
+  end
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf

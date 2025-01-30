@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2024.12.31",
+  VERSION = "2025.01.26",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
 }
 
@@ -11,16 +11,23 @@ local _log = logger(_M)
 
 -- 2024.09.25  Version 0
 
-local session = require "session"
-local masters = require "masters"
-local GUI     = require "guillaume"
-
-
 local love = _G.love
 local lt = love.thread
 local lf = love.filesystem
 local lg = love.graphics
 local ls = love.system
+
+do -- log system info before other modules loaded
+  local OS = ls.getOS()
+  local processorCount = ls.getProcessorCount( )
+  local renderer = tostring(lg.getRendererInfo())
+  _log ("%s, %d processors, %s" % {OS, processorCount, renderer})
+end
+
+local session = require "session"
+local masters = require "masters"
+local GUI     = require "guillaume"
+
 
 -------------------------
 --
@@ -76,7 +83,7 @@ end
 
 -------------------------
 --
--- LOAD / UPDATE / DRAW / QUIT
+-- UPDATE / DRAW / QUIT
 --
 
 function love.load(arg)
@@ -91,13 +98,7 @@ function love.load(arg)
   lf.createDirectory "settings"    -- ditto, for sundry settings
   lf.createDirectory "sessions"
   lf.createDirectory "masters"
-  
-  session.load()
 
-  local OS = ls.getOS()
-  local processorCount = ls.getProcessorCount( )
-  local renderer = tostring(lg.getRendererInfo())
-  _log ("%s, %d processors, %s" % {OS, processorCount, renderer})
 --[[
   local info = {
       limits = lg.getSystemLimits( ), 
@@ -120,7 +121,7 @@ function love.draw()
 end
 
 function love.quit()
-  session.close()
+  session.close()                   -- save current session
   _log "Lövell – system exit"
   logger.close()                    -- close the log file
 end

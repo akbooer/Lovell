@@ -2,10 +2,10 @@
 -- Main screen.lua
 --
 
-local _M = require "guillaume.objects" .GUIobject()
+local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2024.12.31"
+  _M.VERSION = "2025.01.17"
   _M.DESCRIPTION = "main GÜI"
 
 local _log = require "logger" (_M)
@@ -15,19 +15,23 @@ local _log = require "logger" (_M)
 -- 2024.12.02  startup in eyepiece mode
 -- 2024.12.14  add popup menus for controls
 
+-- 2025.01.06  use Rotary SUIT widget extension for eyepiece rotation
+-- 2025.01.07  use Popup SUIT widget extension
+-- 2025.01.17  rename Popup to Dropdown, and add Popup GUI selector
+
 
 local suit      = require "suit"
 local session   = require "session"
 local snapshot  = require "snapshot"
 local utils     = require "utils"
 
-local Popup     = require "guillaume.popup"
 local panels    = require "guillaume.panels"
 local Oculus    = require "guillaume.objects" .Oculus
 
 local love = _G.love
 local lg = love.graphics
 local lk = love.keyboard
+local lm = love.mouse
 
 local controls  = session.controls
 
@@ -50,28 +54,30 @@ _M.controls = controls
 
 local adjustments, info   -- show side panels
 local DRAGGING            -- drag the image
-local ROTATING            -- rotate the image
 
 -- replace dummy function set in session
 function controls.anyChanges()
-  return suit.anyActive() and not (Popup.active or DRAGGING)
+  return suit.anyActive() and not DRAGGING
 end 
 
 local layout  = self.layout
  
-local Loptions = {align = "left",  color = {normal = {fg = {.6,.4,.5}}}}
-local Roptions = {align = "right", color = {normal = {fg = {.6,.4,.5}}}}
+local Loptions = {align = "left",  color = {normal = {fg = suit.theme.color.hovered.bg }}}   -- fixed labels
+
+local toggle = {"Eyepiece", "Landscape"}
 
 -------------
 
+local function slider(name, ...)
+  name = name:lower()
+  local control = controls[name] or {value = 0.5}
+  controls[name] = control
+  self: Label(name, Loptions, layout:row(...))
+  self: Slider(control, layout:row())
+end
+
+
 local function build_adjustments(controls)
-  local function slider(name, ...)
-    name = name:lower()
-    local control = controls[name] or {value = 0.5}
-    controls[name] = control
-    self: Label(name, Loptions, layout:row(...))
-    self: Slider(control, layout:row())
-  end
   
   layout:reset(10,10)             -- position the layout origin...
   layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
@@ -80,39 +86,41 @@ local function build_adjustments(controls)
   local w = margin - 20
   local h = lg.getHeight()
   
-  local newChan = Popup({index = controls.channel, list = controls.channelOptions}, layout:row(w,30))
-  controls.channel = newChan or controls.channel
+  self: Dropdown(controls.channelOptions, layout:row(w,30))
   slider ("Background", w, 10)
   slider ("Brightness")
   
-  local newG = Popup({index = controls.gamma, list = controls.gammaOptions}, layout:row(w,30))
-  controls.gamma = newG or controls.gamma
+  self: Dropdown(controls.gammaOptions, layout:row(w,30))
   slider ("Stretch", w, 10)
   slider "Gradient"
   
-  local newC = Popup({index = controls.colour, list = controls.colourOptions}, layout:row(w,30))
-  controls.colour = newC or controls.colour 
+  self: Dropdown(controls.colourOptions, layout:row(w,30))
   slider ("Saturation", w, 10)
   slider "Tint"
   
-  local newE = Popup({index = controls.enhance, list = controls.enhanceOptions}, layout:row(w,30))
---  controls.enhance = newE or controls.enhance
+  if self: Button("Processing", layout:row(w,30)) .hit then
+    _M.set "workflow"
+  end
   slider ("Denoise", w, 10)
   slider "Sharpen"
 
   -- orientation and snapshot
-  
-  layout:reset(10, h - 200)             -- position the layout origin...
-  layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
-  
-  if self:Button ("snapshot", layout:col(80, 50)) .hit then
+ 
+  layout: reset(10, h - 125, 10, 10)
+  layout: row(10, 10)
+  toggle.selected = controls.eyepiece.checked and 1 or 2
+  self: Dropdown(toggle, layout: row(w, 30))
+  controls.eyepiece.checked = toggle.selected == 1
+ 
+  if self:Button ("Snapshot", layout:row(80, 50)) .hit then
     snapshot.snap(panels)
   end
   
+  layout:col(5, 20)
+  
   self:Checkbox (controls.flipUD, layout:col(120, 20))
-  self:Checkbox (controls.flipLR, layout:row())
-
-end
+  self:Checkbox (controls.flipLR, layout:row(120, 20))
+ end
 
 
 -------------
@@ -120,12 +128,32 @@ end
 -- UPDATE
 --
 
+local popup = {"DSOs", "Observations", "Watchlist", "View stack"}
+
+local mode = {
+    {"database", "dso"}, 
+    {"database", "observations"}, 
+    {"database", "watchlist"},
+    {"stack"},
+  }
+
 function _M.update(dt) 
   dt = dt
   
   local w, h = lg.getDimensions()
   local eyepiece = controls.eyepiece.checked
+
+  if self: Popup(popup, margin, 0, w - margin, h) .hit then
+    _M.set (unpack(mode[popup.selected] or {"database"}))
+  end
   
+  local rotate = controls.rotate
+  rotate.hit = false
+  if eyepiece then
+    local r = Oculus.radius() + 10
+    rotate.changed = self:Rotary (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
+  end
+
   adjustments = suit.mouseInRect(1,1, margin + 30, h - footer) or eyepiece or pin_controls.checked
   if adjustments  then
     build_adjustments(controls)
@@ -162,8 +190,8 @@ function _M.draw()
   lg.clear(clear,clear,clear,1)
   
   local w, h = lg.getDimensions()             -- screen size
-
-  if eyepiece then Oculus.draw(controls, ROTATING) end
+  
+  if eyepiece then Oculus.draw() end
   
   if screenImage then
 
@@ -180,13 +208,14 @@ function _M.draw()
 --    lg.draw(screenImage, w/2,  h/2, angle, sx, sy, dx, dy)   
     
     local dx, dy = iw/2 , ih/2
+    lg.setColor(1,1,1, 1)
     lg.draw(screenImage, w/2 + x,  h/2 + y, angle, sx, sy, dx, dy)   
   
   end
 
   lg.setStencilTest()  
   
-  local r,g,b,a = lg.getColor()
+--  local r,g,b,a = lg.getColor()
   local c = 1/8
   lg.setColor(c,c,c,0.5)
 
@@ -196,15 +225,13 @@ function _M.draw()
   
   if info or eyepiece then
     lg.rectangle("fill", w - margin, 0, margin, h)
-    layout:reset(w - 100, h - footer)             -- position the layout origin...
-    self: Label(os.date "%H:%M", Roptions, layout: row(80,20))
   end
   
-  lg.setColor(r,g,b,a)
+--  lg.setColor(r,g,b,a)
+  lg.setColor(1,1,1, 1)
   self:draw()
-  lg.setColor(1,1,1,1)
+--  lg.setColor(1,1,1,1)
 
-  Popup.draw()    -- ensure this is on top of other widgets (TODO: disable them!)
 end
   
   
@@ -215,6 +242,12 @@ end
 
 local function reset_origin()
   controls.X, controls.Y = 0, 0 
+end
+
+local function change_mode(mode, submode)
+  if lm.getPosition() < (lg.getDimensions() - margin) then 
+    _M.set(mode, submode)
+  end
 end
 
 lk.setKeyRepeat(true)
@@ -236,14 +269,34 @@ local keypressed =  {
   pageup    = function() controls.zoom.value = controls.zoom.value * 1.1 end,
   pagedown  = function() controls.zoom.value = controls.zoom.value / 1.1 end,
 
+  ["kp-"]   = function() 
+                reset_origin()
+                local W = lg.getDimensions()
+                controls.zoom.value = 1 
+                controls.rotate.value = 0
+                local R = math.max(utils.calcScreenRatios(final)) 
+                controls.zoom.value = R * (W - 2 * margin - 10) / W
+              end,
+  
   ["kp*"]     = function() reset_origin(); controls.zoom.value = 1 end,
   
+  ["kp/"]     = function() 
+                  local pi = math.pi
+                  controls.rotate.value = (controls.rotate.value + pi / 2) % (2 * pi)
+                end,
+  
   ["kp="]     = function() controls.rotate.value = 0 end,
-    
+  
 --  up        = function() y = y - inc end,
 --  down      = function() y = y + inc end,
 --  left      = function() x = x - inc end,
 --  right     = function() x = x + inc end,
+
+  d = function() change_mode "database" end,
+  p = function() change_mode "workflow" end,
+  s = function() change_mode "settings" end,
+  w = function() change_mode "workflow" end,
+  
 
 }
 
@@ -265,19 +318,16 @@ end
 function _M.mousepressed(mx, my, btn)
   local eyepiece = controls.eyepiece.checked
   if btn ~= 1 then
-    DRAGGING, ROTATING = false, false
+    DRAGGING = false
    else    
-    DRAGGING, ROTATING = 
-          not ROTATING and ((eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)),
-          not DRAGGING and   eyepiece and Oculus.without(mx, my)
+    DRAGGING = (eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)
   end
-  if ROTATING then _M.mousemoved(mx, my, 0,0) end   -- immediately move to clicked angle
 end
 
 function _M.mousereleased(mx, my, btn)
   btn = btn
   mx, my = mx, my           -- not used
-  DRAGGING, ROTATING = false, false
+  DRAGGING = false
 end
 
 function _M.mousemoved(mx, my, dx, dy)
@@ -285,9 +335,6 @@ function _M.mousemoved(mx, my, dx, dy)
   if DRAGGING then
     controls.X = controls.X + dx
     controls.Y = controls.Y + dy
-  elseif ROTATING then
-    local w, h = lg.getDimensions()
-    controls.rotate.value = math.atan2(mx - w/2,  h/2 - my + 0.5)
   end
 end
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.26",
+    VERSION = "2025.01.28",
     AUTHOR = "AK Booer",
     DESCRIPTION = "star detection",
   }
@@ -14,8 +14,15 @@ local _M = {
 -- 2024.11.25  return only largest peak found in each column (thanks @Martin Meredith for test data)
 -- 2024.11.26  add pixel margin to aoid finding peaks at the image edge
 
+-- 2025.01.28  add DoG (Difference of Gaussians)
+
 
 local _log = require "logger" (_M)
+
+local moonbridge = require "shaders.moonbridge"
+
+local gaussian  = moonbridge "fastgaussianblur" 
+gaussian.setters.taps(5)            -- narrow Gaussian
 
 local newTimer  = require "utils" .newTimer
 --local buffer    = require "utils" .buffer
@@ -87,7 +94,7 @@ local function recoverCoordinates(coords, w, h)
   local xyzn = {}
   a: mapPixel(function(_,_, ...)
     local x, y, z, n = ...
-    local margin = 20       -- margin in pixels
+    local margin = 40       -- margin in pixels
     local xok = x > margin and  x < w - margin
     local yok = y > margin and  y < h - margin
     if n ~= 0 and xok and yok then
@@ -151,11 +158,13 @@ end
 --]]
 
 -- detects stars , returning array 'xyl' of {x, y, luminosity} tuples
-local function starfinder(workflow)
-  local span = workflow.controls.workflow.keystar.value
-  local channel = 0       -- use the red channel (probably monochrome input anyway)
-  local input = workflow.output       -- use the latest workflow output
-  local w,h = input: getDimensions()
+-- note that this doesn't disrupt the input workflow, 
+-- as it uses custom buffers, and reverts to original workflow output
+local function starfinder(workflow, span)
+--  local span = workflow.controls.workflow.keystar.value
+  local channel = 0       -- use the red channel (maybe just monochrome anyway)
+  
+  local w,h = workflow.output: getDimensions()
   local bw, bh = buffer1: getWidth()
   
   if bw ~= w or bh ~= h then
@@ -165,7 +174,20 @@ local function starfinder(workflow)
     buffer2 = lg.newCanvas(w, h, {dpiscale = 1, format = "r16f"})
   end
   
+  -- Difference of Gaussians...
+--  workflow: saveOutput "temp"
+--  gaussian.filter(workflow)   -- first smooth
+--  workflow: saveOutput "g1"
+--  gaussian.filter(workflow)   -- second smooth
+--  workflow: saveOutput "g2"
+  
+--  lg.setBlendMode("subtract", "premultiplied")
+--  workflow.g1: renderTo(lg.draw, workflow.g2)     -- (g1 - g2)
+--  lg.setBlendMode "alpha"
+  
   -- find local maxima in star image
+--  local input = workflow.g1       -- use the latest workflow output
+  local input = workflow.output       -- use the latest workflow output
   local elapsed = newTimer()
   buffer1: renderTo(maxchan, input,   {1 / (w - 1), 0}, span, channel)    -- w-1 because of posts and gaps counting
   buffer2: renderTo(maxchan, buffer1, {0, 1 / (h - 1)}, span)  
@@ -174,8 +196,18 @@ local function starfinder(workflow)
   -- recover coordinates of maxima
   local xyl = findPeaksUsingShader(buffer1, w, h)
   table.sort(xyl, function(a,b) return a[3] > b[3] end)
-  _log(elapsed ("%.3f ms, detected %d stars", #xyl))
-  _log("min, max = %.3f, %.3f" % {xyl[#xyl][3], xyl[1][3]})
+  local nxyl = #xyl
+  _log(elapsed ("%.3f ms, detected %d stars", nxyl))
+  if nxyl > 0 then
+    _log("min, max = %.3f, %.3f" % {xyl[#xyl][3], xyl[1][3]})
+  end
+  
+  -- revert workflow buffer
+--  workflow.output, workflow.temp = workflow.temp, workflow.output
+  
+  for i = 101, #xyl do  -- * * * * * * * *
+    xyl[i] = nil
+  end
   
   return xyl
 end

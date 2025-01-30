@@ -4,9 +4,9 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.11",
+    VERSION = "2025.01.20",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "DSO manager",
+    DESCRIPTION = "DSO database manager",
   }
 
 -- 2024.11.21  Version 0
@@ -14,13 +14,13 @@ local _M = {
 -- 2024.12.02  separate module from session
 -- 2024.12.11  add numeric RA and DEC to DSO table
 
+-- 2025.01.12  move RA and DEC formatting to GUI
+-- 2025.01.20  separate title line
+
 
 local _log = require "logger" (_M)
 
-local CSV = require "lib.csv"
-local observer        = require "observer"
-local channelOptions  = require "shaders.colour"  .channelOptions
-local gammaOptions    = require "shaders.stretcher" .gammaOptions
+local csv = require "databases.csv"
 
 local love = _G.love
 local lf = love.filesystem
@@ -28,33 +28,55 @@ local lf = love.filesystem
 
 _M.dsos = {}
 
+local function isNan(x)
+  return x ~= x
+end
+
 local function one_dp(x)
-  x = tonumber(x) or 0
+  if isNan(x) then _log "NaN" end
+  x = (not isNan(x)) and tonumber(x) or 0
   return x - x % 0.1
 end
 
--- convert decimal degrees to DDD MM SS
-local floor = math.floor
-local function deg_to_dms(deg)
-  local sign = 1
-  if deg < 0 then
-    sign = -1
-    deg = -deg
+
+
+-------------------------
+--
+-- SEARCHES
+--
+
+-- search for exact match with object name, returning object info and RA,DEC (or blanks)
+function _M.search(text)
+  if #text > 0 then 
+    local dsos = _M.dsos
+    local text = text: lower()            -- case insensitive search
+    for i = 1, #dsos do
+      local dso = dsos[i]                 -- { Name, RA, Dec, Con, OT, Mag, Diam, Other } 
+      local name = dso[1]: lower()
+      if name == text then                                      -- exact matched from the start
+        local mag = dso[6]
+        mag = (not isNan(mag)) and ("Mag " .. mag .. ' ') or ''    -- ie. not NaN
+        local object = "%s%s in %s" % {mag, dso[5], dso[4]}
+        local RA, DEC = dso[2], dso[3]
+        return object, RA, DEC
+      end
+    end
   end
-  local d, m, s
-  d = floor(deg)
-  m = 60 * (deg - d)
-  s = floor(60 * (m % 1) + 0.5)
-  m = floor(m)
-  return sign * d, m, s
+  return '', '', ''
 end
 
-function _M.load()
-  local dsos = _M.dsos
-  local names = lf.getDirectoryItems "dsos"
+-------------------------
+--
+-- LOADER
+--
+
+function _M.loader (dir)
+  local dsos = {}
+  dsos.titles = {"Name", "RA", "DEC", "Con", "OT", "Mag", "Diam", "Other"}
+  local names = lf.getDirectoryItems(dir)
   for _, filename in ipairs(names or {}) do
     if filename: match "%.csv$" then
-      local catalogue = CSV.read("dsos/" .. filename)
+      local catalogue = csv.read(dir .. filename)
       
       -- read headers
       -- Name, RA, Dec, Con, OT, Mag, Diam, Other  (but not always!)
@@ -86,24 +108,23 @@ function _M.load()
         OTHER = dso[other]
         
         dso[1] = NAME
-        dso[2] =  "%02dh %02d %02d" % {deg_to_dms(RA / 15)}
-        dso[3] = "%+02dº %02d %02d" % {deg_to_dms(DEC)}
+        dso[2] = RA
+        dso[3] = DEC
         dso[4] = CON
         dso[5] = OT
         dso[6] = one_dp(MAG)
         dso[7] = one_dp(DIAM)
         dso[8] = OTHER or ''
         
-        -- extras
-        dso[9]  = RA        -- numeric value
-        dso[10] = DEC       -- ditto
-        
         dsos[#dsos+1] = dso
       end
     end
   end
   _log ("# DSOs %d" % #dsos)
+  _M.dsos = dsos
+  return dsos
 end
+
 
 -----
 

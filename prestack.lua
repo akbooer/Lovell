@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.23",
+    VERSION = "2025.01.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -14,6 +14,8 @@ local _M = {
 -- 2024.11.17  release image when finished with it
 -- 2024.12.16  use workflow() buffers
 
+-- 2025.01.29  integrate into workflow
+
 
 local _log = require "logger" (_M)
 
@@ -22,19 +24,11 @@ local lg = love.graphics
 
 local badpixel  = require "shaders.badpixel"
 local debayer   = require "shaders.debayer"
-local workflow  = require "utils" .workflow
+local utils     = require "utils"
 
 
-local function thumbnail(image)
-  local w,h = image:getDimensions()
-  local scale = 500 / w
-  local thumb = lg.newCanvas(500, math.floor(scale * h))
-  thumb: renderTo(lg.draw, image, 0,0, 0, scale, scale)
-  return thumb
-  end
-
-
-local function prestack(img, controls)
+local function prestack(workflow, img)
+  local controls = workflow.controls
    
   local imageData = img.imageData     -- this is in R16 format
   _log "creating R16 format image"
@@ -46,14 +40,13 @@ local function prestack(img, controls)
 --  local bufferFormat = bayerpat and "rgba16f" or "r16"
   local bufferFormat = "rgba16f" 
   
-  badpixel(workflow(rawImage, controls, {format = bufferFormat, dpiscale = 1}))
-  
-  debayer(workflow {bayer = bayerpat})   -- 16-bit mono -> floating point RGB, possibly
+  workflow: newInput(rawImage, {format = bufferFormat, dpiscale = 1})
+  workflow: badpixel()
+  workflow: debayer(bayerpat)   -- 16-bit mono -> floating point RGB, possibly
   
   rawImage:  release()
   imageData: release()
-  imageData = nil
-  
+    
   return workflow
 end
 

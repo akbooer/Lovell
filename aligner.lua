@@ -4,11 +4,14 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.10.30",
+    VERSION = "2025.01.27",
     DESCRIPTION = "image alignment",
   }
 
--- 2024.10.30
+-- 2024.10.30  Version 0
+
+-- 2025.01.27  return matched point pairs for later display
+
 
 local _log, newTimer
 if love then
@@ -22,10 +25,9 @@ end
 -- nearest neighbour to each of the keystars
 -- possible that no match is found (if intensities too different)
 -- returned matches array contains pairs of INDICES of matching stars and keystars
-local function matchPairs(stars, keystars, params)
-  params = params or {}
-  local maxDist = params.maxDist or 35
-  local maxLumDiff = params.maxLumDiff or 0.1
+local function matchPairs(stars, keystars, controls)
+  local maxDist = controls.workflow.offset.value
+  local maxLumDiff = 0.1
   
   local maxDist2 = maxDist * maxDist
   local maxLumDiff2 = maxLumDiff * maxLumDiff
@@ -54,13 +56,13 @@ local function matchPairs(stars, keystars, params)
     end
   end
   
-  _log(elapsed ("%.3f ms, matched %d stars", #starIndex))
+  _log(elapsed ("%.3f ms, matched %d stars (max offset = %d)", #starIndex, maxDist))
 
 	return starIndex, keyIndex
 end
 
-local function NearestNeighbors(stars, keystars, params)
-  local starIndex, keyIndex = matchPairs(stars, keystars, params)
+local function NearestNeighbors(stars, keystars, controls)
+  local starIndex, keyIndex = matchPairs(stars, keystars, controls)
   local point_pairs = {}
   for i = 1, #starIndex do
     local star = stars[starIndex[i]]
@@ -257,25 +259,24 @@ end
 --
 --
 
-function _M.transform(stars, keystars, params)
-  params = params or {maxDist = 35, maxLumDif = 0.1}
+function _M.transform(stars, keystars, controls)
   local elapsed = newTimer()
 
-  local point_pairs = NearestNeighbors(stars, keystars, params)
+  local point_pairs = NearestNeighbors(stars, keystars, controls)
   if #point_pairs == 0 then return end
   
   local theta, x,y = point_based_matching(point_pairs)
   local degrees = theta * 180 / math.pi
   _log(elapsed("%.3f ms, transform: %.3fº  (%.1f, %.1f)", degrees, x,y))
-  return theta, x,y
+  return theta, x,y, point_pairs
 end
 
-function _M.transform2(stars, keystars)
+--function _M.transform2(stars, keystars)
   
-  do return _M.transform(stars, keystars) end   -- * * * * *
+--  do return _M.transform(stars, keystars) end   -- * * * * *
   
-  return icp(keystars, stars, 100, 35, 0.1, 0.001)
-end
+--  return icp(keystars, stars, 100, 35, 0.1, 0.001)
+--end
 
 
 

@@ -4,92 +4,81 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.16",
+    VERSION = "2025.01.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
--- 24.11.06  Version 0
--- 24.12.03  and TNR noise reduction and sharpening
+  
+-- 2024.11.06  Version 0
+-- 2024.12.03  and TNR noise reduction and sharpening
+
+-- 2025.01.25  only remove gradients if defined
+-- 2025.01.29  integrate colour and filter methods into workflow 
 
 
 local _log = require "logger" (_M)
 
-local buffer      = require "utils" .buffer
-local background  = require "shaders.background"
-local stretch     = require "shaders.stretcher"
-local filter      = require "shaders.filter"
-local colour      = require "shaders.colour"
-local stats       = require "shaders.stats"
-local moonbridge  = require "shaders.moonbridge"   -- Moonshine proxy
-local newTimer    = require "utils" .newTimer 
+local mono = {format = "r16f", dpiscale = 1}    -- Luminance buffer options
 
-local gaussian  = moonbridge "fastgaussianblur" 
-local gaussianWide  = moonbridge "fastgaussianblur" 
-local gaussianVeryWide  = moonbridge "fastgaussianblur" 
-
-gaussian.setters.taps(5)            -- narrow Gaussian
-gaussianWide.setters.taps(17)       -- wider one
---gaussianVeryWide.setters.taps(19)   -- even wider one
-
-local lum             -- luminance
-local smoothed        -- smoothed image
-local verysmoothed   -- smoothed image
-local final           -- final image
-
-
-local function poststack(stackframe, controls)
-  if not stackframe then return end
+local function poststack(frame)
+  if not frame then return end
   
-  local stack = stackframe.image
-  local workflow = stackframe.workflow
-  
-  lum = buffer(stack, lum, {format = "r16f", dpiscale = 1}, "luminance")    -- single floating-point channel
+  local workflow = frame.workflow
+  local controls = workflow.controls
 
-  -- reset workflow buffers with latest stack, and remove gradients
-  background.remove (stackframe.gradients, workflow(stack))   
---  stats.normalise(workflow())
+  -------------------------------
+  --
+  -- INITIALISE WORKFLOW, and remove gradient
+  --
+  
+  workflow: newInput(frame.image)
+  workflow: background(frame.gradients) 
+
+  -------------------------------
+  --
+  -- COLOUR WORKFLOW
+  --
    
-  local bayer = stackframe.bayer
+  local bayer = frame.bayer
   if bayer and bayer ~= "NONE" then
---    local elapsed = newTimer()
-    controls.synth = {1,1,1}    -- synthetic lum, or could be {.7,.2,.1}, etc.
-    colour.synthL(workflow)
-    workflow.saveOutput(lum)    -- fork into a monochrome buffer
-    workflow()                  -- revert to previous input buffer
+    
+    workflow: synthL {1,1,1}                    -- synthetic lum, or could be {.7,.2,.1}, etc.
+    workflow: saveOutput ("luminance" , mono)   -- fork into a monochrome buffer
+    workflow: undo()                            -- revert to previous input buffer
    
---    controls.filter = {radius = 4}
-    
---    filter.smooth(workflow)
-    gaussian.filter(workflow)        -- reduce colour noise
-    colour.scnr(workflow)   
+    workflow: gaussian(7)                       -- reduce colour noise
+    workflow: scnr()   
 
-    stats.normalise(workflow)
-    colour.rgb2hsl(workflow)
-    colour.hsl2rgb(workflow)        -- apply saturation stretch
-    
-    colour.balance_R_GB(workflow)
-    colour.selector(workflow)         -- select channel for display (LRGB, L, R, G, B)
+    workflow: normalise()
+    workflow: rgb2hsl()
+    workflow: hsl2rgb()                         -- apply saturation stretch
+    workflow: tint()                            -- R / GB balance
+    workflow: selector()                        -- select channel for display (LRGB, L, R, G, B)
+    workflow: lrgb (workflow.luminance)         -- create LRBG image
 
-    colour.lrgb(lum, workflow)      -- create LRBG image
---    _log(elapsed "%.3f ms, synthL, colour smooth, rgb/hsl")
   end
+    
+  -------------------------------
+  --
+  -- GAMMA STRETCH (of various kinds)
+  --
   
-  -- apply gamma stretch (of various kinds)
-  stats.normalise(workflow)
---  local elapsed = newTimer()
-  local gamma = (controls.gammaOptions[controls.gamma] or '?') : lower()
-  gamma = stretch[gamma] or stretch.asinh
-  gamma(workflow())
-  final = workflow.saveOutput(final)
+  workflow: normalise()
+  workflow: stretch ()
   
-  -- post-post processing, noise reduction / sharpening
-
-  gaussianWide.filter(workflow)
-  smoothed = workflow.saveOutput(smoothed)
+  -------------------------------
+  --
+  -- POST-POST PROCESSING,  noise reduction / sharpening
+  --
   
-  filter.tnr(smoothed, workflow(final))     -- noise reduction
-
-  filter.apf(smoothed, workflow)            -- sharpening
+  workflow: saveOutput "final"
+  workflow: gaussian(17)
+  workflow: saveOutput "smoothedabit"
+  workflow: gaussian(17)
+  workflow: saveOutput "smoothed"
+  workflow: newInput (workflow.final)
+  workflow: tnr(workflow.smoothed)            -- noise reduction
+  workflow: apf(workflow.smoothedabit, workflow.smoothed)            -- sharpening
     
 --  _log(elapsed "%.3f ms, stretch, gaussian smooth, noise reduction, sharpen")
   

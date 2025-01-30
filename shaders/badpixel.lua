@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.23",
+    VERSION = "2025.01.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "hot pixel removal",
   }
@@ -20,8 +20,10 @@ local _log = require "logger" (_M)
 
 local newTimer = require "utils" .newTimer
 
--- 2024.10.17  @akbooer
+-- 2024.10.17  Version 0, @akbooer
 -- 2024.12.23  use controls.workflow.badratio.value, add mono shader
+
+-- 2025.01.29  integrate into workflow
 
 
 local love = _G.love
@@ -74,7 +76,8 @@ local rgb = lg.newShader [[
   }
 ]]
 
-local function badPixelRemoval(input, output, controls)
+local function badPixelRemoval(workflow)
+  local input, output, controls = workflow()
   local elapsed = newTimer()
     
   local shader = rgb

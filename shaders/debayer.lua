@@ -1,9 +1,10 @@
 --
--- demosaic
+-- debayer
+--
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.11",
+    VERSION = "2025.01.29",
     AUTHOR = "Morgan McGuire / Rasmus Raag / AK Booer",
     DESCRIPTION = "Malvar-He-Cutler Bayer demosaic",
   }
@@ -14,6 +15,8 @@ local newTimer = require "utils" .newTimer
 
 -- 2024.09.25  @akbooer
 -- 2024.11.11  fix issue with unknown Bayer patterns
+
+-- 2025.01.29  integrate into workflow
 
 
 -- see: https://casual-effects.com/research/McGuire2009Bayer/
@@ -237,11 +240,11 @@ local pattern = {
 
 local firstRed = {0, 0};
 
-local function demosaic(input, output, params)
-  params = params or {}
+local function demosaic(workflow, bayer)
+  local input, output = workflow()
   
   local elapsed = newTimer()
-  local bayerPattern = pattern[params.bayer]
+  local bayerPattern = pattern[bayer]
   firstRed = bayerPattern or {0, 0}
   local shader = bayerPattern and debayer or nodebayer  
   
@@ -253,7 +256,7 @@ local function demosaic(input, output, params)
   output:renderTo(lg.draw, input)
   lg.setShader()
 
-  _log(elapsed("%.3f ms, %s", bayerPattern and params.bayer .. " demosaic" or "no-op (no Bayer pattern)"))
+  _log(elapsed("%.3f ms, %s", bayerPattern and bayer .. " demosaic" or "no-op (no Bayer pattern)"))
 end
 
 return demosaic

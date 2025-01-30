@@ -10,6 +10,10 @@ local _M = {
   }
 
 -- 2024.10.21  Version 0
+-- 2024.12.16  add separate field rotation BEFORE translation
+
+-- 2025.01.28  rearrange parameters to better integrate into worklfow
+
 
 local _log = require "logger" (_M)
 
@@ -48,23 +52,25 @@ local function renderToWorkflow(workflow, ...)
   output: renderTo(lg.draw, input, ...)
 end
 
-function _M.stack(stackframe, params)
-  local stack = stackframe.image
-  local workflow = stackframe.workflow
+local function stack(workflow, params)
+--  local stack = stackframe.image
+  local stack = workflow.stack
   local p = params
   local elapsed = newTimer()
   
---  lg.setColor(1,1,1)
+  -- ROTATE
+  lg.setColor(1,1,1, 1)
   lg.setShader(rotator)
---  lg.setBlendMode("alpha", "premultiplied")
---  renderToWorkflow(workflow, 0, 0, -p.theta)                           -- rotation FIRST...
-
+  lg.setBlendMode("alpha", "premultiplied")
+  renderToWorkflow(workflow, 0, 0, p.theta)
+  
+  -- TRANSLATE
   lg.setShader(stacker)                   -- merge with previous stack
   local filter = rgb_filter[p.filter: upper()] or rgb_filter.L
   stacker: send("rgb_filter", filter)  
   stacker: send("alpha", 1 / p.depth)
   lg.setBlendMode "alpha"
-  stack: renderTo(lg.draw, workflow.output, p.xshift, p.yshift)       -- ...THEN translation
+  stack: renderTo(lg.draw, workflow.output, p.xshift, p.yshift)
   lg.setShader()
  
   _log(elapsed "%.2f ms")
@@ -73,6 +79,6 @@ end
 
 -----
 
-return _M
+return stack
 
 -----

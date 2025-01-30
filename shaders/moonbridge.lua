@@ -19,7 +19,7 @@ local _M = {
     
   Usage:
     
-    local boxblur = luaglow "boxblur"           -- name of Moonshine shader
+    local boxblur = moonbridge "boxblur"           -- name of Moonshine shader
     
     boxblur.setters.radius(11)
     boxblur.draw(workflow)

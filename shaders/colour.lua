@@ -4,14 +4,17 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.09",
+    VERSION = "2025.01.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
   
--- 24.11.10  Version 0
--- 24.11.26  add colourise() to apply colour filter
--- 24.12.09  use workflow() function to acquire buffers and control parameters
+-- 2024.11.10  Version 0
+-- 2024.11.26  add colourise() to apply colour filter
+-- 2024.12.09  use workflow() function to acquire buffers and control parameters
+
+-- 2025.01.07  add selected to channelOptions
+-- 2025.01.29  integrate into workflow
 
 
 local _log = require "logger" (_M)
@@ -22,7 +25,7 @@ local love = _G.love
 local lg = love.graphics
 
 
-_M.channelOptions = {"LRGB", "Luminance", "Red", "Green", "Blue"}
+_M.channelOptions = {"LRGB", "Luminance", "Red", "Green", "Blue", default = 1}
 
 -------------------------
 
@@ -40,9 +43,8 @@ local synth = lg.newShader([[
 ]])
 
 
-function  _M.synthL(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local rgb = controls.synth
+function  _M.synthL(workflow, rgb)
+  local input, output = workflow()      -- get hold of the workflow buffers and controls
   rgb = rgb or {1.0, 1.0, 1.0}
   local sum = rgb[1] + rgb[2] + rgb[3]
   for i = 1,3 do rgb[i] = rgb[i] / sum end
@@ -91,8 +93,8 @@ local colourise = lg.newShader [[
   }
 ]]
 
-function _M.colourise(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+function _M.colourise(workflow, channel)
+  local input, output = workflow()      -- get hold of the workflow buffers and controls
   local shader = colourise
   shader: send("channel", channel)
   lg.setShader(shader) 
@@ -128,7 +130,8 @@ local rgb = {LRGB = {1,1,1}, Red = {1,0,0}, Green={0,1,0}, Blue = {0,0,1}}
 
 function _M.selector(workflow)
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local selected = controls.channelOptions[controls.channel]
+  local opts = controls.channelOptions
+  local selected = opts[opts.selected]
   local shader
   
   if selected == "Luminance" then
@@ -167,7 +170,7 @@ local rgb2hsl = lg.newShader (HSL .. [[
 ]])
 
 function _M.rgb2hsl(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  local input, output = workflow()      -- get hold of the workflow buffers and controls
   local shader = rgb2hsl
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)
@@ -212,8 +215,8 @@ local lrgb = lg.newShader ([[
     }
 ]])
 
-function _M.lrgb(luminance, workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+function _M.lrgb(workflow, luminance)
+  local input, output = workflow()      -- get hold of the workflow buffers and controls
   local shader = lrgb
   shader: send("luminance", luminance)
   lg.setShader(shader) 

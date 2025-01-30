@@ -47,6 +47,10 @@ end
 -- UPDATE / DRAW
 
 function _M.update(dt)
+  layout: reset(200,20, 10, 10)
+  
+  self: Button ("Processing Workflow", layout:col(200, 30))
+  
   layout: reset(50,100, 10, 10)
   
   reset()
@@ -71,6 +75,11 @@ function _M.update(dt)
   
   reset()
   self: Label("alignment", lalign, layout: row(W, 20))
+  down()
+  self: Label("max offset", ralign, layout: col(W, 10))
+  self: Slider(w.offset, layout: col(W, 10))
+  self: Label("%.0f" % w.offset.value, layout: col(W/3, 10))
+  
   
   reset()
   self: Label("stacking mode", lalign, layout: row(W, 20))
