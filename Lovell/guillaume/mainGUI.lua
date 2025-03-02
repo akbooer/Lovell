@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2025.01.17"
+  _M.VERSION = "2025.02.28"
   _M.DESCRIPTION = "main GÜI"
 
 local _log = require "logger" (_M)
@@ -18,6 +18,8 @@ local _log = require "logger" (_M)
 -- 2025.01.06  use Rotary SUIT widget extension for eyepiece rotation
 -- 2025.01.07  use Popup SUIT widget extension
 -- 2025.01.17  rename Popup to Dropdown, and add Popup GUI selector
+-- 2025.02.24  add double-click to invert image
+-- 2025.02.28  correct zoom and rotate origin (centre of displayed image, rather than centre of frame)
 
 
 local suit      = require "suit"
@@ -25,8 +27,10 @@ local session   = require "session"
 local snapshot  = require "snapshot"
 local utils     = require "utils"
 
-local panels    = require "guillaume.panels"
-local Oculus    = require "guillaume.objects" .Oculus
+local panels    = require "guillaume.infopanel"
+local Objects   = require "guillaume.objects"
+local Oculus    = Objects.Oculus
+local moveXY    = Objects.moveXY
 
 local love = _G.love
 local lg = love.graphics
@@ -112,7 +116,7 @@ local function build_adjustments(controls)
   controls.eyepiece.checked = toggle.selected == 1
  
   if self:Button ("Snapshot", layout:row(80, 50)) .hit then
-    snapshot.snap(panels)
+    snapshot.snap()
   end
   
   layout:col(5, 20)
@@ -120,7 +124,6 @@ local function build_adjustments(controls)
   self:Checkbox (controls.flipUD, layout:col(120, 20))
   self:Checkbox (controls.flipLR, layout:row(120, 20))
  end
-
 
 -------------
 --
@@ -149,7 +152,7 @@ function _M.update(dt)
   local rotate = controls.rotate
   if eyepiece then
     local r = Oculus.radius() + 10
-    -- rotary.changed is used to stop post-stack processing when being rotated, see session.update()
+    -- rotate.changed is used to stop post-stack processing when being rotated, see session.update()
     rotate.changed = self:Rotary (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
   end
 
@@ -179,54 +182,36 @@ end
 local final 
 
 function _M.draw()
-  
+  local W, H = lg.getDimensions()             -- screen size
   local screenImage = session.image()
-  local eyepiece = controls.eyepiece.checked
-  local flipx = controls.flipLR.checked and -1 or 1
-  local flipy = controls.flipUD.checked and -1 or 1
-  
+  local eyepiece = controls.eyepiece.checked  
   local clear = 0.12
   lg.clear(clear,clear,clear,1)
-  
-  local w, h = lg.getDimensions()             -- screen size
-  
+    
   if eyepiece then Oculus.draw() end
   
   if screenImage then
-
     final = screenImage
-    
-    local iw, ih = final:getDimensions()  -- image size
-    local scale = controls.zoom.value
-    local x, y = controls.X, controls.Y
-    local sx = scale * flipx
-    local sy = scale * flipy
-    local angle = controls.rotate.value
-  
-    local dx, dy = iw/2 , ih/2
     lg.setColor(1,1,1, 1)
-    lg.draw(screenImage, w/2 + x,  h/2 + y, angle, sx, sy, dx, dy)   
-  
+    lg.draw(screenImage, W/2,  H/2, moveXY(final))   
+    lg.setBlendMode "alpha"
   end
 
   lg.setStencilTest()  
   
---  local r,g,b,a = lg.getColor()
-  local c = 1/8
-  lg.setColor(c,c,c,0.5)
-
-  if adjustments or eyepiece then 
-    lg.rectangle("fill", 0,0, margin, h)
-  end  
-  
-  if info or eyepiece then
-    lg.rectangle("fill", w - margin, 0, margin, h)
+  do  -- add background to left and right panels if needed (ie. not showing eyepiece)
+    local c = 1/8
+    lg.setColor(c,c,c,0.5)
+    if adjustments then 
+      lg.rectangle("fill", 0,0, margin, H)
+    end    
+    if info then
+      lg.rectangle("fill", W - margin, 0, margin, H)
+    end  
+    lg.setColor(1,1,1, 1)
   end
   
---  lg.setColor(r,g,b,a)
-  lg.setColor(1,1,1, 1)
   self:draw()
---  lg.setColor(1,1,1,1)
 
 end
   
@@ -260,7 +245,6 @@ local function fit_to_margins()
 end
 
 local function one_to_one() 
-  reset_origin()
   controls.zoom.value = 1 
 end
 
@@ -288,19 +272,19 @@ local function fit_whole_image()
   controls.rotate.value = 0
 end  
 
-local keypressed =  {
+local special =  {
   
-  home      = fill_whole_screen,
+  ["home"]  = fill_whole_screen,
   ["end"]   = fit_whole_image,  
   
-  pageup    = function() controls.zoom.value = controls.zoom.value * 1.1 end,
-  pagedown  = function() controls.zoom.value = controls.zoom.value / 1.1 end,
+  ["pageup"]    = function() controls.zoom.value = controls.zoom.value * 1.1 end,
+  ["pagedown"]  = function() controls.zoom.value = controls.zoom.value / 1.1 end,
 
-  ["kp="]   = one_to_one,
-  ["kp+"]   = fill_whole_screen,
-  ["kp-"]   = fit_to_margins,
-  ["kp*"]   = rotate_to_zero,
-  ["kp/"]   = rotate_clockwise,
+  ["kp="] = one_to_one,
+  ["kp+"] = fill_whole_screen,
+  ["kp-"] = fit_to_margins,
+  ["kp*"] = rotate_to_zero,
+  ["kp/"] = rotate_clockwise,
 
   ["="]   = one_to_one,
   ["+"]   = fill_whole_screen,
@@ -313,23 +297,24 @@ local keypressed =  {
 --  down      = function() y = y + inc end,
 --  left      = function() x = x - inc end,
 --  right     = function() x = x + inc end,
+}
 
+local cmd = {
   d = function() change_mode ("database", "dso") end,
   e = function() controls.eyepiece.checked = true  end,           -- eyepiece
   l = function() controls.eyepiece.checked = false end,           -- landscape
   o = function() change_mode ("database", "observations") end,
-  p = function() change_mode "workflow" end,
+  p = function() change_mode "workflow" end,                      -- processing workflow
   s = function() change_mode "settings" end,
   t = function() change_mode ("database", "telescopes") end,
   v = function() change_mode "stack" end,                         -- view stack
-  w = function() change_mode ("database", "watchlist") end,
 
 }
 
 function _M.keypressed(key)
-  self:keypressed(key)
-  if controls.object.focus then return end   -- ignore input when over object text field
-  local action = keypressed[key]
+--  if lk.isDown "lgui" or lk.isDown "rgui" or special[key] then ... end
+  if controls.object.focus then self: keypressed(key) return end   -- ignore input when over object text field
+  local action = cmd[key] or special[key]
   if action then action() end
 end
 
@@ -341,13 +326,14 @@ end
 --
 -- Mouse
 --
-
-function _M.mousepressed(mx, my, btn)
+function _M.mousepressed(mx, my, btn, _, presses)
   local eyepiece = controls.eyepiece.checked
-  if btn ~= 1 then
-    DRAGGING = false
-   else    
-    DRAGGING = (eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)
+  local on_image = (eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)
+  DRAGGING = btn == 1 and on_image
+  -- toggle normal/inverse image
+  if presses == 2 then
+    local opt = controls.channelOptions
+    opt.selected, opt.revert = opt.selected == 3 and opt.revert or 3, opt.selected
   end
 end
 
@@ -360,8 +346,7 @@ end
 function _M.mousemoved(mx, my, dx, dy)
   mx, my = mx, my           -- not used
   if DRAGGING then
-    controls.X = controls.X + dx
-    controls.Y = controls.Y + dy
+    moveXY(final, dx, dy)
   end
 end
 

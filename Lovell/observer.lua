@@ -125,7 +125,8 @@ function _M.newSub(frame, controls)
   -- STACK, if valid alignment
   --
   
-  if theta and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 then
+  if theta and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 
+            and not frame.omit_from_stack then
 
     stack.Nstack = stack.Nstack + 1
 --    stack.totalExposure = stack.totalExposure + (stack.exposure or 0)
@@ -133,7 +134,7 @@ function _M.newSub(frame, controls)
     
     -- STACK the latest frame
     workflow: stacker {
-      filter = frame.filter,
+      filter = 'lum',       -- frame.filter, -- * * * ignore colour filters for the moment
       xshift = -xshift, 
       yshift = -yshift, 
       theta  = -theta,

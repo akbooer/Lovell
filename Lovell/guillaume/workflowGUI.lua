@@ -24,12 +24,15 @@ local w = session.controls.workflow   -- export
 
 local M = 60    -- margin
 local W = 120
+local Wcol
 
 local layout = self.layout
 
 local lalign = {align = "left"}
 local ralign = {align = "right"}
 local valign = {valign = "top"}
+
+local floor = math.floor
 
 local function reset(margin)
   M = margin or M
@@ -51,14 +54,15 @@ end
 
 -------------------------------
 --
--- Luminance / LRGB
+-- PRESTACK
 --
-  
-local function mono()
-  layout: reset(50,100, 10, 10)
+
+local function prestack()
+  M = 50
+  layout: reset(M,100, 10, 10)
   
   reset(60)
-  self: Button("Luminance", row(W, 30))
+  self: Button("Prestack", row(Wcol - 100, 30))
   down()
     
   self: Checkbox(w.badpixel, row(200, 20))
@@ -67,12 +71,28 @@ local function mono()
   self: Slider(w.badratio, col(W, 10))
   self: Label("%.1f" % w.badratio.value, col(W/3, 10))
   
---  reset()
---  self: Checkbox(w.debayer, layout: row(W, 20))
---  down()
---  self: Label("pattern", ralign, layout:col(W, 20))
---  self: Input(w.bayerpat, {id = "bayer", align = "left"}, layout:col(W, 20))
+  reset()
+  self: Checkbox(w.debayer, layout: row(W, 20))
+  down()
+  self: Label("pattern", ralign, layout:col(W, 20))
+  self: Input(w.bayerpat, {id = "bayer", align = "left"}, layout:col(W, 20))
 
+end
+  
+
+
+-------------------------------
+--
+-- STACKING
+--
+  
+local function stack()
+  M = Wcol
+  layout: reset(M, 100, 10, 10)
+  
+  reset()
+  self: Button("Stack", row(Wcol - 100, 30))
+  down()
   reset()
   self: Label("star finder", lalign, row(W, 20))
   down()
@@ -93,18 +113,10 @@ local function mono()
   self: Label("%.0f" % w.offset.value, col(W/3, 10))
   
   
-  reset()
+  reset(M)
   self: Label("stacking mode", lalign, row(W, 20))
   row(W/2, 30)
   self: Button("Average", col(W, 30))
---  reset()
---  self: Label("colour denoise", lalign, layout: row(W, 20))
-  
-  reset()
-  self: Label("denoise", lalign, row(W, 20))
-  
-  reset()
-  self: Label("sharpening", lalign, row(W, 20))
 end
 
 
@@ -113,35 +125,24 @@ end
 -- COLOUR
 --
   
-local function colour()
-  layout: reset(450,100, 10, 10)
+local function poststack()
+  M = 2 * Wcol
+  layout: reset(M,100, 10, 10)
   
-  reset(460)
-  self: Button("Colour", row(W, 30))
+  reset()
+  self: Button("Poststack", row(Wcol - 100, 30))
   down()
   
   reset()
-  self: Checkbox(w.debayer, row(W, 20))
-  down()
-  self: Label("pattern", ralign, col(W, 20))
-  self: Input(w.bayerpat, {id = "bayer", align = "left"}, col(W, 20))
+--  reset()
+--  self: Label("colour denoise", lalign, layout: row(W, 20))
   
   reset()
-  self: Label("RGB weights", lalign, row(W,20))
-  
-  self: Label("R", ralign, row())
-  self: Slider(w.Rweight, col(W, 10))
-  layout: left()
-  row()
-  self: Label("G", ralign, row())
-  self: Slider(w.Gweight, col())
-  layout: left()
-  row()
-  self: Label("B", ralign, row())
-  self: Slider(w.Bweight, col())
+  self: Label("denoise", lalign, row(W, 20))
   
   reset()
-  self: Label("colour denoise", lalign, row(W, 20))
+  self: Label("sharpening", lalign, row(W, 20))
+
 end
 
 
@@ -150,12 +151,14 @@ end
 -- UPDATE / DRAW
 
 function _M.update(dt)
+  Wcol = love.graphics.getDimensions() / 3
   layout: reset(200,20, 10, 10)
   
   self: Button ("Processing Workflow", col(200, 30))
 
-  mono()
-  colour()
+  prestack()
+  stack()
+  poststack()
   
 end
 

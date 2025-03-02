@@ -99,6 +99,7 @@ function _M.new(ctrl)
     tint        = colour.balance_R_GB,
     selector    = colour.selector,
     lrgb        = colour.lrgb,
+    invert      = colour.invert,
     
     boxblur     = filter.boxblur,
     gaussian    = filter.gaussian,

@@ -316,7 +316,7 @@ local function index(info, opt)
     r = ridx[r] or r 
     c = cidx[c] or c 
     local value = data[r][c]
-    return cfmt[c] and cfmt[c] (value) or value or ''
+    return cfmt[c] and cfmt[c] (value, r, c) or value or ''
   end
   
   return {

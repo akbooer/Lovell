@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.17",
+    VERSION = "2025.03.01",
     AUTHOR = "AK Booer",
     DESCRIPTION = "GUI objects",
   }
@@ -17,7 +17,11 @@ local _M = {
 
 -- 2025.01.06  move rotator to SUIT-able module
 -- 2025.01.17  add GUI object class methods: get() / set()
+-- 2025.02.24  add session to access controls.(sub)page
+-- 2025.03.01  add moveXY() (moved from mainGUI, and also used by snapshot)
 
+
+local session = require "session"
 
 local love = _G.love
 local lg = love.graphics
@@ -25,10 +29,10 @@ local lm = love.mouse
 
 local function noop () end
 
-local mode, submode
+local controls = session.controls
 
-function _M.set(m, s) mode, submode = m, s end
-function _M.get() return mode, submode end
+function _M.set(m, s) controls.page, controls.subpage = m, s end
+function _M.get() return controls.page, controls.subpage end
 
 
 function _M.GUIobject ()
@@ -129,6 +133,32 @@ function Oculus.draw()
   lg.setStencilTest("greater", 0)
 end
 
+-------------------------
+--
+-- transform image offset by screen coordinate increment
+--
+
+function _M.moveXY(image, dx, dy, ratio)
+  ratio = ratio or 1                          -- screen scaling for snapshot to correct for screen size
+  local x, y = controls.X, controls.Y
+  local w, h = image:getDimensions()          -- image size
+  local scale = controls.zoom.value
+  local angle = controls.rotate.value
+  local flipx = controls.flipLR.checked and -1 or 1
+  local flipy = controls.flipUD.checked and -1 or 1
+  
+  if dx then
+    dx, dy = dx / scale, dy / scale
+    local s, c = math.sin(-angle), math.cos(-angle)
+    dx, dy = dx * c - dy * s, dx * s + dy * c
+    x, y = x - dx * flipx, y - dy * flipy
+    controls.X, controls.Y = x, y
+  end
+  
+  local sx = scale * flipx * ratio
+  local sy = scale * flipy * ratio
+  return angle, sx, sy, w/2 + x, h/2 + y      -- all the parameters needed by lg.draw()
+end
 
 return _M
 

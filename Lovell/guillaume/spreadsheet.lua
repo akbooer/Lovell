@@ -77,8 +77,6 @@ end
 --
 
 local sorter = {
-  
-  -- TODO: sort using row_index
 
   text = function(dir, data, ridx, col)
     local function compare(a,b)
@@ -100,12 +98,15 @@ local sorter = {
   end,
 
   new = function(self, stype)
-    return {sorter = self[stype], reverse = false}
+    local sorter = type(stype) == "function" and stype or self[stype]   -- allow user-defined function
+    return {sorter = sorter, reverse = false}
   end,
 
 }
 
 setmetatable(sorter, {__call = sorter.new})
+
+_M.sorter = sorter      -- make available externally
 
 -------------------------
 --
@@ -154,12 +155,15 @@ local filter = {
   end,
 
   new = function(self, ftype)
-    return {filter = self[ftype], text = ''}
+    local filter = type(ftype) == "function" and ftype or self[ftype]   -- allow user-defined function
+    return {filter = filter, text = ''}
   end
 
 }
 
 setmetatable(filter, {__call = filter.new})
+
+_M.filter = filter      -- make available externally
 
 -------------------------
 --
@@ -217,7 +221,7 @@ function _M.new(self, cat, x,y, w,h)
   for i, col in nextCol(cat) do
     local sort = col.sort
     local x,y, w,h = layout:col(col.w or Wdefault, 25)
-    if self: Button(col[1], x,y, w,h) .hit and sort then
+    if self: Button(col.label or col[1], x,y, w,h) .hit and sort then
         sort.sorter(sort.reverse, data, cat.sort_index, i) 
         sort.reverse = not sort.reverse   -- swap direction for next time
         sorted = true
@@ -274,10 +278,10 @@ function _M.new(self, cat, x,y, w,h)
   --
   
 --  if sorted or filtered or not cat.grid then
-  if filtered or sorted or not cat.grid then
+  if filtered or sorted or cat.filter or not cat.grid then
     reset_row_index(cat)
     cat.grid = {data = data, scroll = {value = 1}}  -- set scroll bar back to top
-    -- TODO: clear selection
+    -- TODO: clear selection?
     for i, col in nextCol(cat) do
       local filt = col.filter
       if filt then

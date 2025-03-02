@@ -94,7 +94,7 @@ function love.directorydropped(path)
   else
     _log "mount failed" 
   end
---  session.new(folder)
+  session.new(folder)
   newWatchFolder: push(path)      -- tell the watcher we're looking somewhere else
 end
 
@@ -122,8 +122,6 @@ function love.load(arg)
   lf.createDirectory "settings"    -- ditto, for sundry settings
   lf.createDirectory "sessions"
   lf.createDirectory "masters"
-
-  session.init()
   
 --[[
   local info = {

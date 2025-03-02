@@ -5,7 +5,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.11",
+    VERSION = "2025.03.01",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -15,7 +15,8 @@ local _M = {
 -- 2024.11.18  improve error checkking
 -- 2024.11.29  read() now takes an opened file object, rather than a filename
 -- 2024.12.08  move readImageData() here from watcher.lua (for calibration use by masters.lua)
--- 2024.12.11  used "ByteData" format for FITS data read (much faster than "String" type)
+
+-- 2025.03.01  readImageData() now takes an opened file object (file system agnostic)
 
 
 local _log = require "logger" (_M)
@@ -24,16 +25,15 @@ local _log = require "logger" (_M)
 local ffi = require "ffi"
 local newTimer = require "utils" .newTimer
 
-local love = _G.love
 local li = require "love.image"
 
---local fits = require "lib.fits"
---local json = require "lib.json"
-
---
--- see: https://fits.gsfc.nasa.gov/fits_primer.html
+-- these read routines are called with an open file handle, to remain file system agnostic...
+-- ...usable by both love.filesystem.open() and Lua's native io.open()
+-- As such, the file handle should be closed by the caller after these routines return
 
 --[[
+    
+  see: https://fits.gsfc.nasa.gov/fits_primer.html
 
   Every HDU consists of an ASCII formatted `Header Unit' followed by an optional `Data Unit'. 
   Each header or data unit is a multiple of 2880 bytes long (36 x 80). If necessary, the header or data unit 
@@ -146,8 +146,7 @@ function _M.read(file)
   local k, h = _M.readHeaderUnit(file)
   local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2, k.NAXIS3 or 1
   local size = naxis1 * naxis2 * naxis3 * bitpix/8
-  local data, n = file: read("data", size)      -- "ByteData" format
-  file: close()  
+  local data, n = file: read(size)      -- "string" format
 
   assert(n == size, "failed to read complete file")
   return data, k, h
@@ -162,25 +161,14 @@ end
 -- return imageData format
 --
 
-function _M.readImageData(path)
+function _M.readImageData(file)
   local elapsed = newTimer()
-  
-  local file, errorstr = love.filesystem.newFile( path, 'r' )
-  if not file then 
-    _log(errorstr)  -- error on file open
-    return
-  end
-  
   local ok, data, k, h = pcall(_M.read, file)
-  if not ok then 
---    _log("ERROR on read : " ..(data or '?'))
-    return
-  end
+  if not ok then return end       -- fail silently
   
   local naxis1, naxis2= k["NAXIS1"], k["NAXIS2"]
   local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
-  data: release()
-  data = nil
+  
   if not ok2 then
     _log("ERROR on imageData : " ..(imageData or '?'))
     return

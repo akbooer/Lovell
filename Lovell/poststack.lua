@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.02.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
@@ -14,6 +14,7 @@ local _M = {
 
 -- 2025.01.25  only remove gradients if defined
 -- 2025.01.29  integrate colour and filter methods into workflow 
+-- 2025.02.24  added invert() option in workflow
 
 
 local _log = require "logger" (_M)
@@ -49,7 +50,6 @@ local function poststack(frame)
     workflow: undo()                            -- revert to previous input buffer
    
     workflow: gaussian(1)                       -- reduce colour noise
-    workflow: boxblur()                       -- reduce colour noise
     workflow: scnr()                            -- Subtractive Chromatic Noise Reduction
 
     workflow: normalise()
@@ -60,7 +60,7 @@ local function poststack(frame)
     workflow: lrgb (workflow.mono)              -- create LRBG image
 
   end
-    
+  
   -------------------------------
   --
   -- GAMMA STRETCH (of various kinds)
@@ -83,7 +83,7 @@ local function poststack(frame)
   workflow: tnr(workflow.smoothed)                              -- noise reduction
   workflow: apf(workflow.smoothedabit, workflow.smoothed)       -- sharpening
     
---  _log(elapsed "%.3f ms, stretch, gaussian smooth, noise reduction, sharpen")
+  workflow: invert()   -- ...if selected  
   
   return workflow.output      -- just return the workflow result
 end

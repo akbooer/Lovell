@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.01.26",
+  VERSION = "2025.03.02",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
@@ -33,15 +33,16 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 
 -- 2025.01.05  limit idle cycles (dramatically reduce CPU usage for this thread)
 -- 2025.01.26  remove sub numbering, use 'newfolder' flag instead
+-- 2025.03.02  move reader to new iframe module
 
 
 local _log = require "logger" (_M)
 
+local iframe  = require "iframe"        -- Lövell image frame
+local json    = require "lib.json"
+
 local lf = require "love.filesystem"
 local lt = require "love.timer"
-
-local fits = require "lib.fits"
-local json = require "lib.json"
 
 local IDLE = 1 / 10   -- limit idle cycles to ten per second
 
@@ -53,58 +54,6 @@ local mountpoint = "watched/"
 
 local empty = _G.READONLY {}
 
-------------------------
---
--- metadata reader - read it if it's there in the dropped folder
---
-local function readMetadata(filename)
-  local metadata = json.read(mountpoint .. filename)  
-  if metadata then
-    metadata.name = metadata.Name        -- some confusion over naming styles!
-  end
-  return metadata
-end
-
------
-
--- analyse file name for sub type and filter
-local scan_name do
-  local subtype = " dark bias flat dark light "
-  local filter  = " red green blue lum spec l ha oiii sii r g b h o s  "
-  local FILTERMAP = {green='G', red='R', blue='B', ha='H', oiii='O', sii='S', lum='L'}
-
-  function scan_name(name)
-    name = name: lower()
-    local subt, filt
-    for word in name: gmatch "%a+" do
-      local pattern = "%s(" .. word .. ")%s"    -- math isolated words
-      subt = subt or subtype: match(pattern)
-      filt = filt or filter:  match(pattern)
-    end
-    return subt or "light", FILTERMAP[filt] or filt or 'L'
-  end
-end
-
--- handle a variety of date formats
-local function parse_date(datetime)
-  local epoch
-  local y, m, d, H, M
-  if type(datetime)  == "string" then
-    y,m,d, H, M = datetime: match "(%d+)%D(%d%d)%D(%d%d)%D+(%d%d)%D?(%d%d)"   -- (YY)YY-MM-DD
-    if y then
-      y = (#y == 2) and ("20" .. y) or y
-      datetime = os.time {year = y, month = m, day = d, hour=H, min=M, isdst = false}
-    end
-  end
-  if type(datetime) == "number" then
-    epoch = datetime
-    datetime = os.date("%d-%b-%Y  %H:%M", datetime): gsub("^0", '')      -- Coordinated Universal Time
-  else
-    datetime = ''
-  end
-  return datetime, epoch    -- string representation, and epoch
-end
-
 -- sanity check on file directories...
 do
   _log ("USER: " .. lf.getUserDirectory())
@@ -112,6 +61,20 @@ do
   _log ("SAVE: " .. lf.getSaveDirectory())
   _log ("SRC:  " .. lf.getSource())
   _log ("WORK: " .. lf.getWorkingDirectory())
+end
+
+
+------------------------
+--
+-- METADATA, for Jocular or Canisp files - read it if it's there in the dropped folder
+--
+
+local function readMetadata(filename)
+  local metadata = json.read(mountpoint .. filename)  
+  if metadata then
+    metadata.name = metadata.Name        -- some confusion over naming styles!
+  end
+  return metadata
 end
 
 
@@ -127,7 +90,7 @@ local wakeup = 0
 
 repeat
   
-  lt.sleep(IDLE)       -- 2025.01.05  limit idle cycles 
+  lt.sleep(IDLE)       -- 2025.01.05  throttle idle cycles 
 
   ------------------------
   --
@@ -144,8 +107,8 @@ repeat
     newFITSfile: clear()    -- ...and the pipeline
     wakeup = 0              -- reset wakeup time
     
-    metadata = readMetadata "info3.json" 
-            or readMetadata "metadata.json" 
+    metadata = readMetadata "info3.json"      -- Jocular
+            or readMetadata "metadata.json"   -- Canisp
             or empty
   end
 
@@ -160,7 +123,6 @@ repeat
     local dir = lf.getDirectoryItems (mountpoint)
 --    table.sort(dir)
     
-
     ------------------------
     --
     --  READ NEW FILES
@@ -170,10 +132,11 @@ repeat
     for _, file in ipairs(dir) do
       if file: match "%.fits?$" and not files[file] then
         files[file] = true
-        local path = mountpoint .. file
-        _log("new file read - " .. file)
-        local imageData, keywords, headers = fits.readImageData (path)
-        if not imageData then
+        local frame = iframe.read(folder, file, mountpoint)
+--        if f then
+--          imageData, keywords, headers = fits.readImageData (f)
+--        end
+        if not frame then
           retries = retries + 1
           if retries < 10 then
             files[file] = false         -- mark as not read and try again later         
@@ -184,50 +147,20 @@ repeat
           end
           break 
         end
-        local k = keywords
-        local subtype, filter = scan_name(file)
         
-        local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
-        local modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
-        local datestring, epoch = parse_date(datetime or modtime)
-        
-        ------------------------
-        --
-        --  create new IMAGE FRAME
-        --
-        
-        local frame = {
-          name = file,                  -- file name
-          folder = folder,              -- file path
-          first = first,          -- start of new stack sequence
-          
---          subNumber = subNumber,
-          imageData = imageData,        -- for conversion to image
-          headers = headers,            -- raw FITS file headers
-          keywords = keywords,          -- extracted from headers
-          
-          subtype = subtype,            -- bias, dark, light, flat, etc...
-          filter = 'lum',  -- filter,              -- lum, red, green, blue, etc... * * * *
+        -- add extra metadata, if present
+        frame.telescope = metadata.telescope
+        frame.object = metadata.name
 
-          exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) * 1e-6,
-          bayer = k.BAYERPAT, 
-          temperature = k.TEMPERAT or k["SET-TEMP"] or k["SET_TEMP"] or k["CCD-TEMP"],
-          date = datestring,
-          epoch = epoch,
-          gain = k.GAIN or k.EGAIN,
-          creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
-          camera = k.INSTRUME,
-          
-          -- add extra metadata, if present
-          telescope = metadata.telescope,
-          object = metadata.name,
-        }
-        
+        -- flag start of new stack sequence
+        frame.first = first
         first = false
+        
         newFITSfile: push(frame)
       end
     end
   end
+  
 until false
 
 -----

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.02.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
@@ -15,6 +15,7 @@ local _M = {
 
 -- 2025.01.07  add selected to channelOptions
 -- 2025.01.29  integrate into workflow
+-- 2025.02.24  add invert()
 
 
 local _log = require "logger" (_M)
@@ -25,7 +26,7 @@ local love = _G.love
 local lg = love.graphics
 
 
-_M.channelOptions = {"LRGB", "Luminance", "Red", "Green", "Blue", default = 1}
+_M.channelOptions = {"LRGB", "Luminance", "Inverted", "Red", "Green", "Blue", default = 1}
 
 -------------------------
 
@@ -137,7 +138,7 @@ function _M.selector(workflow)
   else
     shader = selector
     local selection = rgb[selected] or {1, 1, 1}
-    selector: send("channelMask", selection)
+    shader: send("channelMask", selection)
   end
     
   lg.setShader(shader) 
@@ -222,6 +223,30 @@ function _M.lrgb(workflow, luminance)
   lg.setShader()
   return output
 end
+
+-------------------------
+
+local invert = lg.newShader (HSL .. [[
+    
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+      vec3 rgb = Texel(texture, texture_coords) .rgb;
+      float l = 1.0 - dot(rgb, vec3(1.0/3.0));
+      return vec4(vec3(l), 1.0);
+    }
+]])
+
+function _M.invert(workflow)
+  local opts = workflow.controls.channelOptions
+  if opts[opts.selected] ~= "Inverted" then return end
+  local input, output = workflow()      -- get hold of the workflow buffers
+  local shader = invert
+  lg.setShader(shader) 
+  output:renderTo(lg.draw, input)
+  lg.setShader()
+  return output
+end
+
+
 -------------------------
 
 local balance_R_GB = lg.newShader [[

@@ -1,15 +1,17 @@
 --
--- panels.lua
+-- infopanel.lua
 --
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.21",
+    VERSION = "2025.02.24",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "panels for display and snapshots",
+    DESCRIPTION = "info panel for display",
   }
 
 -- 2024.12.19  Version 0, extracted from mainGUI
+
+-- 2025.02.24  move formatting functions to utils module
 
 
 local _log = require "logger" (_M)
@@ -21,13 +23,13 @@ local GUIobjects  = require "guillaume.objects"
 local utils       = require "utils"
 
 local suit = require "suit"
+local self = suit.new()     -- make a new SUIT instance for ourselves
 
 local getDimensions = require "utils" .getDimensions
 
 local Oculus = GUIobjects.Oculus
 
 local love = _G.love
-local lm = love.mouse
 
 local margin = 220          -- margin width for left- and right-hand panels
 local Wcol = margin/2 - 30  -- column width for narrower fields
@@ -35,8 +37,11 @@ local Wcol = margin/2 - 30  -- column width for narrower fields
 _M.width = margin
 
 
-local formatRA  = utils.formatRA
-local formatDEC = utils.formatDEC
+local formatRA          = utils.formatRA
+local formatDEC         = utils.formatDEC
+local formatDegrees     = utils.formatDegrees
+local formatAngle       = utils.formatAngle
+--local formatArcMinutes  = utils.formatArcMinutes
 
 local colour = suit.theme.color.text
 
@@ -45,19 +50,6 @@ local Loptions = {align = "left",  color = {normal = {fg = colour}}}      -- fix
 local Woptions = {align = "left"}                                         -- white text                        
 local Toptions = {align = "left", valign = "top"}                         -- top
 local Moptions = {align = "left", valign = "middle", color = {normal = {fg = colour}}}
-
--- return degrees / minutes / seconds of input angle (in arc seconds)
-local function format_angle(x)
-  local hhmm = os.date([[!%Hº %M']], x + 30)    -- round to nearest minute
-  hhmm = hhmm: gsub("0(%d)", "%1")              -- remove leading zeros
-  return hhmm
-end
-
--- return degrees given radians
-local function degrees(x)
-  return "%dº" % (x * 180 / math.pi + 0.5)
-end
-
 
 -------------------------
 --
@@ -76,7 +68,7 @@ function _M.update(self, screen)
   if obj.previous ~= obj.text then
     obj.previous = obj.text
     local _ = databases.dsos.DB        -- ensure database is loaded
-    obj.OBJ, obj.RA, obj.DEC = databases.dsos.search(obj.text)  
+    obj.OBJ, obj.RA, obj.DEC, obj.DIA = databases.dsos.search(obj.text)  
   end
 
   local w, h = getDimensions(screen)
@@ -89,7 +81,10 @@ function _M.update(self, screen)
   
   controls.object.focus =   -- add attribute to allow inspection elsewhere
     self:Input(controls.object, Ioptions, layout:row(margin - 20, 30)) .hovered
+  
   self:Label("object", Loptions, layout:row(margin, 10))
+
+--  local diam = obj.DIA and ", Ø" .. formatArcMinutes(obj.DIA) or ''
   self:Label(obj.OBJ or '', Woptions, layout:row(margin, 15))
   
   self:Label("RA", Loptions, layout:row(Wcol, 10))
@@ -131,7 +126,7 @@ function _M.update(self, screen)
   
   local pixel = tonumber(controls.pixelsize.text) or 0
   local focal = tonumber(controls.focal_len.text) or 0
-  local angle = degrees(controls.rotate.value or 0)
+  local angle = formatDegrees(controls.rotate.value or 0)
   if focal > 0 and pixel > 0 then
     local arcsize = 36 * 18 / math.pi * pixel / focal     -- camera pixel size in arc seconds (assume square)
     arcsize = arcsize / controls.zoom.value                -- screen pixel size
@@ -141,9 +136,9 @@ function _M.update(self, screen)
     layout: left()
     local fov
     if eyepiece then
-      fov = format_angle(arcsize * radius * 2)
+      fov = formatAngle(arcsize * radius * 2)
     else
-      fov = table.concat({format_angle(w * arcsize), format_angle(h * arcsize)}, " x\n")
+      fov = table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n")
     end
     self: Label(fov, Woptions, layout:row(Wcol, 15))
     self: Label(angle, Woptions, layout:col(Wcol, 15))

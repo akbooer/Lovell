@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.19",
+    VERSION = "2025.02.27",
     AUTHOR = "AK Booer",
     DESCRIPTION = "DSO database manager",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.01.12  move RA and DEC formatting to GUI
 -- 2025.01.20  separate title line
 -- 2025.02.15  ensure Mag and Diam are numeric
+-- 2025.02.27  add diameter to search returned values
 
 
 local _log = require "logger" (_M)
@@ -47,6 +48,7 @@ end
 
 -- search for exact match with object name, returning object info and RA,DEC (or blanks)
 function _M.search(text)
+  if #_M.dsos == 0 then _M.load() end
   if #text > 0 then 
     local dsos = _M.dsos
     local text = text: lower()            -- case insensitive search
@@ -55,14 +57,15 @@ function _M.search(text)
       local name = dso[1]: lower()
       if name == text then                                      -- exact matched from the start
         local mag = dso[6]
+        local diam = dso[7]
         mag = (not isNan(mag)) and ("Mag " .. mag .. ' ') or ''    -- ie. not NaN
         local object = "%s%s in %s" % {mag, dso[5], dso[4]}
         local RA, DEC = dso[2], dso[3]
-        return object, RA, DEC
+        return object, RA, DEC, diam
       end
     end
   end
-  return '', '', ''
+  return '', '', '', ''
 end
 
 -------------------------
@@ -70,7 +73,8 @@ end
 -- LOADER
 --
 
-function _M.loader (dir)
+function _M.load (dir)
+  dir = dir or "dsos/"
   local dsos = {}
   dsos.titles = {"Name", "RA", "DEC", "Con", "OT", "Mag", "Diam", "Other"}
   local names = lf.getDirectoryItems(dir)

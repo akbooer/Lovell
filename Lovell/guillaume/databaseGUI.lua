@@ -22,11 +22,10 @@ local lg = love.graphics
 
 local suit = require "suit"
 
+local obslist     = require "observinglist"
 local databases   = require "databases"
-local session     = require "session"
 local spreadsheet = require "guillaume.spreadsheet"
 
-local obslist = require "obslist"
 
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
@@ -40,7 +39,7 @@ local Loptions = {align = "left"}
 -- UPDATE / DRAW
 --
 
-local DBnames = {"DSO", "Observations", "Watch list", "Calibration", "Telescopes"}
+local DBnames = {"DSO", "Observations", "Calibration", "Telescopes"}
 
 local function trim(x) return (x or '') : lower() : gsub(' ','') end
 
@@ -53,7 +52,6 @@ local catalog = {   -- databases
   
     obslist,
     databases.observations,   
-    databases.watchlist,
     databases.calibration,    -- Masters
     databases.telescopes,     -- Telescopes 
   }
@@ -79,13 +77,13 @@ function _M.update()
   
   local cat = catalog[i]
   
-  local db = cat.DB            -- ensure database is loaded
+  cat.DB = cat.DB or cat.load()          -- ensure database is loaded
 
-  self: Label("%d of %d " % {cat.row_index and cat.row_index.n or 0, #db}, Loptions, col(155, 30))
+  self: Label("%d of %d " % {cat.row_index and cat.row_index.n or 0, #cat.DB}, Loptions, col(155, 30))
  
   spreadsheet(self, cat, 10, 70, w,h)  
  
-  if cat.update then cat.update(self, session.controls, databases.watchlist) end
+  if cat.update then cat.update(self) end
   
 end
 

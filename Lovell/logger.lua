@@ -68,7 +68,7 @@ local function log(...)
 end
 
 local function banner(about)
-  local name = "%12s: " % ((about.NAME or ''): match "%w+$" or '?')
+  local name = "%14s: " % ((about.NAME or ''): match "%w+$" or '?')
   local info = "version %s  %s" % {about.VERSION or '?', about.DESCRIPTION or ''}
   log(name, info)
   return name

@@ -64,10 +64,11 @@ _M.julian_date = julian_date
 
 local function to_range(x, d)
   -- reduce x to range 0-d by adding or subtracting multiples of d
-  if x < 0 then
-    return x - int((x / d) - 1) * d
-  end
-  return x - int((x / d)) * d
+  return x % d
+--  if x < 0 then
+--    return x - int((x / d) - 1) * d
+--  end
+--  return x - int((x / d)) * d
 end
 
 function _M.local_sidereal_time(when, longitude)

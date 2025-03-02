@@ -47,12 +47,12 @@ local function prestack(workflow, img)
   rawImage:  release()
   imageData: release()
 
---  workflow: saveOutput "temp"
---  workflow: gaussian(1)
---  workflow: saveOutput "temp2"
---  workflow: newInput(workflow.temp)
---  workflow: normalise(workflow.temp2)
---  workflow: normalise()
+  workflow: saveOutput "temp"
+  workflow: gaussian(1)
+  workflow: saveOutput "temp2"
+  workflow: newInput(workflow.temp)
+  workflow: normalise(workflow.temp2)
+  workflow: normalise()
 end
 
 

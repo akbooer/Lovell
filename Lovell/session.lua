@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.19",
+    VERSION = "2025.02.21",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -15,6 +15,7 @@ local _M = {
 -- 2024.12.08  correct object metadata handling
 
 -- 2025.02.18  add lat, long, sun_time
+-- 2025.02.21  initialise on load, remove load() function
 
 
 local _log = require "logger" (_M)
@@ -26,7 +27,6 @@ local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
 local databases       = require "databases"
-local settings        = require "databases.settings"
 
 local focal_length    = databases.telescopes.focal_length
 
@@ -43,6 +43,10 @@ local newFITSfile = love.thread.getChannel "newFITSfile"
 --
 
 local controls = {    -- most of these are SUIT widgets
+    
+    -- display page modes
+    page = "main",
+    subpage = '',
     
     -- adjustments panel
     
@@ -63,8 +67,9 @@ local controls = {    -- most of these are SUIT widgets
     sharpen = {default = 0},
     
     -- screen appearance
-    X = 0,
+    X = 0,    -- these offsets are in the image coordinate system (not the screen)
     Y = 0,
+    
     zoom      = {default = 0.3, value = 0.3, max = 3},
     rotate    = {default = 0, value = 0, min = -360, max = 360},
     flipUD    = {checked = false, text = "flip U/D"},
@@ -90,9 +95,9 @@ local controls = {    -- most of these are SUIT widgets
     -- settings file
     
     settings = {
-        signature = {text = "made with Löve(ll)"},
-        latitude  = {text = '51.5'},      -- defaults are approximation to Greenwich
-        longitude = {text = '0'},
+        signature = {text = "made with Lövell"},
+        latitude  = {text = '51.5'},      -- defaults are approximation to Greenwich...
+        longitude = {text = '0'},         -- it's actually on the O2 arena
       },
     
     -- workflow
@@ -119,6 +124,13 @@ local controls = {    -- most of these are SUIT widgets
     
     anyChanges = function() end -- replaced in mainGUI by suit.anyActive()
   }
+
+do -- inititalise from saved settings
+  local s = controls.settings
+  local f = (json.read "settings.json") or controls.settings   -- use defaults if file read fails
+  for n,v in pairs(f) do s[n] = v end
+  _log "settings loaded"
+end
 
 -- set a control to a given value, or its default, or its current value
 function controls.set(name, value)
@@ -165,7 +177,7 @@ local stack
 local screenImage
 
 local function sessionID(epoch)
-  return os.date("%Y%m%d", epoch)
+  return os.date("%Y%m%d", epoch)   -- YYYYMMDD
 end
 
 -- reset session info
@@ -203,7 +215,7 @@ local function saveSession(stack)
   if not stack then return end
   local obsID, path, info = getInfo(stack)
   
-  -- unpdate metadata from controls
+  -- update metadata from controls
   info.session.notes = non_blank(controls.ses_notes.text)
   local obs = info.observations[obsID or '']
   obs.object = non_blank(controls.object.text)
@@ -211,6 +223,10 @@ local function saveSession(stack)
   obs.notes = non_blank(controls.obs_notes.text)
   obs.flipUD = controls.flipUD.checked or nil
   obs.flipLR = controls.flipLR.checked or nil
+  obs.time = os.date("%H:%M", stack.epoch)
+  obs.frames = stack.subs and #stack.subs or 0
+  obs.exposure = stack.subs and stack.exposure / #stack.subs or 0   -- AVERAGE exposure per sub (seconds)
+  obs.size = "%dx%d" % {stack.image: getDimensions()}
   obs.rotate = controls.rotate.value ~= 0 and controls.rotate.value or nil
   obs.telescope = non_blank(controls.telescope.text)
   info.observations[obsID] = obs
@@ -224,7 +240,7 @@ end
 
 
 local function loadSession(stack)
-
+  
   if not stack then return end
 
   local obsID, path, info = getInfo(stack)
@@ -264,6 +280,10 @@ end
 
 -------------------------------
 
+function _M.new()
+  
+end
+
 -- start a new observation, by saving metadata from the old one
 local function newObservation()
   saveSession(stack)
@@ -277,6 +297,9 @@ end
 function _M.update()
   
   local frame = newFITSfile: pop()
+  
+  -- if a new frame arrives, then stack it
+  
   if frame then
     
     if frame.first then newObservation() end
@@ -290,19 +313,20 @@ function _M.update()
     end
   end
 
-  if frame or (controls.anyChanges() and not controls.rotate.changed) then
-    screenImage = observer.reprocess(stack)
+  -- if new frame, or we're looking at the main display and things have changed, then apply latest processing
+  
+  if frame 
+    or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed) then
+      screenImage = observer.reprocess(stack)   -- poststack processing
   end
 
 end
 
-function _M.init()
-  settings.load(controls)
-end
 
 function _M.close()
   saveSession(stack)
-  settings.save(controls)
+  json.write("settings.json", controls.settings)
+  _log "settings saved"
   _log "closed"
 end
 
