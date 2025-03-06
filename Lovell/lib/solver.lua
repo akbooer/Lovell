@@ -11,31 +11,20 @@ getmetatable(matrix {}).__concat = function(self, mat) return self:concath(mat) 
     
 local _M = {}
 
--- fitXYZ ( x_values, y_values, z_values )
--- fit a plane
--- x_values = { x1,x2,x3,...,xn }
--- y_values = { y1,y2,y3,...,yn }
--- model (  z = a + b * x + c * y )
--- returns a, b, c
-function _M.fitXYZ( x, y, z )
-	
-	local A, Z = {}, {}
-	for i = 1, #x do
-		A[i] = { 1, x[i], y[i] }
-		Z[i] = { z[i] }
-	end
 
+-- solve Ax = b
+function _M.solve(A, b)
 	A = matrix(A)
-	Z = matrix(Z)
+	b = matrix(b)
 
   local AT = A ^ T
   local ATA = AT * A
-  local ATZ = AT * Z
-  local ATAATZ = ATA .. ATZ
+  local ATb = AT * b
+  local ATAATb = ATA .. ATb
  
- 	ATAATZ: dogauss()             -- Gauss-Jordan Method, result is in last column
+ 	ATAATb: dogauss()             -- Gauss-Jordan Method, result is in last column
 
-  local abc = ATAATZ ^ T
+  local abc = ATAATb ^ T
   return unpack( abc[#abc] )    -- result is in last row
 
 end 

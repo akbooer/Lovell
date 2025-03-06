@@ -77,6 +77,12 @@ local function readMetadata(filename)
   return metadata
 end
 
+local function dir(folder)
+  local p = io.popen ("ls '" .. folder .. "/'")
+  local files = p: read "*a"
+  p: close()
+  return files
+end
 
 ------------------------
 --
@@ -133,9 +139,6 @@ repeat
       if file: match "%.fits?$" and not files[file] then
         files[file] = true
         local frame = iframe.read(folder, file, mountpoint)
---        if f then
---          imageData, keywords, headers = fits.readImageData (f)
---        end
         if not frame then
           retries = retries + 1
           if retries < 10 then

@@ -143,7 +143,7 @@ function _M.moveXY(image, dx, dy, ratio)
   local x, y = controls.X, controls.Y
   local w, h = image:getDimensions()          -- image size
   local scale = controls.zoom.value
-  local angle = controls.rotate.value
+  local angle = tonumber(controls.rotate.value) or 0
   local flipx = controls.flipLR.checked and -1 or 1
   local flipy = controls.flipUD.checked and -1 or 1
   
@@ -157,6 +157,7 @@ function _M.moveXY(image, dx, dy, ratio)
   
   local sx = scale * flipx * ratio
   local sy = scale * flipy * ratio
+  
   return angle, sx, sy, w/2 + x, h/2 + y      -- all the parameters needed by lg.draw()
 end
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.03.03",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -16,6 +16,7 @@ local _M = {
 -- 2024.12.16  use workflow() buffers
 
 -- 2025.01.29  integrate into workflow
+-- 2025.03.03  move fitXYZ() here and use general solver.solve() for A x = b
 
 
 local _log = require "logger" (_M)
@@ -111,6 +112,22 @@ local Nsamples = 512
 local mini = lg.newCanvas(100, 100, {format = "rgba16f", dpiscale = 1})  -- tiny canvas to sample the much bigger image
 
 
+-- fitXYZ ( x_values, y_values, z_values )
+-- fit a plane
+-- x_values = { x1,x2,x3,...,xn }
+-- y_values = { y1,y2,y3,...,yn }
+-- model (  z = a + b * x + c * y )
+-- returns a, b, c
+local function fitXYZ( x, y, z )
+	
+	local A, b = {}, {}
+	for i = 1, #x do
+		A[i] = { 1, x[i], y[i] }
+		b[i] = { z[i] }
+	end
+  return solver.solve(A, b)
+end
+
 -- solve input image gradients
 function _M.solve(input)
   local elapsed = newTimer()
@@ -130,10 +147,10 @@ function _M.solve(input)
   local bx, by, bz = 0, 0, 0
   
   local gradients
-  if #x > minPoints then                  -- solve for planar background in RGB
-    rz, rx, ry = solver.fitXYZ(x, y, r)   -- note transposition re. solution order
-    gz, gx, gy = solver.fitXYZ(x, y, g)
-    bz, bx, by = solver.fitXYZ(x, y, b)
+  if #x > minPoints then           -- solve for planar background in RGB
+    rz, rx, ry = fitXYZ(x, y, r)   -- note transposition re. solution order
+    gz, gx, gy = fitXYZ(x, y, g)
+    bz, bx, by = fitXYZ(x, y, b)
     gradients = {
         Offset = {rz , gz , bz},
         Xslope = {rx, gx, bx},

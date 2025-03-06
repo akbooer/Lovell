@@ -20,10 +20,6 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-local moonbridge = require "shaders.moonbridge"
-
-local gaussian  = moonbridge "fastgaussianblur" 
-gaussian.setters.taps(5)            -- narrow Gaussian
 
 local newTimer  = require "utils" .newTimer
 
@@ -115,7 +111,8 @@ local finder = lg.newShader [[
       float y = i / h;
       float a = Texel(maxima, vec2(tc.x, y)) .r;
 //      bool ok = a > 0.01 && a < 1.0  && a > xyzn.a;
-      bool ok = a > xyzn.a && a > 0.01;                     // select the biggest peak
+//      bool ok = a > xyzn.a && a > 0.01;                     // select the biggest peak
+      bool ok = a > xyzn.a && a > 0.0;                      // select the biggest peak
       xyzn = ok ? vec4(sc.x + 1.0, i + 1.0, a, n + 1.0) : xyzn;
       n = xyzn.a;
     }
@@ -170,14 +167,14 @@ local function starfinder(workflow, span)
   local w,h = workflow: getDimensions()
   
   if w ~= oneD: getWidth() then
-    oneD    = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
+    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
   end
   
   -- Difference of Gaussians...
   workflow: saveOutput "temp"
-  workflow: gaussian(4)             -- first smooth (g1)
+  workflow: gaussian(2)             -- first smooth (g1)
   workflow: saveOutput "temp1"
-  workflow: gaussian(4)             -- second smooth (g2)
+  workflow: gaussian(2)             -- second smooth (g2)
   workflow: saveOutput "temp2"
   
   lg.setBlendMode("subtract", "premultiplied")

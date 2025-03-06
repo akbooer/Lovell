@@ -1,7 +1,7 @@
 --
 --  observinglist.lua
 --
---  translated nearly directly from Jocular's calcs.py
+--  translated nearly directly from Jocular's observinglist.py
 --
 
 local _M = {
@@ -20,7 +20,7 @@ local _log = require "logger" (_M)
 -- Handles DSO table and observing list management, including alt-az/transit computations.
 
 local dsos  = require "databases.dso"
-local obs   = require "databases.obsession"
+local obs   = require "databases.observations"
 
 local session = require "session"
 local util    = require "utils"
@@ -432,7 +432,7 @@ function _M: update()
     _M.last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
   end
   if time_slider.hit then
-    _M.last_time_changed = t - REFRESH - 0.1  -- update immediately
+    _M.last_time_changed = 0  -- update immediately
   end
   
   local current = controls.object

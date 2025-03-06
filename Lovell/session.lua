@@ -26,9 +26,11 @@ local utils = require "utils"
 local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
-local databases       = require "databases"
+local observations    = require "databases.observations"
+local saveSession = observations.saveSession
+local loadSession = observations.loadSession
 
-local focal_length    = databases.telescopes.focal_length
+local telescopes       = require "databases" .telescopes
 
 local love = _G.love
 
@@ -111,7 +113,7 @@ local controls = {    -- most of these are SUIT widgets
         
         maxstar   = {value = 100, min = 0,  max = 500},
         keystar   = {value = 20,  min = 5,  max = 50},         -- window to search for star peaks
-        offset    = {value = 30,  min = 0,  max = 150},        -- limit to between-frame shifts
+        offset    = {value = 70,  min = 0,  max = 150},        -- limit to between-frame shifts
         
         smooth    = {value = 15},      -- background smoothness (# gaussian taps)
         sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
@@ -168,129 +170,21 @@ end
 --
 -- SESSION - specific data
 --
-local sessionMetaIndex = {session = {ID = ''}}
-local sessionMeta = {__index = sessionMetaIndex}    -- session file becomes assigned to __index table during load
-
-------------------------------
 
 local stack
 local screenImage
 
-local function sessionID(epoch)
-  return os.date("%Y%m%d", epoch)   -- YYYYMMDD
-end
 
--- reset session info
-local function clear_settings()
-  controls.reset()
-  sessionMetaIndex.session.ID = ''
-  sessionMetaIndex.observations = nil
-  sessionMeta.__index = sessionMetaIndex
-  _M.ID = ''
-end
-
-local sess_path = "sessions/%s.json"    -- format for session metadata filename
-
--- construct session and observation IDs and info
-local function getInfo(stack)
-  local sesID = sessionID(stack.epoch)            -- use observation date as session ID
-  local obsID = stack.folder                      -- use observation folder as observation ID
-  _M.ID = sesID                                   -- update session ID in module
-  local path = sess_path % sesID                  -- create path for meta file
-  local info = sessionMeta.__index                -- make it the current session
-  info.session.ID = sesID                         -- ensure session ID exists
-  return obsID, path, info
-end
-
-local function non_blank(text)
-  return #text > 0 and text or nil
-end
-
--------------------------------
---
--- SAVE/LOAD SESSION 
---
-
-local function saveSession(stack)
-  if not stack then return end
-  local obsID, path, info = getInfo(stack)
-  
-  -- update metadata from controls
-  info.session.notes = non_blank(controls.ses_notes.text)
-  local obs = info.observations[obsID or '']
-  obs.object = non_blank(controls.object.text)
-  controls.object.cursor = 1                  -- put the cursor at the start (looks better)
-  obs.notes = non_blank(controls.obs_notes.text)
-  obs.flipUD = controls.flipUD.checked or nil
-  obs.flipLR = controls.flipLR.checked or nil
-  obs.time = os.date("%H:%M", stack.epoch)
-  obs.frames = stack.subs and #stack.subs or 0
-  obs.exposure = stack.subs and stack.exposure / #stack.subs or 0   -- AVERAGE exposure per sub (seconds)
-  obs.size = "%dx%d" % {stack.image: getDimensions()}
-  obs.rotate = controls.rotate.value ~= 0 and controls.rotate.value or nil
-  obs.telescope = non_blank(controls.telescope.text)
-  info.observations[obsID] = obs
-  
-  -- write file
-  json.write(path,  info)
-  if _M.ID < sessionID() then    -- clear the settings if NOT the current session
-    clear_settings()
-  end
-end
-
-
-local function loadSession(stack)
-  
-  if not stack then return end
-
-  local obsID, path, info = getInfo(stack)
-  info = json.read(path) or info                  -- use metadata file if present
-  
-  -- uodate controls from metadata
-  local obs = info.observations or {}
-  local thisObs = obs[obsID] or {}
-  obs[obsID]= thisObs
-  info.observations = obs
-  
---  _log(pretty {loadSessionInfo = info})
-  local pix = stack.keywords.XPIXSZ
-  if pix then
-    local bin = stack.keywords.XBINNING or 1      -- scale pixel size by binning
-    pix = pix * bin
-  end
-  pix = tostring(pix or '')
-  
-  
-  local scope = stack.telescope or thisObs.telescope or ''
-  
-  controls.focal_len.text = databases.telescopes: focal_length(scope) or controls.focal_len.text
-
-  controls.object.text    = stack.object or thisObs.object or ''
-  controls.telescope.text = scope
-  controls.pixelsize.text = pix
-  controls.ses_notes.text = info.session.notes or ''
-  controls.obs_notes.text = thisObs.notes or ''
-  controls.flipUD.checked = thisObs.flipUD or false
-  controls.flipLR.checked = thisObs.flipLR or false
-  controls.rotate.value   = thisObs.rotate or 0
-  controls.X, controls.Y = 0, 0
-  sessionMeta.__index = info
-  
-end
-
--------------------------------
-
-function _M.new()
-  
-end
-
--- start a new observation, by saving metadata from the old one
 local function newObservation()
-  saveSession(stack)
+  saveSession(stack, controls)
   controls.reset()        -- start with new default values for processing options
   stack = nil
   screenImage = nil
   observer.new()          -- reset the observer
+end
+
+-- start a new observation, by saving metadata from the old one
+function _M.new()
 end
 
 
@@ -307,9 +201,11 @@ function _M.update()
     stack = observer.newSub(frame, controls)
 
     if frame.first then 
-      loadSession(stack)          -- load relevant session info
+      loadSession(stack, controls)          -- load relevant session info
+      controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
+
       local zoom = math.max(utils.calcScreenRatios(stack.image))     -- full screen image
-      controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen resolution
+      controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
     end
   end
 
@@ -324,7 +220,7 @@ end
 
 
 function _M.close()
-  saveSession(stack)
+  saveSession(stack, controls)
   json.write("settings.json", controls.settings)
   _log "settings saved"
   _log "closed"
