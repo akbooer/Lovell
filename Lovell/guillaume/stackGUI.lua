@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.12.18"
+  _M.VERSION = "2025.03.23"
   _M.DESCRIPTION = "stack GÜI, view each stack frame"
 
 -- 2025.01.22  Version 0
@@ -185,7 +185,7 @@ local function panel(subframe)
   
   self: Label("alignment", Loptions, row(w, 20))
   local align = subframe.align
-  if align[3] then
+  if align and align[3] then
     self: Label(xy % align, Woptions, row())
     self: Label(theta % align[3], Woptions, row())
   end

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.24",
+    VERSION = "2025.03.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
@@ -26,15 +26,18 @@ local function poststack(frame)
   
   local workflow = frame.workflow
   local controls = workflow.controls
-
+  
 --  local elapsed = require "utils" .newTimer()
   
   -------------------------------
   --
   -- INITIALISE WORKFLOW, and remove gradient
   --
-  local R, G, B, L = unpack(workflow.RGBL)
-  controls.workflow.RGBL = workflow.RGBL                  -- so that GUI infopanel has access
+  local RGBL = workflow.RGBL
+  if not RGBL then return end
+  
+  local R, G, B, L = unpack(RGBL)
+  controls.workflow.RGBL = RGBL                           -- so that GUI infopanel has access
   local ratio = (R + G + B) / (3 * L + 1e-6)             --  is there a Luminance filter? (avoid zero division)
 --  _log("RGB:L ratio %.2f" % ratio)
   workflow: newInput(frame.image)

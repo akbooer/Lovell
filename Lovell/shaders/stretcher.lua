@@ -183,7 +183,7 @@ function _M.stretch(workflow, selected, stretch)
     
   local shader = setup (stretch) 
   shader: send("black", black)
-  shader: send("white", math.max(0.01, 2 * white))
+  shader: send("white", math.max(0.005, 2 * white))
 
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)

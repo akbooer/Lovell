@@ -133,6 +133,7 @@ function _M.newSub(frame, controls)
         theta = -theta, xshift = -xshift, yshift = -yshift, filter = frame.filter,  -- ...for stack (radians)
       }
   end
+    
   frame.align = align
   stack.subs[#stack.subs + 1] = frame
   
