@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.22",
+    VERSION = "2025.03.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -13,6 +13,7 @@ local _M = {
 
 -- 2025.01.01  pass workflow controls to aligner
 -- 2025.01.22  add thumbnails to stack frame
+-- 2025.03.23  fix nil alignment error (thanks @Songwired, issue #1)
 
 
 local _log = require "logger" (_M)
@@ -125,9 +126,12 @@ function _M.newSub(frame, controls)
   
   -- store thumbnail and alignment info
   frame.thumb = thumbnail (workflow.output)
-  local align = {theta = -theta, xshift = -xshift, yshift = -yshift, filter = frame.filter} -- for stack (radians) ...
+  local align
   if theta then
-     align[1], align[2], align[3] = xshift, yshift, theta * deg       -- ... for display (degrees)
+    align = {
+        xshift, yshift, theta * deg,                                                -- for display (degrees) ...
+        theta = -theta, xshift = -xshift, yshift = -yshift, filter = frame.filter,  -- ...for stack (radians)
+      }
   end
   frame.align = align
   stack.subs[#stack.subs + 1] = frame
@@ -139,7 +143,7 @@ function _M.newSub(frame, controls)
   -- STACK, if valid alignment
   --
 
-  if theta 
+  if align 
     and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 
     and not frame.omit_from_stack then
     stack.Nstack = stack.Nstack + 1
