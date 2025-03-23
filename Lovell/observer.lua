@@ -22,10 +22,11 @@ local poststack   = require "poststack"
 
 local background  = require "shaders.background"
 
-local workflow    = require "workflow" .new()
+local workflow    = require "workflow" .new()    -- RGB or colour filter workflow
 
 local stack
 
+local deg = 180 / math.pi
 
 -------------------------------
 --
@@ -47,15 +48,16 @@ end
 local function thumbnail(image)
   local Wthumb = 700        -- thumbnail width, height scales to preserve aspect ratio
   local lg = _G.love.graphics
-  local elapsed = require "utils" .newTimer ()
+  local elapsed = require "utils" .newTimer()
   
   local w,h = image:getDimensions()
   local scale = Wthumb / w
-  local thumb = lg.newCanvas(Wthumb, math.floor(scale * h), {dpiscale = 1, format = "rgba16f"})
+  local Hthumb = math.floor(scale * h)
+  local thumb = lg.newCanvas(Wthumb, Hthumb, {dpiscale = 1, format = "rgba16f"})
   lg.setColor (1,1,1, 1)
   thumb: renderTo(lg.draw, image, 0,0, 0, scale, scale)
   
-  _log(elapsed "%0.3f ms, created thumbnail")
+  _log(elapsed ("%0.3f ms, [%dx%d] created thumbnail", Wthumb, Hthumb))
   return thumb
 end
 
@@ -73,17 +75,24 @@ function _M.newSub(frame, controls)
   
   workflow: prestack(frame)       -- PRESTACK processing
 
-  local theta, xshift, yshift
+  local theta, xshift, yshift, paired
   local starspan = workflow.controls.workflow.keystar.value   -- star peak search radius
 
   -------------------------------
   --
-  -- FIRST NEW FRAME in an observation sets up new STACK frame
+  -- FIRST NEW FRAME in an observation sets up new STACK frame (and Luminance)
   --
 
   if frame.first then
-    -- save info from first image into new stack frame
-    workflow: saveOutput "stack"
+    -- create/clear new multi-spectral and mono stacks
+    workflow: save ("variance", {dpiscale = 1, format = "r16f"})
+    workflow: clear "variance"
+    workflow: save "luminance"   --, {dpiscale = 1, format = "r16f"})
+    workflow: clear "luminance"
+    workflow: save "stack"
+    workflow: clear "stack"
+    workflow. RGBL = nil     -- clear count of separate R,G,B,L exposures
+    
     stack = {}           
     for n,v in pairs(frame) do 
       stack[n] = v 
@@ -100,58 +109,64 @@ function _M.newSub(frame, controls)
     _log ("found %d keystars in frame #1" % #keystars)
     theta, xshift, yshift = 0, 0, 0
   else
-    frame.stars = workflow: starfinder(starspan)     -- EXTRACT star positions and intensities
-    theta, xshift, yshift, frame.matched_pairs = aligner.transform(frame.stars, stack.keystars, workflow.controls)
+    frame.stars = workflow: starfinder(starspan)      -- EXTRACT star positions and intensities
+    local w, h = workflow.output: getDimensions()
+    theta, xshift, yshift, paired = aligner.transform(frame.stars, stack.keystars, workflow.controls, w/2, h/2)
+    frame.matched_pairs = paired
   end
   
   -- remove keywords and headers from subframes
   frame.headers = nil
   frame.keywords = nil
   
+  -- calculate & remove gradients from sub
+  local gradients = background.calculate(workflow.output)
+  workflow: background(gradients) 
+  
   -- store thumbnail and alignment info
   frame.thumb = thumbnail (workflow.output)
-  local align = {theta = theta, xshift = xshift, yshift = yshift}             -- for rotation (radians) ...
+  local align = {theta = -theta, xshift = -xshift, yshift = -yshift, filter = frame.filter} -- for stack (radians) ...
   if theta then
-     align[1], align[2], align[3] = xshift, yshift, theta * 180 / math.pi     -- ... for display (degrees)
+     align[1], align[2], align[3] = xshift, yshift, theta * deg       -- ... for display (degrees)
   end
   frame.align = align
-  
-  -- save the alignment information (for restacking later ?)
   stack.subs[#stack.subs + 1] = frame
-  table.sort(stack, function(a,b) return a.epoch < b.epoch end)   -- sort the stack by time
+  
+--  table.sort(stack, function(a,b) return a.epoch < b.epoch end)   -- sort the stack by time
   
   -------------------------------
   --
   -- STACK, if valid alignment
   --
-  
-  if theta and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 
-            and not frame.omit_from_stack then
 
+  if theta 
+    and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 
+    and not frame.omit_from_stack then
     stack.Nstack = stack.Nstack + 1
---    stack.totalExposure = stack.totalExposure + (stack.exposure or 0)
     stack.exposure = stack.exposure + (frame.exposure or 0)
     
-    -- STACK the latest frame
-    workflow: stacker {
-      filter = 'lum',       -- frame.filter, -- * * * ignore colour filters for the moment
-      xshift = -xshift, 
-      yshift = -yshift, 
-      theta  = -theta,
-      depth  = stack.Nstack,
-    }
+--    align.minVar = true   -- use minimum variance stacker
     
-    -- pre-compute gradients after stack
-    stack.gradients = background.solve(workflow.stack)
-    
---    stack.thumbnail = thumbnail(workflow.stack)          -- add overall stack thumbnail too? * * * *
+    workflow: stacker (align)
+    stack.gradients = background.calculate(workflow.stack)
     
   end
+
+  -- pre-compute luminance gradients after stack
+--  local R, G, B, L = unpack(workflow.RGBL)
+--  controls.workflow.RGBL = workflow.RGBL                  -- so that GUI infopanel has access
+--  local ratio = (R + G + B) / (3 * L + 1e-6)             --  is there a Luminance filter? (avoid zero division)
+
+--  workflow: newInput(stack.image)
+--  workflow: synthL({1,1,1}, workflow.luminance, ratio)    -- synthetic lum, or could be {.7,.2,.1}, etc.
+--  workflow: synthL({1,1,1})
+  
+--    stack.thumbnail = thumbnail(workflow.stack)          -- add overall stack thumbnail too? * * * *
 
   return stack
 end
 
-_M.reprocess = poststack
+_M.postprocess = poststack
 
 return _M
 

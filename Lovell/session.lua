@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.21",
+    VERSION = "2025.03.22",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -27,6 +27,7 @@ local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
 local observations    = require "databases.observations"
+
 local saveSession = observations.saveSession
 local loadSession = observations.loadSession
 
@@ -57,15 +58,15 @@ local controls = {    -- most of these are SUIT widgets
     brightness = {default = 0.5},
     
     gammaOptions = gammaOptions,
-    stretch = {default = 0.3, max = 2},
+    stretch = {default = 1, max = 2},
     gradient = {default = 1, min = -1, max = 3},
     
     colourOptions = {"RGB Colour", "Hubble", "Wager"},
-    saturation  = {default = 2.5, min = 0, max = 5},
+    saturation  = {default = 0.5},
     tint        = {default = 0.5},
   
     enhanceOptions = {"Enhance", "TNR", "Bilateral", "FABADA", "———————", "Unsharp", "APF",  "Decon"},
-    denoise = {default = 0.25},
+    denoise = {default = 0},
     sharpen = {default = 0},
     
     -- screen appearance
@@ -106,14 +107,14 @@ local controls = {    -- most of these are SUIT widgets
     
     workflow = {
         badpixel  = {checked = true, text = "bad pixel removal"},
-        badratio  = {value = 2.0, min = 1, max = 4 },
+        badratio  = {value = 2.5, min = 1, max = 5 },
         
         debayer   = {checked = false, text = "force debayer"},
         bayerpat  = {text = ''},
         
-        maxstar   = {value = 100, min = 0,  max = 500},
-        keystar   = {value = 20,  min = 5,  max = 50},         -- window to search for star peaks
-        offset    = {value = 70,  min = 0,  max = 150},        -- limit to between-frame shifts
+        maxstar   = {value = 100, min = 0,  max = 200},
+        keystar   = {value =  50,  min = 5, max = 100},         -- window to search for star peaks
+        offset    = {value = 150,  min = 0, max = 300},         -- limit to between-frame shifts
         
         smooth    = {value = 15},      -- background smoothness (# gaussian taps)
         sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
@@ -201,7 +202,8 @@ function _M.update()
     stack = observer.newSub(frame, controls)
 
     if frame.first then 
-      loadSession(stack, controls)          -- load relevant session info
+      local info = loadSession(stack, controls)          -- load relevant session info
+      _M.ID = info.session.ID
       controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
 
       local zoom = math.max(utils.calcScreenRatios(stack.image))     -- full screen image
@@ -213,7 +215,7 @@ function _M.update()
   
   if frame 
     or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed) then
-      screenImage = observer.reprocess(stack)   -- poststack processing
+      screenImage = observer.postprocess(stack)   -- poststack processing
   end
 
 end

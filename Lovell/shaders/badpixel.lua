@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.03.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "hot pixel removal",
   }
@@ -24,6 +24,7 @@ local newTimer = require "utils" .newTimer
 -- 2024.12.23  use controls.workflow.badratio.value, add mono shader
 
 -- 2025.01.29  integrate into workflow
+-- 2025.02.10  use given Bayer pattern to determine whether to use mono or RGB bad pixel 
 
 
 local love = _G.love
@@ -49,8 +50,10 @@ local mono = lg.newShader [[
       float g;                  // 'Gaussian' filtered pixel
       float a;                  // average value of adjacent pixels
       
+      float r = ratio / 2;
+      
       y = tc;
-      p = Texel(texture, tc) .r;        g = 4.0 * p; a = 0.0; c = p;    
+      p = Texel(texture, tc) .r;        g = 4.0 * p; a = 0.0; c = p;
       p = Texel(texture, y + dx) .r;    g += p + p ; a += p;
       p = Texel(texture, y - dx) .r;    g += p + p ; a += p;
       
@@ -67,7 +70,7 @@ local mono = lg.newShader [[
       g = g / 16.0;         // filtered pixels
       a = a / 8.0;          // average value
       
-      return vec4(c > ratio * g ? a : c, 0.0, 0.0, 1.0);
+      return vec4(c > r * g ? a : c, 0.0, 0.0, 1.0);
   }
 ]]
 
@@ -99,12 +102,13 @@ local rgb = lg.newShader [[
 ]]
 
 
-local function badPixelRemoval(workflow)
+local function badPixelRemoval(workflow, bayerpat)
   local input, output, controls = workflow()
   local elapsed = newTimer()
 
+  local hasBayer = (bayerpat or ''): match "[RGB][RGB][RGB][RGB]"
   local shader, step
-  if rgb then   -- * * * * * * * 
+  if hasBayer then
     shader = rgb
    else 
     shader = mono
@@ -122,7 +126,7 @@ local function badPixelRemoval(workflow)
   output:renderTo(lg.draw, input)
   lg.setShader()
       
-  _log(elapsed "%.3f ms, hotPixelRemoval")
+  _log(elapsed ("%.3f ms, hot pixel removal [%s]", hasBayer and bayerpat or "MONO"))
   
 end
 

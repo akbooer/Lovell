@@ -218,17 +218,11 @@ local debayer = lg.newShader(frg, vrt)
 
 local nodebayer = lg.newShader [[
 
-uniform vec4   sourceSize;          // dummy for compatibility with real debayer shader
-uniform vec2   firstRed;            // ditto
-
 vec4 effect( vec4 color, Image source, vec2 texture_pos, vec2 screen_coords ){
-    
-    vec4 dummySize = sourceSize;    // dummy values must be referenced in order to compile correctly
-    vec2 dummyRed = firstRed;
-    
-    float C = Texel(source, texture_pos).r;
-    return vec4(vec3(C), 1.0);
+    float pixel = Texel(source, texture_pos).r;   // input is from monochrome source
+    return vec4(vec3(pixel), 1);
 }
+
 ]]
 
 local pattern = {
@@ -238,25 +232,28 @@ local pattern = {
     GBRG = {1, 1},
   }
 
-local firstRed = {0, 0};
-
+-- either debayer, or replicate to R,G, and B channels
 local function demosaic(workflow, bayer)
   local input, output = workflow()
   
+  local shader
   local elapsed = newTimer()
   local bayerPattern = pattern[bayer]
-  firstRed = bayerPattern or {0, 0}
-  local shader = bayerPattern and debayer or nodebayer  
   
-  local w, h = input: getDimensions()
-  shader: send("firstRed", firstRed)
-  shader: send("sourceSize", {w, h, 1.0/w, 1.0/h})
+  if bayerPattern then
+    local w, h = input: getDimensions()
+    shader = debayer
+    shader: send("firstRed", bayerPattern)
+    shader: send("sourceSize", {w, h, 1.0/w, 1.0/h})
+  else
+    shader = nodebayer
+  end
   
   lg.setShader(shader) 
-  output:renderTo(lg.draw, input)
+  output: renderTo(lg.draw, input)
   lg.setShader()
 
-  _log(elapsed("%.3f ms, %s", bayerPattern and bayer .. " demosaic" or "no-op (no Bayer pattern)"))
+  _log(elapsed("%.3f ms, %s", bayerPattern and bayer .. " demosaic" or "no Bayer pattern"))
 end
 
 return demosaic

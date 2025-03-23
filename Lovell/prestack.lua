@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.23",
+    VERSION = "2025.03.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -15,6 +15,7 @@ local _M = {
 -- 2024.12.16  use workflow() buffers
 
 -- 2025.01.29  integrate into workflow
+-- 2025.03.10  pass Bayer pattern (possibly overridden) ro badpixel()
 
 
 local _log = require "logger" (_M)
@@ -32,27 +33,33 @@ local function prestack(workflow, img)
    
   local imageData = img.imageData     -- this is in R16 format
   _log "creating R16 format image"
-  local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
+  local rawImage = lg.newImage(imageData, {dpiscale=1, linear = false})  
   
-  -- decide whether workflow chain is monochrome or RGB
+  -------------------------------
+  --
+  -- BAD PIXEL REMOVAL
+  --
   local w = controls.workflow
   local bayerpat = w.debayer.checked and w.bayerpat.text or img.bayer
---  local bufferFormat = bayerpat and "rgba16f" or "r16"
-  local bufferFormat = "rgba16f" 
   
-  workflow: newInput(rawImage, {format = bufferFormat, dpiscale = 1})
-  workflow: badpixel()
-  workflow: debayer(bayerpat)   -- 16-bit mono -> floating point RGB, possibly
+  workflow: newInput(rawImage, {format = "rgba16f", dpiscale = 1})
+
+  workflow: badpixel(bayerpat)    -- processing depends on whether or not there's a Bayer matrix
+  
+  -------------------------------
+  --
+  -- DEBAYER, or replicate to R,G,B channels
+  --
+  
+  workflow: debayer(bayerpat)   -- 16-bit mono -> 16-bit floating point RGB
   
   rawImage:  release()
   imageData: release()
 
-  workflow: saveOutput "temp"
-  workflow: gaussian(1)
-  workflow: saveOutput "temp2"
-  workflow: newInput(workflow.temp)
-  workflow: normalise(workflow.temp2)
+  --TODO: Calibration, darks and flats
+    
   workflow: normalise()
+  
 end
 
 

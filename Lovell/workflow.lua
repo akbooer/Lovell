@@ -4,9 +4,9 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.30",
+    VERSION = "2025.03.21",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "sundry utilities",
+    DESCRIPTION = "workflow utilities",
   }
 
 -- 2024.10.29  Version 0
@@ -17,6 +17,11 @@ local _M = {
 -- 2025.01.28  separate module from util
 -- 2025.01.20  add saveInput()
 -- 2025.02.06  add renderTo()
+-- 2025.03.08  added stats()
+-- 2025.03.12  use class methods, shared betwen instances
+-- 2025.03.13  added clear()
+-- 2025.03.16  added save()
+-- 2025.03.21  added buffer(), to get names workflow buffer (or not)
 
 
 local _log = require "logger" (_M)
@@ -43,7 +48,7 @@ local lg = love.graphics
 -- IMAGE BUFFER
 --
 
-function _M.getImageInfo(image)
+local function getImageInfo(image)
   local width, height = image:getDimensions()
   local dpiscale= image: getDPIScale()
   local imageFormat = image:getFormat()
@@ -54,10 +59,10 @@ end
 -- otherwise create and return one that matches
 -- settings, if present, overrides selected image settings
 local function buffer(image, buffer, settings, comment)
-  local w1, h1, f1, d1 = _M.getImageInfo(image)
+  local w1, h1, f1, d1 = getImageInfo(image)
   settings = setmetatable(settings or {}, {__index = {format = f1, dpiscale = d1}})
   if buffer then
-    local w2, h2 = _M.getImageInfo(buffer)
+    local w2, h2 = getImageInfo(buffer)
     if w2 ~= w1 or h2 ~= h1 then
       buffer: release()
       buffer = nil
@@ -74,12 +79,89 @@ end
 --            inspired by the code in Moonshine
 --
 
-function _M.new(ctrl)
+-- swap buffers to undo previous operation (having used buffer only once)
+local function undo(self)
+  self.input, self.output = self.output, self.input       -- toggle buffer input/output
+end
+ 
+-- make a new copy of a workflow buffer
+local function copy(self, source, dest, settings) 
+  assert(type(source) == "string")
+  assert(type(dest) == "string")
+  local saved = buffer(self[source], self[dest], settings, "%s.copy %s to %s" % {self.name, source, dest})
+  self[dest] = saved
+  lg.setBlendMode("replace", "premultiplied")
+  saved: renderTo(lg.draw, self[source])
+  lg.setBlendMode "alpha"
+  return saved
+end
+
+-- save current output to "dest"
+local function save(self, dest)
+  copy(self, "output", dest)
+end
+
+-- getDimensions()
+local function getDimensions(self)
+  return self.input: getDimensions()
+end
+  
+-- stats()
+local function mystats(self, ...)
+  return stats.stats(self.output, ...)
+end
+ 
+-- stats()
+local function statsTexel(self, ...)
+  return stats.statsTexel(self.output, ...)
+end
+ 
+-- toggle input/output workflow between two buffers,
+-- matched and initialised to input canvas type
+local function work(self, controls)
+  self.input, self.output = self.output, self.input       -- toggle buffer input/output
+  local input = self.canvas or self.input                      -- ... and use input canvas as first input
+  self.canvas = nil                                            -- ... but only once, unless newInput() called
+  return input, self.output, controls or self.controls    -- use existing controls if not otherwise specified
+end
+
+-- renderTo()
+local function renderTo(self, fct, ...)
+  local input, output = work(self)
+  output: renderTo(fct, input, ...)
+end
+
+-- set new input for workflow
+local function newInput(self, input, settings, controls)
+  input = (type(input) == "string") and self[input] or input
+  self.input = buffer(input, self.input, settings, self.name .. " input")
+  self.output = buffer(input, self.output, settings, self.name .. " output")
+  self.canvas = input
+  self.controls = controls or self.controls
+end
+
+-- clear buffer
+local function clear(self, name, r, g, b, a)
+  r, g, b, a = r or 0, g or 0, b or 0, a or 1
+  self[name]: renderTo(lg.clear, r,g,b,a)
+end
+
+-- get buffer by name, creating if necessary, or return supplied canvas
+local function byName(self, buf)
+  if type(buf) == "string" then
+    buf = buffer(self.output, self[buf])   -- ensure that it exists
+  end
+  return buf
+end
+
+function _M.new(ctrl, name)
   local W = {
-    input = nil,       -- the two working buffers...
-    output = nil,      -- .. yet to be initialised
+    name = name or "workflow",
+    input = nil,        -- the two working buffers...
+    output = nil,       -- .. yet to be initialised
+    canvas = nil,       -- temporary input
     
-    controls = ctrl,   -- saved default control settings
+    controls = ctrl,    -- saved default control settings
     
     badpixel    = badpixel,
     debayer     = debayer,
@@ -89,13 +171,19 @@ function _M.new(ctrl)
     stretch     = stretcher.stretch,
     
     normalise   = stats.normalise,
+    statsTexel  = statsTexel,
+    stats       = mystats,
+    
     background  = background.remove,
     
+    clear       = clear,
+    buffer      = name,
     scnr        = colour.scnr,
     synthL      = colour.synthL,
     balance     = colour.balance,
     rgb2hsl     = colour.rgb2hsl,
     hsl2rgb     = colour.hsl2rgb,
+    satboost    = colour.satboost,
     tint        = colour.balance_R_GB,
     selector    = colour.selector,
     lrgb        = colour.lrgb,
@@ -105,67 +193,20 @@ function _M.new(ctrl)
     gaussian    = filter.gaussian,
     fastgaussian = filter.fastgaussian,
     tnr         = filter.tnr,         -- 'Tony's Noise Reduction'   (smoothing)
-    apf         = filter.apf,         -- 'Absolute Point of Focus'  )sharpening)
+    apf         = filter.apf,         -- 'Absolute Point of Focus'  (sharpening)
+    
+    -- local methods
+    
+    undo = undo,
+    copy = copy,
+    save = save,
+    buffer = byName,
+    renderTo = renderTo,
+    newInput = newInput,
+    getDimensions = getDimensions,
+    
   }
-  
-  local canvas
 
-  -- swap buffers to undo previous operation (having used buffer only once)
-  function W:undo()
-    self.input, self.output = self.output, self.input       -- toggle buffer input/output
-  end
-   
-  -- toggle input/output workflow between two buffers,
-  -- matched and initialised to input canvas type
-  local function work(self, controls)
-    self.input, self.output = self.output, self.input       -- toggle buffer input/output
-    local input = canvas or self.input                      -- ... and use input canvas as first input
-    canvas = nil                                            -- ... but only once, unless newInput() called
-    return input, self.output, controls or self.controls    -- use existing controls if not otherwise specified
-  end
- 
-   -- set new input for workflow
-  function W:newInput(input, settings, controls)
-    self.input = buffer(input, self.input, settings, "workflow 1")
-    self.output = buffer(input, self.output, settings, "workflow 2")
-    canvas = input
-    self.controls = controls or self.controls
-  end
- 
-  -- make a new copy of a workflow buffer
-  function W:save(what, name, settings) 
-    assert(type(name) == "string")
-    local saved = buffer(self[what], self[name], settings, "workflow.save %s to %s" % {what, name})
-    self[name] = saved
-    lg.setBlendMode("replace", "premultiplied")
-    saved: renderTo(lg.draw, self[what])
-    lg.setBlendMode "alpha"
-    return saved
-  end
- 
-  -- make a new copy of the latest workflow output buffer
-  function W:saveOutput(name, settings) 
-    return self: save("output", name, settings)
-  end
- 
-  -- make a new copy of the latest workflow output buffer
-  function W:saveInput(name, settings) 
-    return self: save("input", name, settings)
-  end
-
-  -- renderTo()
-  function W:renderTo(fct, ...)
-    local input, output = work(self)
-    output: renderTo(fct, input, ...)
-  end
-  
-  -- getDimensions()
-  function W:getDimensions()
-    return self.input: getDimensions()
-  end
-  
-  -- workflow
-  if canvas then W:newInput(canvas) end
   return setmetatable (W, {__call = work})
 
 end

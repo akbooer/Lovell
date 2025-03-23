@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.03.21",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry processing filters (BOX, TNR, APF, ...)",
   }
@@ -17,6 +17,7 @@ local moonbridge  = require "shaders.moonbridge"   -- Moonshine proxy
 -- 2024.12.09  use workflow() function to acquire buffers and control parameters
 
 -- 2025.01.29  incoporate moonshine bridge shaders
+-- 2025.03.21  use named buffers (possibly) in tnr() and apf()
 
 
 local love = _G.love
@@ -80,7 +81,7 @@ end
 
 --[[
 
-  this is the PixInsight implementation:
+  this is my PixInsight implementation:
   
   Radius = 17;
   Strength = 30;
@@ -107,6 +108,7 @@ local tnr = love.graphics.newShader[[
 function _M.tnr(workflow, background)
   local strength = 30 * workflow.controls.denoise.value
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  background = workflow: buffer(background)
   local shader = tnr
   lg.setShader(shader)
   shader: send("background", background)
@@ -195,6 +197,8 @@ local apf2 = love.graphics.newShader[[
 
 function _M.apf2(workflow, background, background2)
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  background  = workflow: buffer(background)
+  background2 = workflow: buffer(background2)
   local strength = controls.sharpen.value
   local shader = apf2
   lg.setShader(shader)
@@ -233,6 +237,7 @@ function _M.apf(...)
   if background2 then
     return _M.apf2(...)
   end
+  background = workflow: buffer(background)
   local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
   local strength = controls.sharpen.value
   local shader = apf
@@ -244,37 +249,6 @@ function _M.apf(...)
   return output
 end
 
--------------------------------
---
--- STARS
---
-
-local stars = love.graphics.newShader[[
-  extern float strength;
-  extern Image background;
-  
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
-    vec3 image = Texel(texture, tc) .rgb;
-    vec3 backg = Texel(background, tc) .rgb;
-    vec3 stars = image - backg * strength;
-    return vec4(clamp(stars, 0.0, 1.0), 1.0);
-  }]]
-
-function _M.stars(background, workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local strength = controls.stars.value
-  local shader = stars
---  local t = love.timer.getTime() % 1
-  lg.setShader(shader)
-  shader: send("background", background)
---  shader: send("strength", t > 0.5 and strength or 0)
-  shader: send("strength", strength)
-  output: renderTo(lg.draw, input)
-  lg.setShader()
-  return output
-end
-
------
 
 return _M
 

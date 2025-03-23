@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.15",
+    VERSION = "2025.03.19",
     AUTHOR = "AK Booer",
     DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
 
@@ -12,6 +12,7 @@ local _M = {
 
 -- 2025.01.20  Version 0
 -- 2025.02.11  move sorters and filters into here
+-- 2025.03.19  set scroll to top when clearing sorting and filters
 
 
 local _log = require "logger" (_M)
@@ -235,6 +236,7 @@ function _M.new(self, cat, x,y, w,h)
   do     -- add button to clear filters
     if self: Button("Clear", {valign = "middle"}, layout: col(80, 55)) .hit then
       reset_sort_index(cat)
+      cat.grid.scroll.value = 1   -- set scroll bar back to top
       sorted = true
       for _, col in nextCol(cat) do
         local filt = col.filter
@@ -280,7 +282,7 @@ function _M.new(self, cat, x,y, w,h)
 --  if sorted or filtered or not cat.grid then
   if filtered or sorted or cat.filter or not cat.grid then
     reset_row_index(cat)
-    cat.grid = {data = data, scroll = {value = 1}}  -- set scroll bar back to top
+    cat.grid = cat.grid or {data = data, scroll = {value = 1}}
     -- TODO: clear selection?
     for i, col in nextCol(cat) do
       local filt = col.filter

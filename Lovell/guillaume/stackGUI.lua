@@ -18,7 +18,7 @@ local suit = require "suit"
 
 local poststack   = require "poststack"
 local session     = require "session"
-local workflow    = require "workflow" .new(session.controls)
+local workflow    = require "workflow" .new(session.controls, "thumbnails")
 
 local love = _G.love
 local lg = love.graphics
@@ -68,6 +68,8 @@ local frame = {
     image  = nil,     -- image  
     workflow = workflow,
   }
+
+workflow.RGBL = {1,1,1,0}       -- needed for poststack processing to handle this as RGB image
 
 local floor = math.floor
 
@@ -218,11 +220,12 @@ end
 -- draw the top frame
 local function draw_image()
   lg.setColor(1,1,1, 1)
+  local thumbnail = workflow.output
+  if not thumbnail then return end
   local ws, hs = w * scale, h * scale
   local x, y = (W - ws) / 2, H / 2
   local flipx = controls.flipLR.checked and -1 or 1
   local flipy = controls.flipUD.checked and -1 or 1
-  local thumbnail = workflow.output
   lg.draw(thumbnail, W / 2, H / 2, 0, scale * flipx, scale * flipy, w / 2, h / 2) 
   
   lg.setColor(unpack(active))

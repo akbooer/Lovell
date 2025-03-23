@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.05",
+  VERSION = "2025.03.09",
   DESCRIPTION = "image alignment using Fast Global Registration",
 }
 
@@ -12,6 +12,9 @@ local _M = {
 
 -- 2025.01.27  return matched point pairs for later display
 -- 2025.03.05  use Fast Global Registration algorithm
+-- 2025.05.09  use image centre as rotation origin
+-- 2025.03.11  linearize angle around previous transformation estimate (as per the paper)
+
 
 --[[
 
@@ -25,6 +28,15 @@ local _M = {
 
   also: https://github.com/isl-org/FastGlobalRegistration
 
+  They say:
+  
+        "Extensive experiments demonstrate that the presented approach matches
+        or exceeds the accuracy of state-of-the-art global registration pipelines, while 
+        being at least an order of magnitude faster. Remarkably, the presented approach is
+        also faster than local refinement algorithms such as ICP. It provides the accuracy
+        achieved by well-initialized local refinement algorithms, without requiring
+        an initialization and at lower computational cost."
+        
 --]]
 
 
@@ -32,6 +44,8 @@ local _log = require "logger" (_M)
 
 local solve     = require "lib.solver" .solve
 local newTimer  = require "utils" .newTimer
+
+local deg = 180 / math.pi
 
 -------------------------------
 --
@@ -68,7 +82,7 @@ end
 local function matchPairs(stars, keystars, controls)
   local elapsed= newTimer()
   local maxDist = controls.workflow.offset.value
-  local maxLumDiff = 1 -- 0.05  
+  local maxLumDiff = 0.1 -- 0.05  
   local sIndex = oneWayMatch(stars, keystars, maxDist, maxLumDiff)     -- match one to the other...
   local kIndex = oneWayMatch(keystars, stars, maxDist, maxLumDiff)     -- ...and then the other way around
 
@@ -86,16 +100,54 @@ local function matchPairs(stars, keystars, controls)
   return starIndex, keyIndex
 end
 
--- three-way tuple constraint
-local function tuple_constraint(starIndex, keyIndex)
-  for i = 1, 42 do
-    
-  end
+--[=[
+local function check(p, q, i, j)
+  return true
 end
 
+-- three-way tuple constraint
+local function tuple_constraint(stars, keystars, starIndex, keyIndex)
+  local N = #starIndex
+  local random = _G.love.math.random
+  local include = {}
+  for _ = 1,42 do
+    local idx = {}
+    local p, q = {}, {}
+    for i = 1,3 do
+      local n = random(N)
+      idx[i] = n
+      p[i] = stars[starIndex[n]]
+      q[i] = keystars[keyIndex[n]]
+    end
+    local ok = check(p,q, 1,2)
+    ok = ok and check(p,q, 1,3)
+    ok = ok and check(p,q, 2,3)
+    if ok then
+      for i = 1,3 do
+        include[idx[i]] = true
+      end
+    end
+  end
+  -- build new indices
+  local newSI, newKI = {}, {}
+  for i = 1, N do
+    local j = include[i]
+    if j then
+      newSI[#newSI+1] = starIndex[j]
+      newKI[#newKI+1] = keyIndex[j]
+    end
+  end
+  return newSI, newKI
+end
+--]=]
 
 local function NearestNeighbors(stars, keystars, controls)
+  
+--  local Si, Ki = matchPairs(stars, keystars, controls)
+--  local starIndex, keyIndex = tuple_constraint(stars, keystars, Si, Ki)
+  -- OR
   local starIndex, keyIndex = matchPairs(stars, keystars, controls)
+  
   local point_pairs = {}
   for i = 1, #starIndex do
     local star = stars[starIndex[i]]
@@ -110,13 +162,14 @@ end
 -- FAST GLOBAL REGISTRATION
 --
 
-local function Ab(point_pairs, L)
-  local A,b = {}, {}    -- equation to solve Ax = b
+-- build equation to solve Ax = b
+local function Ab(X, Y, XP, YP, L)
+  local A,b = {}, {}
   L = L or {}           -- vector of lpq weights
   local j = 0
-  for i = 1, #point_pairs do
+  for i = 1, #X do
     local lpq = L[i] or 1
-    local x,y, xp,yp = unpack(point_pairs[i])
+    local x,y, xp,yp = X[i], Y[i], XP[i], YP[i]
     j = j + 1
     A[j] = {-y * lpq, lpq, 0}
     b[j] = {lpq * (xp - x)}
@@ -127,47 +180,60 @@ local function Ab(point_pairs, L)
   return A, b
 end
 
-local function fast_global_registration(point_pairs)
+-- (ox, oy) is offset to centre of rotation (centre of image)
+local function fast_global_registration(point_pairs, ox, oy)
   
+  ox, oy = ox or 0, oy or 0
   local D, delta = 1000, 0.1
   local D2, delta2 = D * D, delta * delta
   local mu = D2
   local theta, h, v = 0, 0, 0    -- initial transform T
   local lpq = {}
 
+  local X, Y, XP, YP = {}, {}, {}, {}
+  for i = 1, #point_pairs do 
+    local x, y, xp, yp = unpack(point_pairs[i])
+    X[i], Y[i], XP[i], YP[i] = x - ox, y - oy, xp - ox, yp - oy   -- offset to image centre
+  end
+  
   while mu > delta2 do
     local var = 0
-    for i = 1, #point_pairs do                    -- compute line function lpq 
-      local x,y, xp,yp = unpack(point_pairs[i])
+    local lpqMean = 0
+    for i = 1, #X do                              -- compute line function lpq 
+      local x,y, xp,yp = X[i], Y[i], XP[i], YP[i]
       local dx = xp - (h - y * theta + x)
       local dy = yp - (v + x * theta + y)
       local e2 = dx*dx + dy*dy
       lpq[i] = (mu / (mu + e2)) ^2
+      lpqMean = lpqMean + lpq[i]
       var = var + e2 * lpq[i]
     end
-
-    theta, h, v = solve(Ab(point_pairs, lpq))     -- update and solve weighted least-squares equations
-    if var/#lpq < delta2 then break end           -- finish if sufficiently converged
+    theta, h, v = solve(Ab(X, Y, XP, YP, lpq))    -- update and solve weighted least-squares equations
+--    _log("%.3f (%.3f,%.3f)" % {theta * deg, h, v})
+    local err = var/#lpq * (lpqMean / #lpq)       -- normalize by weights
+    if err < delta2 then 
+      return theta, h, v                          -- finish if sufficiently converged
+    end
     mu = mu / 2                                   -- update graduated non-convexity parameter
   end
-
-  return theta, h, v
+  -- no return signals failure
 end
 
 -------------------------------
 --
 -- Calculate transform
 --
-
-function _M.transform(stars, keystars, controls)
+-- ox, oy are x,y offset to center of rotation
+--
+function _M.transform(stars, keystars, controls, ox, oy)
   local elapsed = newTimer()
 
   local point_pairs = NearestNeighbors(stars, keystars, controls)
   if #point_pairs == 0 then return end
 
-  local theta, x,y = fast_global_registration(point_pairs)
+  local theta, x,y = fast_global_registration(point_pairs, ox, oy)
 
-  local degrees = theta * 180 / math.pi
+  local degrees = theta * deg
   _log(elapsed("%.3f ms, transform: %.3fº  (%.1f, %.1f)", degrees, x,y))
   return theta, x,y, point_pairs
 end

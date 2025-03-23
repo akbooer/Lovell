@@ -156,7 +156,10 @@ function _M.update(self, screen)
   exp = [[%d:%02d]] % {math.floor(exp / 60), exp % 60}
   self:Label(exp, Woptions, layout:col(Wcol, 15))
   layout:left()
-  
+  local RGBL = controls.workflow.RGBL 
+  if RGBL and not stack.bayer then
+    self: Label("%dR %dG %dB %dL" % RGBL, Woptions, layout:row(margin, 10))
+  end
   -- session and observation notes
   
   local obs_notes = controls.obs_notes.text

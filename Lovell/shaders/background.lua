@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.03",
+    VERSION = "2025.03.16",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -17,6 +17,7 @@ local _M = {
 
 -- 2025.01.29  integrate into workflow
 -- 2025.03.03  move fitXYZ() here and use general solver.solve() for A x = b
+-- 2025.03.16  use external parameter for strength of gradient in remove()
 
 
 local _log = require "logger" (_M)
@@ -48,13 +49,13 @@ local flattener = love.graphics.newShader(
     // calculate the vertex background values which are interpolated for the pixel shader
     
     uniform vec3    Offset, Xslope, Yslope;
-    uniform float   gradient;
+    uniform float   strength;
     varying vec3    background;
 
     vec4 position( mat4 transform_projection, vec4 texture_pos ) {
       background = vec3(Offset
-                      + Xslope*gradient * (VertexTexCoord.x - 0.5)         // put origin at image centre
-                      + Yslope*gradient * (VertexTexCoord.y - 0.5));
+                      + Xslope*strength * (VertexTexCoord.x - 0.5)         // put origin at image centre
+                      + Yslope*strength * (VertexTexCoord.y - 0.5));
       return transform_projection * texture_pos;
     }
 ]],[[
@@ -102,7 +103,7 @@ local function getImageSamples(data, N)
       R[j], G[j], B[j] = r[i], g[i], b[i]
     end
   end
---  _log ("using %d of %d gradient samples" % {#X, #x})
+  _log ("using %d of %d gradient samples" % {#X, #x})
   return X,Y, R,G,B
 end
 
@@ -118,8 +119,8 @@ local mini = lg.newCanvas(100, 100, {format = "rgba16f", dpiscale = 1})  -- tiny
 -- y_values = { y1,y2,y3,...,yn }
 -- model (  z = a + b * x + c * y )
 -- returns a, b, c
-local function fitXYZ( x, y, z )
-	
+--
+local function fitXYZ( x, y, z )	
 	local A, b = {}, {}
 	for i = 1, #x do
 		A[i] = { 1, x[i], y[i] }
@@ -128,15 +129,17 @@ local function fitXYZ( x, y, z )
   return solver.solve(A, b)
 end
 
--- solve input image gradients
-function _M.solve(input)
+-- calculate input image gradients
+function _M.calculate(input)
   local elapsed = newTimer()
   
   local w,h = input: getDimensions()
   
   lg.setBlendMode("replace", "premultiplied")
+--  input: setFilter "linear"
   mini: renderTo(lg.draw, input, 0,0,0, 100/w, 100/h)   -- scale image to fit mini canvas
   lg.setBlendMode("alpha", "alphamultiply")
+--  input: setFilter "nearest"
    
 --  local data = mipBuffer:newImageData(nil, 7, 0,0, w/64,h/64)
   local data = mini:newImageData()
@@ -152,26 +155,28 @@ function _M.solve(input)
     gz, gx, gy = fitXYZ(x, y, g)
     bz, bx, by = fitXYZ(x, y, b)
     gradients = {
-        Offset = {rz , gz , bz},
+        Offset = {rz, gz, bz},
         Xslope = {rx, gx, bx},
         Yslope = {ry, gy, by},
       }
   end
   _log (elapsed "%.3f ms, gradient solved")
+--  _log(pretty {gradients = gradients})
   
   return gradients
 end
 
 
 -- use shader to apply background subtraction
-function _M.remove(workflow, gradients)
+function _M.remove(workflow, gradients, strength)
   if not gradients then return end
+  strength = strength or 1
   local input, output, controls = workflow()
   local g = gradients
   flattener: send ("Offset",  g.Offset);
   flattener: send ("Xslope",  g.Xslope);
   flattener: send ("Yslope",  g.Yslope);
-  flattener: send ("gradient", controls.gradient.value or 1)
+  flattener: send ("strength", strength)
   
   lg.setShader(flattener) 
   output:renderTo(lg.draw, input)

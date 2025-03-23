@@ -5,13 +5,14 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.02.17"
+  _M.VERSION = "2025.03.07"
   _M.DESCRIPTION = "settings GÜI, session and observation info"
 
 -- 2024.11.28  Version 0
 -- 2024.12.18  add button to show FITS headers
 
 -- 2025.02.17  add latitude and longitude, and signature, from session.controls.settings
+-- 2025.03.07  remove old FITS headers.txt before writing new one
 
 
 local _log = require "logger" (_M)
@@ -120,6 +121,7 @@ function _M.update(dt)
   layout:right(40,40)
   if self:Button("open FITS header", layout:col(180, 40)) .hit then
     local filename = "FITS headers.txt"
+    lf.remove(filename)             -- remove the old one
     local file = lf.newFile(filename, 'w')
     local stack = session.stack()
     if stack then

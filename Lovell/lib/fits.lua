@@ -5,7 +5,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.01",
+    VERSION = "2025.03.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2024.12.08  move readImageData() here from watcher.lua (for calibration use by masters.lua)
 
 -- 2025.03.01  readImageData() now takes an opened file object (file system agnostic)
+-- 2025.03.10  fix handling of unquoted string in header (Starlight Live DATE has no surrounding quotes)
 
 
 local _log = require "logger" (_M)
@@ -73,9 +74,11 @@ local function convert_type(v)
   value = v: match "%s*'([^']*)"
   if value then return trim(value) end            -- it's a quoted string
   
-  value = v: match "%s*([TF])%s*"
+  value = v: match "%s+([TF])%s+"
   if value then return value == 'T' end     -- true or false
-    
+  
+  -- otherwise, just return it as a string value
+  return v
 end
 
 --[[

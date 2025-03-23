@@ -331,7 +331,7 @@ function _M.mousepressed(mx, my, btn, _, presses)
   local on_image = (eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)
   DRAGGING = btn == 1 and on_image
   -- toggle normal/inverse image
-  if presses == 2 then
+  if presses == 2 and on_image then
     local opt = controls.channelOptions
     opt.selected, opt.revert = opt.selected == 3 and opt.revert or 3, opt.selected
   end

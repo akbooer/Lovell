@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.24",
+    VERSION = "2025.03.14",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -12,6 +12,8 @@ local _M = {
 -- 2024.12,19  Version 0
 
 -- 2025.02.24  Format annotations for landscape and eyepiece snaps
+-- 2025.03.10  add HiRes option (when in landscape and info panel not pinned)
+-- 2025.03.14  add count of individual filter subs
 
 
 local _log = require "logger" (_M)
@@ -66,10 +68,10 @@ local function Ctext(...) Xtext("center", ...) end
 --
 
 local Object, OTcon, RA, DEC, Diam
-local Camera, Ctemp
+local Camera, Ctemp, Gain
 local Telescope, Date
 local FOV, Rotation
-local Stacks, Exposure, Total
+local Stacks, Exposure, Total, Filters
 local Ses_notes, Obs_notes
 local Signature
 
@@ -99,6 +101,7 @@ local function get_annotations()
   end
   Camera = stack.camera or image and caminfo  or ''
   Ctemp = temp and (" @ %sºC" % temp) or ''
+  Gain = tonumber(stack.gain) and ("gain: %d" % stack.gain) or ''
   
   
   Telescope = controls.telescope.text
@@ -123,6 +126,9 @@ local function get_annotations()
   Exposure = T / stack.Nstack     -- average per sub
   Stacks = "stack: %d/%d x %ds" % {stack.Nstack or 0, stack.subs and #stack.subs or 0, Exposure}
   Total = "total exposure: %d:%02d" % {math.floor(T / 60), T % 60}
+  
+  local RGBL = controls.workflow.RGBL 
+  Filters = (RGBL and not stack.bayer) and "%dR %dG %dB %dL" % RGBL or nil
   
   -- session and observation notes
   
@@ -192,7 +198,9 @@ local function portrait(W, H)
       Ltext(Telescope)
       Ltext(Camera .. Ctemp)
       -- Bottom Right
-      Rtext(Stacks, H - 60)
+      Rtext(Gain, H - (Filters and 110 or 85))
+      Rtext(Stacks)
+      if Filters then Rtext(Filters) end
       Rtext(Total)
       -- Top Right
       Rtext(Date, 10, 1.4)
@@ -237,14 +245,29 @@ local function landscape(W, H)
 --      Ctext(Diam)
       -- Left
       Ltext(Date, top + 10)
-      Ltext(FOV, H - 90)
+      Ltext(FOV, H - 85)
       Ltext(Telescope)
       Ltext(Camera .. Ctemp)
       -- Right
       Rtext(Signature, top + 10, 1.2)
-      Rtext(Stacks, H - 65, 1.4)
+      Rtext(Gain, H - (Filters and 110 or 85))
+      Rtext(Stacks)
+      if Filters then Rtext(Filters) end
       Rtext(Total)
     end)
+end
+
+-------------------------
+--
+-- FULL RESOLUTION, no annotation
+--
+
+local function hiRes()
+  local W, H = image: getDimensions()
+  local flipx = controls.flipLR.checked and -1 or 1
+  local flipy = controls.flipUD.checked and -1 or 1
+  canvas = lg.newCanvas(W, H, {format = "normal", dpiscale = 1})
+  canvas: renderTo(lg.draw, image, flipx < 1 and W or 0, flipy < 0 and H or 0, 0, flipx, flipy)
 end
 
 -------------------------
@@ -264,13 +287,19 @@ function _M.snap()
   lg.setColor(1,1,1,1)
   get_annotations()
   
-  do
-    (eyepiece and portrait or landscape) (W, H) 
+  if eyepiece then
+    portrait(W, H)
+--  elseif controls.pin_info.checked then
+  else
+    landscape(W, H) 
+--  else
+--    hiRes()
   end
   
   lg.setColor(1,1,1,1)
   canvas: newImageData() : encode ("png", snap)
   canvas: release()
+  canvas = nil
  _log (snap)
     
 end

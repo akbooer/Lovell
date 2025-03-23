@@ -142,13 +142,14 @@ local hyper = lg.newShader [[
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords );
       vec3 x = clamp((pixel.rgb - black) / white, 0.0, 1.0);
-      return vec4((1 + c) * (x / (x + c)), 1.0);      
+      return vec4(clamp((1 + c) * (x / (x + c)), 0.0, 1.0), 1.0);      
     }
   ]]
 
 function _M.hyper(stretch)
   local d = 0.02
   local c = d * (1 + d - stretch)
+  c = c > 0 and c or 0
   local shader = hyper
   shader: send("c",  c)
   return shader
@@ -182,7 +183,7 @@ function _M.stretch(workflow, selected, stretch)
     
   local shader = setup (stretch) 
   shader: send("black", black)
-  shader: send("white", math.max(0.02, white))
+  shader: send("white", math.max(0.01, 2 * white))
 
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)

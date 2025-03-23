@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.11.17",
+    VERSION = "2025.03.17",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry statistical calculations in images using SHADERS",
   }
@@ -12,6 +12,9 @@ local _M = {
 -- 2024.10.21  Version 0
 -- 2024.11.16  use shader to calculate min, max, mean, standard deviation
 -- 2024.11.17  avoid negative square root in standard deviation (due to rounding errors)
+
+-- 2025.03.17  added offset()
+-- 2025.03.19  added shader to calculate min, max, mean, var... much, much faster than mapPixel() (100µs vs 50 ms)
 
 
 local _log = require "logger" (_M)
@@ -22,9 +25,8 @@ local lg = require "love.graphics"
 local li = require "love.image"
 
 --
-local oneD = lg.newCanvas(2,2)    -- just a dummy to start with
-local twoD = lg.newCanvas(2,2)
-
+local oneD  = lg.newCanvas(2,2)    -- just a dummy to start with
+local twoD  = lg.newCanvas(2,2)
   
 -------------------------------
 --
@@ -41,7 +43,7 @@ local columns = lg.newShader [[
     float min = 1.0e6, max = -1.0e6, sum = 0.0, sum2 = 0.0;
     for (float i = 0.0; i < h; i += 1.0)
     {
-    float foo = channel;
+      float foo = channel;
       float x = Texel(image, vec2(tc.x, i / h)) [channel];    // select channel of interest
       min = x < min ? x : min;
       max = x > max ? x : max;
@@ -52,68 +54,86 @@ local columns = lg.newShader [[
   }
 ]]
 
-local function getChannelStats(channel)
-    columns: send("channel", channel)
-    local w = oneD: getWidth()
-    lg.setBlendMode("replace", "premultiplied")
-    oneD: renderTo(lg.draw, twoD)
---    oneD: renderTo(lg.line, 0.5, 0.5, w - 0.5, 0.5)
-    lg.setBlendMode("alpha", "alphamultiply")
 
-    -- combine the min(x), max(x), sum(x), sum(x^2) column subtotals
-    local d1 = oneD: newImageData()
-    local min, max, sum, sum2 = 1e6, -1e6, 0, 0
-    d1: mapPixel(function(_,_, ...)   -- first two are (x,y) coordinates
-      local r,g,b,a = ...
-      min = r < min and r or min
-      max = g > max and g or max
-      sum  = sum  + b
-      sum2 = sum2 + a
-      return ...
-    end)
+-- columns calculates min(x), max(x), mean(x), var(x) for then final row
+local collectRow = lg.newShader [[
+  uniform float N, step;
+  uniform Image image;
   
-    return {min, max, sum, sum2}
-  end
+  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
+    float min = 1.0e6, max = -1.0e6, sum = 0.0, sum2 = 0.0;
+    float mean, var;
+    for (float i = 0.0; i < 1.0; i += step)
+    {
+      vec4 x = Texel(image, vec2(i, tc.y));
+      min = x.x < min ? x.x : min;
+      max = x.y > max ? x.y : max;
+      sum  += x.z;
+      sum2 += x.a;
+    }
+    mean = sum / N;
+    var = sum2 / N - mean * mean;
+    var = var > 0 ? var : 0.0;
+    return vec4(min, max, mean, var);
+  }
+]]
+
+--]=]
+
  
--- avoid square root of negative number due to rounding errors
-local function sqrt(x)
-  return x > 0 and math.sqrt(x) or 0
-end
-
--- returns min, max, mean, standard deviation of RGB in input image
-function _M.stats(image, log)
-  local elapsed = newTimer()
-  
-  local w, h = image: getDimensions()
+function _M.statsTexel(image, channel)
+  local w, h = image: getDimensions()  
   local bw = oneD: getWidth()
   if bw ~= w then
     oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})   -- maximum precision for accumulators
     twoD = lg.newCanvas(w, 1, {dpiscale = 1, format = "r8"})        -- minimal storage, only used for dimensions
   end
   
+  lg.setShader(columns)
+  columns: send("h", h)
+  columns: send("image", image)
+  columns: send("channel", channel)
+  lg.setBlendMode("replace", "premultiplied")
+  oneD: renderTo(lg.draw, twoD)
+
+  -- combine the min(x), max(x), sum(x), sum(x^2) column subtotals
+  lg.setShader(collectRow)
+  collectRow: send("N", w * h)
+  collectRow: send("step", 1 / w)
+  collectRow: send("image", oneD)
+  
+  local zeroD = lg.newCanvas(1,1, {dpiscale = 1, format = "rgba32f"})   -- for results {min, max, mean, var}
+  zeroD: renderTo(lg.draw, oneD)
+  lg.setBlendMode("alpha", "alphamultiply")
+  lg.setShader()
+  
+  return zeroD
+end
+
+local function getChannelStats(image, channel)
+  local zeroD = _M.statsTexel(image, channel)
+  local d0 = zeroD: newImageData()
+  local min, max, mean, var = d0: getPixel(0, 0)
+  return {min, max, mean, var > 0 and math.sqrt(var) or 0}  -- avoid square root of negative due to rounding errors
+end
+
+
+-- returns min, max, mean, standard deviation of RGB in input image
+function _M.stats(image, log_results)
+  local elapsed = newTimer()
+  
   local red, green, blue
-  do
-    lg.setShader(columns)
-    columns: send("h", h)
-    columns: send("image", image)
-    red   = getChannelStats(0)
-    green = getChannelStats(1)
-    blue  = getChannelStats(2)
-    lg.setShader()
-  end
+  red   = getChannelStats(image, 0)
+  green = getChannelStats(image, 1)
+  blue  = getChannelStats(image, 2)
   
-  local min = {red[1], blue[1], green[1]}
-  local max = {red[2], blue[2], green[2]}
-  
-  local n = w * h
-  local mean = {red[3]/n, blue[3]/n, green[3]/n}
-  
-  local sdev = { 
-                  sqrt(  red[4] / n - mean[1]  * mean[1]),
-                  sqrt(green[4] / n - mean[2]  * mean[2]),
-                  sqrt( blue[4] / n - mean[3]  * mean[3]),
-                }
-  if log then
+  local min, max, mean, sdev
+  min  = {red[1], green[1], blue[1]}
+  max  = {red[2], green[2], blue[2]}
+  mean = {red[3], green[3], blue[3]}
+  sdev = {red[4], green[4], blue[4]}
+          
+  if log_results then
     _log(elapsed "%.3f ms, results...")
     _log("RGB min: %6.3f, %6.3f, %6.3f" % min) 
     _log("RGB max: %6.3f, %6.3f, %6.3f" % max) 
@@ -121,7 +141,7 @@ function _M.stats(image, log)
     _log("RGB std: %6.3f, %6.3f, %6.3f" % sdev) 
   end
   
-  return {min = min, max=max, mean=mean, sdev = sdev}
+  return {min = min, max = max, mean = mean, sdev = sdev}
 end
 
   
@@ -131,27 +151,47 @@ end
 --
 
 local normalise = lg.newShader [[
-  uniform float min, scale;
+  uniform Image, red, green, blue;
+  const float eps = 1.0e-6;
+  const vec2 xy = vec2(0);
   
+  vec4 r = Texel(red, xy);
+  vec4 g = Texel(green, xy);
+  vec4 b = Texel(blue, xy);
+  
+  float r_min = r.x, r_max = r.y, r_avg = r.z, r_var = r.a;
+  float g_min = g.x, g_max = g.y, g_avg = g.z, g_var = g.a;
+  float b_min = b.x, b_max = b.y, b_avg = b.z, b_var = b.a;
+  
+  float rgb_min = float(min(r_min, min(g_min, b_min)));
+  float rgb_max = float(max(r_max, max(g_max, b_max)));
+  vec3 rgb_avg = vec3(r_avg, g_avg, b_avg);
+  vec3 rgb_var = vec3(r_var, g_var, b_var);
+  
+  float min_var = min(r_var, min(g_var, b_var));
+  float scale = 1.0 / (rgb_max - rgb_min + eps);
+    
   vec4 effect(vec4 color, Image image, vec2 tc, vec2 _) {
     vec3 rgb = Texel(image, tc) .rgb;
-    return vec4((rgb - vec3(min)) * scale * 0.9, 1.0);
+    return vec4((rgb - rgb_min) * scale, 1.0);
+
   }
 ]]
 
--- nomalize RGB, collectively, to be between 0 and 1
--- use input reference image, if present, for stats, otherwise input buffer
-function _M.normalise(workflow, reference)
+-- offset RGB, 
+function _M.normalise(workflow)
   local input, output = workflow()      -- get hold of the workflow buffers
-  local stats = _M.stats(reference or input);
-  local eps = 1.0e-10
-  local max, min = stats.max, stats.min
-  local rgb_max = math.max(math.max(max[1], max[2]),max[3])
-  local rgb_min = math.min(math.min(min[1], min[2]),min[3])
-  local scale = 1 / (rgb_max - rgb_min + eps)                 -- avoid division by zero
-  normalise: send("min", rgb_min)
-  normalise: send("scale", scale)
-  lg.setShader(normalise)
+  
+  local red, green, blue
+  red   = _M.statsTexel(input, 0)
+  green = _M.statsTexel(input, 1)
+  blue  = _M.statsTexel(input, 2)
+
+  local shader = normalise
+  shader: send("red", red)
+  shader: send("green", green)
+  shader: send("blue", blue)
+  lg.setShader(shader)
   output: renderTo(lg.draw, input)
   lg.setShader()
 end
@@ -166,36 +206,46 @@ function _M.test(N)
   -- create test image
   
   N = N or 9
+  _log ''
  _log "Stats test"
   local x = li.newImageData(N, N, "rgba16f")
 
   local t = {}
   local random = math.random
+  local min, max, sum, sum2 = math.huge, 0, 0, 0
   x: mapPixel(function(x,y, r,g,b)
-    r = random()
-    g = random()
-    b = random()
+    r = random(10)
+    g = random(20)
+    b = random(30)
     r = r - r % 0.001
     g = g - g % 0.001
     b = b - b % 0.001
     x, y = x+1, y+1
     t[y] = t[y] or {}
     t[y][x] = r
+    sum = sum + r
+    sum2 = sum2 + r * r
+    min = r < min and r or min
+    max = r > max and r or max
     return r,g,b,1
   end)
 
 --  for _, row in ipairs(t) do
---    print("%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f" % row)
+--    _log("%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f" % row)
 --  end
-
+  local M = N * N
+  local avg = sum / M
+  local var = sum2 / M - avg * avg
+  
+  _log("min, max, avg, sdev: %.4f, %.4f, %.4f, %.4f" % {min, max, avg, math.sqrt(var)})
   local temp = lg.newImage(x, {dpiscale = 1})
   temp: setFilter("nearest", "nearest")
   local itest = lg.newCanvas (N,N, {dpiscale=1, format = "rgba16f"})
   itest: setFilter("nearest", "nearest")
   itest: renderTo(lg.draw, temp)
   
-  _M.stats(itest)
-  
+  local s = _M.stats(itest)
+  _log(pretty(s))
 end
 
 --_M.test()
