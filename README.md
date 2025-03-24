@@ -21,5 +21,54 @@ The novel thing about Lövell is that the image processing workflow is performed
 * click on the Lövell.love file (or drop onto the LÖVE app) to run it
 * drop a folder containing FITS files onto the app window
 
+## Quick tour
+
+### Main display
+
+The main display shows a stacked image with controls for adjustments and an information panel.
+
+<img width="1280" alt="Screenshot 2025-03-06 at 15 44 02" src="https://github.com/user-attachments/assets/c874ea0b-a3b9-4c5c-8432-f758259e3438" />
+
+
+* clicking on the LRGB button cycles through Mono / Red / Green / Blue and back to RGB
+* clicking on the Asinh button cycles through Hyper / Linear / Log / Gamma / ...
+* right-clicking on either of the above shows drop down menu of the same options
+* mouse wheel / trackpad scroll zooms the display
+* click and drag moves the display
+* click on Eyepiece.. to switch to Landscape.. display, and *vice versa*
+* hover over eyepiece ring to activate image rotation, click and drag to change
+* enter object name in field on top right to search DSO catalogue
+
+### DSO / Observation list
+
+Some 40,000 objects of interest. Close button returns to main display.
+Close button returns to main display.  
+
+<img width="1273" alt="Screenshot 2025-03-06 at 15 46 15" src="https://github.com/user-attachments/assets/96b90ada-c3d0-4e6a-8850-85f0bbff6f71" />
+
+
+* click on column names to sort
+* text or numeric expressions in filter boxes to select subsets
+* click, shift-click, option/control-click to (de)select multiple items
+* right click on image to show pop-up menu of DSO / Observations / Watch list / View stack
+* scroll control to forward time by up to 24 hours, updating object positions in RA, DEC, etc...
+
+### View stack/subs
+
+View all the subs in sequence, show detected and matched stars.
+Close button returns to main display.  
+
+<img width="1210" alt="Screenshot 2025-03-24 at 12 02 15" src="https://github.com/user-attachments/assets/0c946a59-23eb-4e85-840f-844aabaff55e" />
+
+* mouse wheel / trackpad scroll to leaf through subs
+* PLAY button animates sequence of subs
+* rate control changes speed
+* BLINK toggles between adjacent subs
+* Show stars indicates detected stars (in blue) and those matched for alignment (orange)
+
+
+
+
+
 
 
