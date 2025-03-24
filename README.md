@@ -30,7 +30,7 @@ The main display shows a stacked image with controls for adjustments and an info
 <img width="1280" alt="Screenshot 2025-03-06 at 15 44 02" src="https://github.com/user-attachments/assets/c874ea0b-a3b9-4c5c-8432-f758259e3438" />
 
 
-* clicking on the LRGB button cycles through Mono / Red / Green / Blue and back to RGB
+* clicking on the LRGB button cycles through Mono / Red / Green / Blue and back
 * clicking on the Asinh button cycles through Hyper / Linear / Log / Gamma / ...
 * right-clicking on either of the above shows drop down menu of the same options
 * mouse wheel / trackpad scroll zooms the display
@@ -41,7 +41,7 @@ The main display shows a stacked image with controls for adjustments and an info
 
 ### DSO / Observation list
 
-Some 40,000 objects of interest. Close button returns to main display.
+Some 40,000 objects of interest.
 Close button returns to main display.  
 
 <img width="1273" alt="Screenshot 2025-03-06 at 15 46 15" src="https://github.com/user-attachments/assets/96b90ada-c3d0-4e6a-8850-85f0bbff6f71" />
