@@ -16,12 +16,10 @@ The novel thing about Lövell is that the image processing workflow is performed
 * install it, per the relevant instructions
 * download the Lövell.love file from this repository
 
-## Quick start
+## Quick tour
 
 * click on the Lövell.love file (or drop onto the LÖVE app) to run it
 * drop a folder containing FITS files onto the app window
-
-## Quick tour
 
 ### Main display
 
