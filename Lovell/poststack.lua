@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.23",
+    VERSION = "2025.03.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
@@ -15,11 +15,10 @@ local _M = {
 -- 2025.01.25  only remove gradients if defined
 -- 2025.01.29  integrate colour and filter methods into workflow 
 -- 2025.02.24  added invert() option in workflow
+-- 2025.03.24  show insufficient RGB as mono
 
 
 local _log = require "logger" (_M)
-
-local mono = {format = "r16f", dpiscale = 1}    -- Luminance buffer options
 
 local function poststack(frame)
   if not frame then return end
@@ -35,51 +34,44 @@ local function poststack(frame)
   --
   local RGBL = workflow.RGBL
   if not RGBL then return end
+  local w = controls.workflow
+  w.RGBL = RGBL                                           -- so that GUI infopanel has access
   
-  local R, G, B, L = unpack(RGBL)
-  controls.workflow.RGBL = RGBL                           -- so that GUI infopanel has access
-  local ratio = (R + G + B) / (3 * L + 1e-6)             --  is there a Luminance filter? (avoid zero division)
---  _log("RGB:L ratio %.2f" % ratio)
-  workflow: newInput(frame.image)
+  workflow: newInput(frame.image)  
   workflow: background(frame.gradients, controls.gradient.value) 
-
   workflow: stats()   -- give CPU something to do
   
   -------------------------------
   --
-  -- COLOUR WORKFLOW
+  -- MONO WORKFLOW / SYNTH LUM
   --
-   
-  local bayer = frame.bayer
-  if R > 0 and G > 0 and B > 0 then
-    local w = controls.workflow
-    workflow: balance {w.Rweight.value, w.Gweight.value, w.Bweight.value}
---    workflow: synthL({1,1,1}, frame.luminance, ratio)                   -- synthetic lum, or could be {.7,.2,.1}, etc.
-    workflow: synthL({.7,.2,.1}, workflow.luminance, ratio)          -- synthetic lum, or could be {.7,.2,.1}, etc.
-    workflow: save "temp"                       -- fork into a monochrome buffer
-    workflow: undo()                            -- revert to previous input buffer
-   
-    workflow: gaussian(1)                       -- reduce colour noise
-    workflow: scnr()                            -- Subtractive Chromatic Noise Reduction
-    workflow: normalise()
---    workflow: stretch("ModGamma", 2)
---    workflow: rgb2hsl()
---    workflow: hsl2rgb(controls.saturation.value * 5)                         -- apply saturation stretch
-    workflow: satboost(controls.saturation.value * 5)                         -- apply saturation stretch
-    workflow: tint()                            -- R / GB balance
-    workflow: selector()                        -- select channel for display (LRGB, L, R, G, B)
-    workflow: lrgb "temp"                       -- create LRBG image
+  local R, G, B, L = unpack(RGBL)
+  local ratio = (R + G + B) / (3 * L + 1e-6)             -- is there a Luminance filter? (avoid zero division)
+--  _log("RGB:L ratio %.2f" % ratio)
 
-  else -- mono
-    workflow: newInput "luminance"
+  workflow: balance {w.Rweight.value, w.Gweight.value, w.Bweight.value}   -- apply RGB balance presets
+  workflow: synthL({.7,.2,.1}, workflow.luminance, ratio)                 -- mix synthetic and real lum (if any)
+ 
+  -------------------------------
+  --
+  -- COLOUR WORKFLOW
+  --  
+  if R > 0 and G > 0 and B > 0 then                  -- enough for LRGB
+    workflow: save "temp"                             -- save lum
+    workflow: undo()                                  -- revert to previous input buffer
+    workflow: gaussian(1)                             -- reduce colour noise
+    workflow: scnr()                                  -- Subtractive Chromatic Noise Reduction
     workflow: normalise()
-  end
+    workflow: satboost(controls.saturation.value * 5) -- apply saturation stretch
+    workflow: tint(controls.tint.value)               -- R / GB balance
+    workflow: selector()                              -- select channel for display (LRGB, L, R, G, B)
+    workflow: lrgb "temp"                             -- create LRBG image
+   end
   
   -------------------------------
   --
   -- GAMMA STRETCH (of various kinds)
   --
-  
   workflow: stretch ()
   
   -------------------------------

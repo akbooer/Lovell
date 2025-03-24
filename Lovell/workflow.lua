@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.21",
+    VERSION = "2025.03.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -181,8 +181,8 @@ function _M.new(ctrl, name)
     scnr        = colour.scnr,
     synthL      = colour.synthL,
     balance     = colour.balance,
-    rgb2hsl     = colour.rgb2hsl,
-    hsl2rgb     = colour.hsl2rgb,
+--    rgb2hsl     = colour.rgb2hsl,
+--    hsl2rgb     = colour.hsl2rgb,
     satboost    = colour.satboost,
     tint        = colour.balance_R_GB,
     selector    = colour.selector,

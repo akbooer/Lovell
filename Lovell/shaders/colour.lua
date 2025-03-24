@@ -21,8 +21,6 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-local HSL = require "shaders.shadertoyHSL"
-
 local love = _G.love
 local lg = love.graphics
 
@@ -93,20 +91,6 @@ end
 
 -------------------------
 
---local rgb2hsl2rgb = lg.newShader (HSL .. [[
-    
---    uniform Image luminance;
-    
---    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
---      vec3 rgb = Texel(texture, texture_coords) .rgb;
---      float l  = Texel(luminance, texture_coords) .r;
---      vec3 hsl = RGBtoHSL(rgb);
---      hsl.z = l;
---      vec3 lrgb = HSLtoRGB(hsl);
---      return vec4(lrgb, 1.0);
---    }
---]])
-
 local lrgb = lg.newShader ([[
     uniform Image luminance;
     const float eps = 1.0e-6;
@@ -156,29 +140,6 @@ end
 
 -------------------------
 
---local colourise = lg.newShader [[
---  uniform int channel;
-  
---  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
---    float x = Texel(texture, tc).r;
---    vec3 col = vec3(0.0);
---    col[channel] = x;
---    return vec4(col, 1.0);
---  }
---]]
-
---function _M.colourise(workflow, channel)
---  local input, output = workflow()      -- get hold of the workflow buffers and controls
---  local shader = colourise
---  shader: send("channel", channel)
---  lg.setShader(shader) 
---  output: renderTo(lg.draw, input)
---  lg.setShader()
---  return output
---end
-
--------------------------
-
 --  channel selector
 
 local selector = lg.newShader[[
@@ -203,8 +164,8 @@ local monochrome =  lg.newShader[[
 local rgb = {LRGB = {1,1,1}, Red = {1,0,0}, Green={0,1,0}, Blue = {0,0,1}}
 
 function _M.selector(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local opts = controls.channelOptions
+  local input, output = workflow()                -- get hold of the workflow buffers and controls
+  local opts = workflow.controls.channelOptions
   local selected = opts[opts.selected]
   local shader
   
@@ -235,52 +196,13 @@ end
 
 -------------------------
 
---local rgb2hsl = lg.newShader (HSL .. [[
-    
---    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
---      vec4 pixel = Texel(texture, texture_coords);
---      return vec4(RGBtoHSL(clamp(pixel.rgb, 0.0, 1.0)), 1.0);
---    }
---]])
-
---function _M.rgb2hsl(workflow)
---  local input, output = workflow()      -- get hold of the workflow buffers and controls
---  local shader = rgb2hsl
---  lg.setShader(shader) 
---  output:renderTo(lg.draw, input)
---  lg.setShader()
---  return output
---end
-
----------------------------
-
---local hsl2rgb = lg.newShader (HSL .. [[
---    uniform float sat;
-    
---    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
---      vec4 pixel = Texel(texture, texture_coords);
---      pixel.g = clamp(pixel.g * sat, 0.0, 1.0);
---      return vec4(clamp(HSLtoRGB(pixel.rgb), 0.0, 1.0), 1.0);
---    }
---]])
-
---function _M.hsl2rgb(workflow, sat)
---  local input, output = workflow()
---  local shader = hsl2rgb
---  shader: send("sat", sat)
---  lg.setShader(shader) 
---  output:renderTo(lg.draw, input)
---  lg.setShader()
---  return output
---end
--------------------------
-
---[[    // Algorithm from Chapter 16 of OpenGL Shading Language
+--[[    
+    // Algorithm from Chapter 16 of OpenGL Shading Language
     const vec3 W = vec3(0.2125, 0.7154, 0.0721);
     vec3 intensity = vec3(dot(rgb, W));
     return mix(intensity, rgb, adjustment);
 
-]]
+--]]
 local sat = lg.newShader [[
     uniform float sat;
     uniform vec3 weights;
@@ -289,32 +211,31 @@ local sat = lg.newShader [[
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       rgb = clamp(rgb, 0.0, 1.0);
       vec3 intensity = vec3(dot(rgb, weights));
-     //  return vec4(clamp(mix(intensity, rgb, sat), 0.0, 1.0), 1.0);
       return vec4(mix(intensity, rgb, sat), 1.0);
     }
 ]]
 
 function _M.satboost(workflow, boost)
-  local input, output = workflow()      -- get hold of the workflow buffers and controls
+  local input, output = workflow()      -- get hold of the workflow buffers
   local shader = sat
   shader: send("sat", boost)
   shader: send("weights", {0.2, 0.7, 0.1})
   lg.setShader(shader) 
-  output:renderTo(lg.draw, input)
+  output: renderTo(lg.draw, input)
   lg.setShader()
   return output
 end
 
 -------------------------
 
-local invert = lg.newShader (HSL .. [[
+local invert = lg.newShader [[
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       float l = clamp(1.0 - dot(rgb, vec3(1.0/3.0)), 0, 1);
       return vec4(vec3(l), 1.0);
     }
-]])
+]]
 
 function _M.invert(workflow)
   local opts = workflow.controls.channelOptions
@@ -339,12 +260,10 @@ local balance_R_GB = lg.newShader [[
   }
 ]]
 
-function _M.balance_R_GB(workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+function _M.balance_R_GB(workflow, tint)
+  local input, output = workflow()      -- get hold of the workflow buffers
   local log = math.log
-  local c = controls
---  local r, bg  = c.red.value, c["blue / green"].value
-  local r, bg  = c.tint.value, 0.5
+  local r, bg  = tint, 0.5
   r, bg = (r - 0.5) / 4 + 0.5, bg / 2 + 0.25       -- restrict range
   r = r ^ (log(1/3)  / log(1/2))            -- map 0..1 range with middle being 1/3, not 1/2
   local g = (2 * bg - r) / 2
