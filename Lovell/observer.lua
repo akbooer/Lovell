@@ -86,8 +86,8 @@ function _M.newSub(frame, controls)
 
   if frame.first then
     -- create/clear new multi-spectral and mono stacks
-    workflow: save ("variance", {dpiscale = 1, format = "r16f"})
-    workflow: clear "variance"
+    workflow: save ("variance")     -- NEEDS SEPARATE RGB ?? AND L ???, {dpiscale = 1, format = "r16f"})
+    workflow: clear ("variance", 1,1,1,1)
     workflow: save "luminance"   --, {dpiscale = 1, format = "r16f"})
     workflow: clear "luminance"
     workflow: save "stack"
@@ -150,7 +150,7 @@ function _M.newSub(frame, controls)
     stack.Nstack = stack.Nstack + 1
     stack.exposure = stack.exposure + (frame.exposure or 0)
     
---    align.minVar = true   -- use minimum variance stacker
+--    align.minVar = true   -- * * * * * use minimum variance stacker * * * * *
     
     workflow: stacker (align)
     stack.gradients = background.calculate(workflow.stack)

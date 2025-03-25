@@ -15,7 +15,7 @@ local _M = {
 -- 2024.12.16  use workflow() buffers
 
 -- 2025.01.29  integrate into workflow
--- 2025.03.10  pass Bayer pattern (possibly overridden) ro badpixel()
+-- 2025.03.10  pass Bayer pattern (possibly overridden) to badpixel()
 
 
 local _log = require "logger" (_M)
@@ -23,14 +23,13 @@ local _log = require "logger" (_M)
 local love = _G.love
 local lg = love.graphics
 
-local badpixel  = require "shaders.badpixel"
-local debayer   = require "shaders.debayer"
 local utils     = require "utils"
+local newTimer = utils.newTimer
 
 
 local function prestack(workflow, img)
   local controls = workflow.controls
-   
+  
   local imageData = img.imageData     -- this is in R16 format
   _log "creating R16 format image"
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = false})  
@@ -58,7 +57,9 @@ local function prestack(workflow, img)
 
   --TODO: Calibration, darks and flats
     
+  local elapsed = newTimer()
   workflow: normalise()
+  _log(elapsed "%.3f ms, normalisation")
   
 end
 

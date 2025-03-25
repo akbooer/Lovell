@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.03.24",
     AUTHOR = "Martin Meredith / AK Booer",
     DESCRIPTION = "stretches of various sorts on final stack",
   }
@@ -171,7 +171,8 @@ end
 --
 
 function _M.stretch(workflow, selected, stretch)
-  local input, output, controls = workflow()
+  local input, output = workflow()
+  local controls = workflow.controls
   
   local opt = _M.gammaOptions
   selected = (selected or opt[opt.selected]): lower()

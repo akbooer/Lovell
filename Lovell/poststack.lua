@@ -10,7 +10,7 @@ local _M = {
   }
   
 -- 2024.11.06  Version 0
--- 2024.12.03  and TNR noise reduction and sharpening
+-- 2024.12.03  add TNR noise reduction and sharpening
 
 -- 2025.01.25  only remove gradients if defined
 -- 2025.01.29  integrate colour and filter methods into workflow 
@@ -25,6 +25,14 @@ local function poststack(frame)
   
   local workflow = frame.workflow
   local controls = workflow.controls
+  local RGBL = workflow.RGBL
+  if not RGBL then return end
+  
+  local w = controls.workflow
+  w.RGBL = RGBL                                           -- so that GUI infopanel has access
+  local R, G, B, L = unpack(RGBL)
+  local ratio = (R + G + B) / (3 * L + 1e-6)             -- is there a Luminance filter? (avoid zero division)
+--  _log("RGB:L ratio %.2f" % ratio)
   
 --  local elapsed = require "utils" .newTimer()
   
@@ -32,10 +40,6 @@ local function poststack(frame)
   --
   -- INITIALISE WORKFLOW, and remove gradient
   --
-  local RGBL = workflow.RGBL
-  if not RGBL then return end
-  local w = controls.workflow
-  w.RGBL = RGBL                                           -- so that GUI infopanel has access
   
   workflow: newInput(frame.image)  
   workflow: background(frame.gradients, controls.gradient.value) 
@@ -45,9 +49,6 @@ local function poststack(frame)
   --
   -- MONO WORKFLOW / SYNTH LUM
   --
-  local R, G, B, L = unpack(RGBL)
-  local ratio = (R + G + B) / (3 * L + 1e-6)             -- is there a Luminance filter? (avoid zero division)
---  _log("RGB:L ratio %.2f" % ratio)
 
   workflow: balance {w.Rweight.value, w.Gweight.value, w.Bweight.value}   -- apply RGB balance presets
   workflow: synthL({.7,.2,.1}, workflow.luminance, ratio)                 -- mix synthetic and real lum (if any)
@@ -56,7 +57,7 @@ local function poststack(frame)
   --
   -- COLOUR WORKFLOW
   --  
-  if R > 0 and G > 0 and B > 0 then                  -- enough for LRGB
+  if R > 0 and G > 0 and B > 0 then                   -- enough for LRGB
     workflow: save "temp"                             -- save lum
     workflow: undo()                                  -- revert to previous input buffer
     workflow: gaussian(1)                             -- reduce colour noise
@@ -64,7 +65,7 @@ local function poststack(frame)
     workflow: normalise()
     workflow: satboost(controls.saturation.value * 5) -- apply saturation stretch
     workflow: tint(controls.tint.value)               -- R / GB balance
-    workflow: selector()                              -- select channel for display (LRGB, L, R, G, B)
+    workflow: selector(controls.channelOptions)       -- select channel for display (LRGB, L, R, G, B)
     workflow: lrgb "temp"                             -- create LRBG image
    end
   
@@ -76,22 +77,22 @@ local function poststack(frame)
   
   -------------------------------
   --
-  -- POST-POST PROCESSING,  noise reduction / sharpening
+  -- POST PROCESSING,  noise reduction / sharpening
   --
   
-  workflow: save "temp"
+  workflow: save "temp"                             -- save stretched image
   workflow: gaussian(1)
-  workflow: save "temp1"
+  workflow: save "temp1"                            -- one level of smoothing...
   workflow: gaussian(2)
-  workflow: save "temp2"
-  workflow: newInput "temp"
+  workflow: save "temp2"                            -- ...and another
+  workflow: newInput "temp"                         -- restore original image
   workflow: tnr "temp2"                             -- noise reduction using temp2 as smoothed background
-  workflow: apf("temp1", "temp2")                   -- sharpening. using two background scales
+  workflow: apf("temp1", "temp2")                   -- sharpening, using two background scales
     
-  workflow: invert()   -- ...if selected  
+  workflow: invert(controls.channelOptions)         -- invert, if "Inverted" selected  
   
 --  _log(elapsed())
-  return workflow.output      -- just return the workflow result
+  return workflow.output                            -- return the workflow result
 end
 
 return poststack

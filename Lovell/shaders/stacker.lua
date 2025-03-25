@@ -98,28 +98,50 @@ end
 -- image must be aligned BEFORE new variance estimate!
 --
 
+-- calculate image variance
 local variance = lg.newShader [[
     
     uniform Image stack;
     
     vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec3 new = Texel(texture, tc) .rgb;
-      vec3 ref = Texel(stack, tc) .rgb;
-      vec3 diff = new - ref;
-      return vec4(diff * diff, 1.0);
+      vec4 new = Texel(texture, tc);
+      vec4 ref = Texel(stack, tc);
+      vec4 diff = new - ref;
+      return diff * diff;
     }
     
 ]]
 
+-- calculate minimum variance weighted stack
 local minvar = lg.newShader [[
     
-    uniform Image stack, variance;
+    uniform Image stack, stack_variance, sub_variance;
     
     vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec3 new = Texel(texture, tc) .rgb;
-      vec3 ref = Texel(stack, tc) .rgb;
-      vec3 diff = new - ref;
-      return vec4(diff * diff, 1.0);
+      vec4 pixel = Texel(texture, tc);
+      vec4 pstack = Texel(stack, tc);
+      vec4 vsub = Texel(sub_variance, tc);
+      vec4 vstack = Texel(stack_variance, tc);
+      vec4 new = (vstack * pixel + vsub * pstack) / (vstack + vsub);
+      
+      new = (pixel + pstack) / 2.0;
+      new = pixel;
+      
+      // return new;                  // should eventually use this when chain has been completed
+      return vec4(vec3(new), 1.0);    // ignore L channel for the time being
+    }
+    
+]]
+
+-- calculate new stack variance
+local newvar = lg.newShader [[
+    
+    uniform Image stack_variance;
+    
+    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+      vec4 vsub = Texel(texture, tc);
+      vec4 vstack = Texel(stack_variance, tc);
+      return vsub * vstack / (vsub + vstack);
     }
     
 ]]
@@ -140,31 +162,38 @@ local function vstacker(workflow, params)
   local idx = index[filter] or 1
   local depth = RGBL[idx]
   
-  -- (1) rotate and shift
-  lg.setBlendMode "replace"
-  workflow: buffer "temp"
-  workflow.temp: renderTo(lg.draw, workflow.output, w/2 + p.xshift, h/2 + p.yshift, p.theta, 1, 1, w/2, h/2)
+  --(0) ignore alpha channel for all these shaders which operate on RGBL pixels (Alpha channel replaced by Luminance)
+  lg.setColorMask(unpack(filterChans))                -- only update relevant channels
+  lg.setBlendMode ("replace", "premultiplied")
+  
+  -- (1) rotate and shift input, saving in temp
+  workflow: renderTo(lg.draw, w/2 + p.xshift, h/2 + p.yshift, p.theta, 1, 1, w/2, h/2)
+  workflow: save "temp"
 
-  -- (2) calculate new image variance
+  -- (2) calculate new image variance, save in temp1 (and output)
   lg.setShader(variance)
   variance: send("stack", stack)
-  workflow: buffer "temp1"
-  workflow.temp1: renderTo(lg.draw, workflow.temp)
-  
-  -- (3) variance weighted stack
-  
-  lg.setBlendMode "alpha"
+  workflow: renderTo(lg.draw)
+  workflow: save "temp1"
+ 
+  -- (3) variance weighted stack of rotated and shifted image in temp
   lg.setShader(minvar)
-  lg.setColorMask(unpack(filterChans))
   minvar: send("stack", stack)
-  minvar: send("variance", 1 / depth)
-  stack: renderTo(lg.draw, workflow.temp)
-  lg.setShader()
-  lg.setColorMask(true, true, true, true)
+  minvar: send("stack_variance", workflow.variance)
+  minvar: send("sub_variance", workflow.temp1)
+  workflow: newInput "temp"
+  workflow: renderTo(lg.draw)
+  workflow: save "stack"
 
   -- (4) update stack variance
+  lg.setShader(newvar)
+  newvar: send("stack_variance", workflow.variance)
+  workflow: newInput "temp1"
+  workflow: renderTo(lg.draw)
+  workflow: save "variance"
   
---  if mono then workflow: copy("output", "stack") end
+  -- (5) reset graphics defaults
+  lg.reset()
   
 end
 

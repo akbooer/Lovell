@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.23",
+    VERSION = "2025.03.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
@@ -51,7 +51,7 @@ local synthLL = lg.newShader([[
     uniform float a, b;         // mixing ratio of synthL to L 
     uniform vec3 rgb;           // mixing ratio of RGB for synthL
     
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 _){
       vec3 pixel = Texel(texture, texture_coords ) .rgb;
       float lum = clamp(Texel(luminance, texture_coords) .r, 0.0, 1.0);
       float synthL = dot(pixel, rgb);     // vector dot product, weighted sum of RGB
@@ -146,7 +146,7 @@ local selector = lg.newShader[[
     uniform vec3 channelMask;
     const vec3 zero = vec3(0);
 
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec4 pixel = Texel(texture, texture_coords);
       return vec4(max(zero, pixel.rgb) * channelMask, 1.0);
     }
@@ -154,7 +154,7 @@ local selector = lg.newShader[[
 
 local monochrome =  lg.newShader[[
     
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec4 pixel = Texel(texture, texture_coords);
       float mono = (pixel.r + pixel.g + pixel.b) / 3.0;
       return vec4(vec3(mono), 1.0);
@@ -163,9 +163,8 @@ local monochrome =  lg.newShader[[
 
 local rgb = {LRGB = {1,1,1}, Red = {1,0,0}, Green={0,1,0}, Blue = {0,0,1}}
 
-function _M.selector(workflow)
-  local input, output = workflow()                -- get hold of the workflow buffers and controls
-  local opts = workflow.controls.channelOptions
+function _M.selector(workflow, opts)
+  local input, output = workflow()                -- get hold of the workflow buffers
   local selected = opts[opts.selected]
   local shader
   
@@ -207,7 +206,7 @@ local sat = lg.newShader [[
     uniform float sat;
     uniform vec3 weights;
     
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       rgb = clamp(rgb, 0.0, 1.0);
       vec3 intensity = vec3(dot(rgb, weights));
@@ -230,15 +229,14 @@ end
 
 local invert = lg.newShader [[
     
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       float l = clamp(1.0 - dot(rgb, vec3(1.0/3.0)), 0, 1);
       return vec4(vec3(l), 1.0);
     }
 ]]
 
-function _M.invert(workflow)
-  local opts = workflow.controls.channelOptions
+function _M.invert(workflow, opts)
   if opts[opts.selected] ~= "Inverted" then return end
   local input, output = workflow()      -- get hold of the workflow buffers
   local shader = invert
