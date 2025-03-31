@@ -1,11 +1,11 @@
 --
--- güillaume.lua
+-- guillaume.lua
 --
 
 local _M = {
     NAME = ...,
     VERSION = "2025.01.22",
-    DESCRIPTION = "GÜI Library for LÖVELL App Using Minimal Effort (built on SUIT)",
+    DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
 

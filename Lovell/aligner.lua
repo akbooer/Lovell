@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.09",
+  VERSION = "2025.03.20",
   DESCRIPTION = "image alignment using Fast Global Registration",
 }
 
@@ -14,6 +14,7 @@ local _M = {
 -- 2025.03.05  use Fast Global Registration algorithm
 -- 2025.05.09  use image centre as rotation origin
 -- 2025.03.11  linearize angle around previous transformation estimate (as per the paper)
+-- 2025.03.20  roll-back linearization for the time being (poor implementation)
 
 
 --[[
@@ -95,7 +96,7 @@ local function matchPairs(stars, keystars, controls)
     end
   end
 
-  _log(elapsed ("%.3f ms, matched %d stars (max offset = %d)", #starIndex, maxDist))
+  _log(elapsed ("%.3f ms, matched %d stars", #starIndex))
 
   return starIndex, keyIndex
 end

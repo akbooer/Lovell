@@ -6,7 +6,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
   _M.VERSION = "2024.12.23"
-  _M.DESCRIPTION = "workflow GÜI"
+  _M.DESCRIPTION = "workflow GUI"
 
 local _log = require "logger" (_M)
 
@@ -19,6 +19,8 @@ local session = require "session"
 local suit = require "suit"
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
+
+_M.StackOptions = {"Average", "Min Variance", selected = 1}
 
 local w = session.controls.workflow   -- export
 
@@ -116,13 +118,13 @@ local function stack()
   reset(M)
   self: Label("stacking mode", lalign, row(W, 20))
   row(W/2, 30)
-  self: Button("Average", col(W, 30))
+  self: Dropdown(_M.StackOptions, col(W * 1.5, 30))
 end
 
 
 -------------------------------
 --
--- COLOUR
+-- POSTSTACK
 --
   
 local function poststack()
@@ -148,6 +150,35 @@ end
 
 -------------------------------
 --
+-- COLOUR
+--
+
+local function colour()
+  M = 50
+  layout: reset(M, 350, 10, 10)
+  
+    
+  reset()
+  self: Button("Colour", row(Wcol - 100, 30))
+  self: Label("Channel weights", row(W, 20))
+  down()
+  
+  self: Label("R", ralign, col(40, 10))
+  self: Slider(w.Rweight, col(W, 10))
+  reset()
+  down()
+  self: Label("G", ralign, col(40, 10))
+  self: Slider(w.Gweight, col(W, 10))
+  reset()
+  down()
+  self: Label("B", ralign, col(40, 10))
+  self: Slider(w.Bweight, col(W, 10))
+  
+end
+
+
+-------------------------------
+--
 -- UPDATE / DRAW
 
 function _M.update(dt)
@@ -159,6 +190,8 @@ function _M.update(dt)
   prestack()
   stack()
   poststack()
+  
+  colour()
   
 end
 

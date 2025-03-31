@@ -136,6 +136,7 @@ end
 -------------------------
 --
 -- transform image offset by screen coordinate increment
+-- used by mainGUI and snapshotter
 --
 
 function _M.moveXY(image, dx, dy, ratio)

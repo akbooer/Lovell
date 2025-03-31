@@ -21,7 +21,7 @@ local csv  = require "lib.csv"
 local json = require "lib.json"
 
 _M.dsos         = require "databases.dso"
-_M.observations = require "databases.observations"
+_M.observations = require "databases.obsessions"
 _M.calibration  = require "databases.calibration"
 
 local empty = _G.READONLY {}

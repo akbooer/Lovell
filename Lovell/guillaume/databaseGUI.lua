@@ -6,7 +6,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
   _M.VERSION = "2025.02.10"
-  _M.DESCRIPTION = "database GÜI"
+  _M.DESCRIPTION = "database GUI"
 
 local _log = require "logger" (_M)
 
@@ -50,8 +50,8 @@ end
 
 local catalog = {   -- databases
   
-    obslist,
-    databases.observations,   
+    obslist,                  -- DSOs / observing list
+    databases.observations,   -- previous observations
     databases.calibration,    -- Masters
     databases.telescopes,     -- Telescopes 
   }

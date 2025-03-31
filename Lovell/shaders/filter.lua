@@ -106,16 +106,16 @@ local tnr = love.graphics.newShader[[
   }]]
 
 function _M.tnr(workflow, background)
-  local strength = 30 * workflow.controls.denoise.value
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  local controls = workflow.controls
+  local strength = controls.denoise.value
+  local input, output = workflow()
   background = workflow: buffer(background)
   local shader = tnr
   lg.setShader(shader)
   shader: send("background", background)
-  shader: send("strength", strength)
+  shader: send("strength", 30 * strength)
   output: renderTo(lg.draw, input)
   lg.setShader()
-  return output
 end
 
 -------------------------------
@@ -168,7 +168,6 @@ function _M.apf0(background, workflow)
   shader: send("strength", strength)
   output: renderTo(lg.draw, input)
   lg.setShader()
-  return output
 end
 
 -------------------------------
@@ -234,19 +233,20 @@ local apf = love.graphics.newShader[[
 
 function _M.apf(...)
   local workflow, background, background2 = ...
+  local controls = workflow.controls
+  local strength = controls.sharpen.value
+  if strength < 0.02 then return end
   if background2 then
     return _M.apf2(...)
   end
   background = workflow: buffer(background)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
-  local strength = controls.sharpen.value
+  local input, output = workflow()
   local shader = apf
   lg.setShader(shader)
   shader: send("background", background)
   shader: send("strength", strength)
   output: renderTo(lg.draw, input)
   lg.setShader()
-  return output
 end
 
 

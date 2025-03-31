@@ -15,7 +15,7 @@ local _M = {
 
 -- 2025.03.17  added offset()
 -- 2025.03.19  added shader to calculate min, max, mean, var... much, much faster than mapPixel() (100µs vs 50 ms)
--- 2025.03.25  revert to non-Texel based stats (broke on PCs, thanks @Songwired)
+-- 2025.03.25  revert to non-Texel based stats (Issue #1, broken on PCs, thanks @Songwired)
 
 
 local _log = require "logger" (_M)

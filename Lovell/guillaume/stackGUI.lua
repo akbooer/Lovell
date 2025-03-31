@@ -6,7 +6,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
   _M.VERSION = "2025.03.23"
-  _M.DESCRIPTION = "stack GÜI, view each stack frame"
+  _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
 

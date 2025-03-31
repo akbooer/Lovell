@@ -20,7 +20,7 @@ local _log = require "logger" (_M)
 -- Handles DSO table and observing list management, including alt-az/transit computations.
 
 local dsos  = require "databases.dso"
-local obs   = require "databases.observations"
+local obs   = require "databases.obsessions"
 
 local session = require "session"
 local util    = require "utils"

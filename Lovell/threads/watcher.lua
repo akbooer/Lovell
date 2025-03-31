@@ -4,15 +4,10 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.02",
+  VERSION = "2025.03.28",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
-
---[[
-      NB: When a Thread is started, it only loads love.data, love.filesystem, and love.thread module. 
-      Every other module has to be loaded with require. 
---]]
 
 local love = _G.love
 
@@ -40,6 +35,11 @@ local _log = require "logger" (_M)
 
 local iframe  = require "iframe"        -- Lövell image frame
 local json    = require "lib.json"
+
+--[[
+      NB: When a Thread is started, it only loads love.data, love.filesystem, and love.thread module. 
+      Every other module has to be loaded with require. 
+--]]
 
 local lf = require "love.filesystem"
 local lt = require "love.timer"
@@ -75,13 +75,6 @@ local function readMetadata(filename)
     metadata.name = metadata.Name        -- some confusion over naming styles!
   end
   return metadata
-end
-
-local function dir(folder)
-  local p = io.popen ("ls '" .. folder .. "/'")
-  local files = p: read "*a"
-  p: close()
-  return files
 end
 
 ------------------------

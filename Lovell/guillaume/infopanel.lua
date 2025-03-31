@@ -81,9 +81,9 @@ function _M.update(self, screen)
   
   controls.object.focus =   -- add attribute to allow inspection elsewhere
     self:Input(controls.object, Ioptions, layout:row(margin - 20, 30)) .hovered
-  
-  self:Label("object", Loptions, layout:row(margin, 10))
 
+  self:Label("object", Loptions, layout:row(margin - 60, 10))
+  
 --  local diam = obj.DIA and ", Ø" .. formatArcMinutes(obj.DIA) or ''
   self:Label(obj.OBJ or '', Woptions, layout:row(margin, 15))
   
@@ -174,6 +174,10 @@ function _M.update(self, screen)
     self:Label(ses_notes, Toptions, layout:row(margin - 20, 50))
   end
   
+  -- load previous observation
+  
+--  self: Button("Load", w - margin - 60, 40, 60, 30)
+
   -- settings and time
  
   layout:reset(w - margin + 10, h - 125, 10, 10)             -- position the layout origin...

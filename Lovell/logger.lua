@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.17",
+    VERSION = "2025.03.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -14,6 +14,7 @@ local _M = {
 
 -- 2025.12.11  add global JSON with .read() 
 -- 2025.02.17  remove json.write() (moved to json.lua)
+-- 2025.03.29  add _err() for highlight error messages in log
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -67,6 +68,12 @@ local function log(...)
   logChannel: push (table.concat ({t, ...}, ' '))
 end
 
+local function err(...)
+  log "************************"
+  log(...)
+  log "************************"
+end
+
 local function banner(about)
   local name = "%14s: " % ((about.NAME or ''): match "%w+$" or '?')
   local info = "version %s  %s" % {about.VERSION or '?', about.DESCRIPTION or ''}
@@ -77,7 +84,7 @@ end
 function _M:new(about)
   local name = banner(about)
   if about.NAME == "main" then banner(_M) end         -- announce this module after main module starts
-  return function(...) log(name, ...) end
+  return function(...) log(name, ...) end, function(...) err(name, ...) end
 end
 
 function _M.close()

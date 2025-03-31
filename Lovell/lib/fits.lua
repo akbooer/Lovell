@@ -5,7 +5,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.10",
+    VERSION = "2025.03.27",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -18,6 +18,7 @@ local _M = {
 
 -- 2025.03.01  readImageData() now takes an opened file object (file system agnostic)
 -- 2025.03.10  fix handling of unquoted string in header (Starlight Live DATE has no surrounding quotes)
+-- 2025.03.27  change check for full file read (for lua.io and love.filesystem library compatibility)
 
 
 local _log = require "logger" (_M)
@@ -116,6 +117,7 @@ function _M.readHeaderUnit(file)
       
     end
   until done
+--  _log (#headers, " header records")
   return keywords, headers
 end
 
@@ -149,9 +151,9 @@ function _M.read(file)
   local k, h = _M.readHeaderUnit(file)
   local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2, k.NAXIS3 or 1
   local size = naxis1 * naxis2 * naxis3 * bitpix/8
-  local data, n = file: read(size)      -- "string" format
-
-  assert(n == size, "failed to read complete file")
+--  local data, n = file: read(size, "data")      -- "data" format
+  local data = file: read(size) 
+  assert(size == #data, "failed to read complete file")
   return data, k, h
 end
 

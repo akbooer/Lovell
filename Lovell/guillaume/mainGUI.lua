@@ -5,8 +5,8 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2025.02.28"
-  _M.DESCRIPTION = "main GÜI"
+  _M.VERSION = "2025.03.31"
+  _M.DESCRIPTION = "main GUI"
 
 local _log = require "logger" (_M)
 
@@ -20,6 +20,7 @@ local _log = require "logger" (_M)
 -- 2025.01.17  rename Popup to Dropdown, and add Popup GUI selector
 -- 2025.02.24  add double-click to invert image
 -- 2025.02.28  correct zoom and rotate origin (centre of displayed image, rather than centre of frame)
+-- 2025.03.31  change keyboard shortcuts (Issue #2)
 
 
 local suit      = require "suit"
@@ -244,7 +245,7 @@ local function fit_to_margins()
   controls.zoom.value = R * (W - 2 * margin - 10) / W
 end
 
-local function one_to_one() 
+local function full_size() 
   controls.zoom.value = 1 
 end
 
@@ -258,15 +259,18 @@ local function rotate_anticlockwise()
   controls.rotate.value = (controls.rotate.value - pi / 2) % (2 * pi)
 end
 
-  -- fill the whole screen, clipping image
-local function fill_whole_screen() 
+-- fill the whole screen, clipping image
+local function fit_to_screen() 
   reset_origin()
   controls.zoom.value = math.max(utils.calcScreenRatios(final)) 
   controls.rotate.value = 0
 end
 
--- fit whole image to screen, with margin
-local function fit_whole_image() 
+local function zoom_in()  controls.zoom.value = controls.zoom.value * 1.1 end
+local function zoom_out() controls.zoom.value = controls.zoom.value / 1.1 end
+
+-- fit whole image onto screen, probably with side margin
+local function fit_to_image() 
   reset_origin()
   controls.zoom.value = math.min(utils.calcScreenRatios(final)) 
   controls.rotate.value = 0
@@ -274,24 +278,17 @@ end
 
 local special =  {
   
-  ["home"]  = fill_whole_screen,
-  ["end"]   = fit_whole_image,  
+  ["home"]  = fit_to_screen,
+  ["end"]   = fit_to_image,  
   
-  ["pageup"]    = function() controls.zoom.value = controls.zoom.value * 1.1 end,
-  ["pagedown"]  = function() controls.zoom.value = controls.zoom.value / 1.1 end,
+  ["pageup"]    = zoom_in,
+  ["pagedown"]  = zoom_out,
 
-  ["kp="] = one_to_one,
-  ["kp+"] = fill_whole_screen,
+  ["kp="] = full_size,
+  ["kp+"] = fit_to_screen,
   ["kp-"] = fit_to_margins,
   ["kp*"] = rotate_to_zero,
   ["kp/"] = rotate_clockwise,
-
-  ["="]   = one_to_one,
-  ["+"]   = fill_whole_screen,
-  ["-"]   = fit_to_margins,
-  ["*"]   = rotate_to_zero,
-  ["/"]   = rotate_clockwise,
-  ["\\"]  = rotate_anticlockwise,
   
 --  up        = function() y = y - inc end,
 --  down      = function() y = y + inc end,
@@ -301,21 +298,39 @@ local special =  {
 
 local cmd = {
   d = function() change_mode ("database", "dso") end,
-  e = function() controls.eyepiece.checked = true  end,           -- eyepiece
-  l = function() controls.eyepiece.checked = false end,           -- landscape
-  o = function() change_mode ("database", "observations") end,
-  p = function() change_mode "workflow" end,                      -- processing workflow
+  o = function() change_mode ("database", "observations") end,                    -- open previous observation
+  p = function() change_mode "workflow" end,                                      -- processing workflow
   s = function() change_mode "settings" end,
-  t = function() change_mode ("database", "telescopes") end,
-  v = function() change_mode "stack" end,                         -- view stack
+  t = function() controls.eyepiece.checked = not controls.eyepiece.checked end,   -- toggle eyepiece / landscape
+  v = function() change_mode "stack" end,                                         -- view stack
 
+  -- these next two, by analogy to Mac OS Preview commands
+  ["0"]   = full_size,                -- one screen pixel = one image pixel 
+  ["9"]   = fit_to_margins,           -- fit between side panels
+  ["8"]   = fit_to_image,             -- fit whole image onto screen, probably with side margin
+  ["7"]   = fit_to_screen,            -- fill the whole screen, probably cropping image
+  
+  ["="]   = zoom_in,                  -- actually '+'
+  ["-"]   = zoom_out,
+  
+  ["."]   = rotate_to_zero,
+  ["/"]   = rotate_clockwise,         -- +90º
+  ["\\"]  = rotate_anticlockwise,     -- -90º
+
+  -- note that the escape key returns from anywhere to the main page (eyepiece or landscape)
 }
 
 function _M.keypressed(key)
---  if lk.isDown "lgui" or lk.isDown "rgui" or special[key] then ... end
-  if controls.object.focus then self: keypressed(key) return end   -- ignore input when over object text field
-  local action = cmd[key] or special[key]
-  if action then action() end
+  
+  if controls.object.focus then self: keypressed(key) return end     -- pass on to input field
+  
+  local ctrl = lk.isDown "lctrl" or lk.isDown "rctrl"
+  local cmnd = lk.isDown "lgui" or lk.isDown "rgui"
+  
+  if ctrl or cmnd or special[key] then
+    local action = cmd[key] or special[key]
+    if action then action() end
+  end
 end
 
 function _M.textinput(...)      

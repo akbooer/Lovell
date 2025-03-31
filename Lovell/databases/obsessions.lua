@@ -1,21 +1,23 @@
 --
--- obsession.lua
+-- obsessions.lua
 --
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.24",
+    VERSION = "2025.03.27",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
 
 -- 2025.01.12  Version 0
 -- 2025.01.20  separate title line
--- 2024.02.24  add tally of unique object names
+-- 2025.02.24  add tally of unique object names
+-- 2025.03.27  add LOAD button, using pager channel to switch display
 
 
-local _log = require "logger" (_M)
+local _log, _err = require "logger" (_M)
 
+--local iframe = require "iframe"
 local json = require "lib.json"
 local utils = require "utils"
 
@@ -24,6 +26,9 @@ local formatSeconds = utils.formatSeconds
 
 local love = _G.love
 local lf = love.filesystem
+
+local reloadFolder = love.thread.getChannel "reloadFolder"
+local pager = love.thread.getChannel "pager"   -- another way to change display page
 
 -----
 
@@ -43,7 +48,7 @@ _M.cols = {
         {"Con",       w =  50, },
         {"Session",   w =  90, align = "center", },
         {'Time',      w =  50, align = "center", },
-        {"Frames",    w =  40, align = "center", type = "number", label = 'N'},
+        {"Frames",    w =  40, align = "center", type = "number", label = '#'},
         {"Expo",      w =  70, align = "center", type = "number", format = formatSeconds, },
         {"Filts",     w =  60, },
         {"Size",      w = 100, align = "center", },
@@ -73,7 +78,8 @@ function _M.load()
   for _, filename in ipairs(sessions) do
     local sess_name = filename: match "(%d+)%.json$"
     if sess_name then
-      local session = json.read (sess_path .. filename)
+      local session, err = json.read (sess_path .. filename)
+      if not session then _err(filename, err) end
       Nsess = Nsess + 1
       --
       -- for each observation
@@ -139,7 +145,8 @@ function _M.saveSession(stack, controls)
   
   if not stack then return end
   local sesID, obsID, path = getInfo(stack)
-  
+   _log("saving metadata for session", sesID)
+ 
   -- update info from controls
   info.session.notes = non_blank(controls.ses_notes.text)
   local obs = info.observations[obsID or '']
@@ -167,12 +174,13 @@ function _M.loadSession(stack, controls)
   if not stack then return end
 
   local sesID, obsID, path = getInfo(stack)
+  _log("loading metadata for session", sesID)
   info = json.read(path) or {}
   info.session = {ID = sesID}
-  
   -- update controls from metadata
   local obs = info.observations or {}
   local thisObs = obs[obsID] or {}
+  _log("observation ID:", obsID)
   obs[obsID]= thisObs
   info.observations = obs
 
@@ -198,6 +206,33 @@ function _M.loadSession(stack, controls)
   controls.rotate.value   = thisObs.rotate or 0
   controls.X, controls.Y = 0, 0
   return info
+end
+
+-------------------------------
+--
+-- UPDATE GUI
+--
+
+local Loptions = {align = "left"}
+
+function _M.update(self)
+local layout = self.layout
+  local ridx = _M.row_index 
+  local sel = _M.highlight or {}
+  _M.highlight = sel
+  local current = (_M.DB[ridx[sel.anchor]] or {})    -- currently selected observation
+  local name, folder = current[1] or '', current[12] or ''
+  
+  layout: reset(550,20, 10,10)
+  if self: Button("Load Observation", layout: col(150, 30)) .hit then
+    reloadFolder: push(current)       -- send the whole metadata
+    pager: push "main"                -- switch to main display
+  end
+  
+  local h = love.graphics.getHeight()
+  self: Label(name, Loptions, layout: col(250, 30))
+  self: Label(folder, Loptions, 20, h - 40, 550, 30)
+
 end
 
 return _M

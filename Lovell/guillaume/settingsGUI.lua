@@ -6,7 +6,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
   _M.VERSION = "2025.03.07"
-  _M.DESCRIPTION = "settings GÜI, session and observation info"
+  _M.DESCRIPTION = "settings GUI, session and observation info"
 
 -- 2024.11.28  Version 0
 -- 2024.12.18  add button to show FITS headers

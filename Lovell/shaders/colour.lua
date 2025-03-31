@@ -130,6 +130,8 @@ local balance = lg.newShader [[
 function _M.balance(workflow, rgb)
   local input, output = workflow()
   local r, g, b = unpack(rgb)
+  local sum = r + g + b + 0.02
+  r, g, b = r / sum, g / sum, b / sum   -- scale to sum to (nearly) unity
   
   balance: send("rgb", {r, g, b})
   lg.setShader(balance) 

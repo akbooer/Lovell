@@ -26,10 +26,10 @@ local utils = require "utils"
 local observer        = require "observer"
 local channelOptions  = require "shaders.colour"  .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
-local observations    = require "databases.observations"
+local obsessions    = require "databases.obsessions"
 
-local saveSession = observations.saveSession
-local loadSession = observations.loadSession
+local saveSession = obsessions.saveSession
+local loadSession = obsessions.loadSession
 
 local telescopes       = require "databases" .telescopes
 
@@ -37,12 +37,14 @@ local love = _G.love
 
 local newFITSfile = love.thread.getChannel "newFITSfile"
 
+local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
+
 --_M.dsos = dso.dsos
 
 
 -------------------------------
 --
--- SESSION - Data Model
+-- SESSION CONTROLS - Data Model
 --
 
 local controls = {    -- most of these are SUIT widgets
@@ -120,13 +122,19 @@ local controls = {    -- most of these are SUIT widgets
         sharp1    = {value = 5,  min = 3, max = 7},      -- apf levels
         sharp2    = {value = 17, min = 9, max = 21},
         
-        Rweight   = {value = .5},
-        Gweight   = {value = .5},
-        Bweight   = {value = .5},
+        Rweight   = {value = 1, min = .5, max = 1.5},       -- pre-weights for colour channels
+        Gweight   = {value = 1, min = .5, max = 1.5},
+        Bweight   = {value = 1, min = .5, max = 1.5},
       },
     
     anyChanges = function() end -- replaced in mainGUI by suit.anyActive()
   }
+
+
+-------------------------------
+--
+-- INIT / RESET
+--
 
 do -- inititalise from saved settings
   local s = controls.settings
@@ -191,6 +199,11 @@ end
 
 function _M.update()
   
+  local newpage = pager: pop()
+  if newpage then 
+    controls.page, controls.subpage = newpage: match"(%w+)%W*(%w*)"
+  end
+  
   local frame = newFITSfile: pop()
   
   -- if a new frame arrives, then stack it
@@ -203,7 +216,7 @@ function _M.update()
 
     if frame.first then 
       local info = loadSession(stack, controls)          -- load relevant session info
-      _M.ID = info.session.ID
+--      _M.ID = info.session.ID
       controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
 
       local zoom = math.max(utils.calcScreenRatios(stack.image))     -- full screen image

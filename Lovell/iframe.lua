@@ -4,14 +4,16 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.11",
+  VERSION = "2025.03.27",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
 
 local love = _G.love
 
--- 2025.03.02  separate module from watcher (needed also for masters)
+-- 2025.03.02  separate module from watcher (needed also for masters and observation reloads)
+-- 2025.03.27  improve error returns for Lua io library reads (when reloading observations)
+
 
 local _log = require "logger" (_M)
 
@@ -70,16 +72,17 @@ end
 --
 
 function _M.read(folder, filename, mountpoint)
-  local f             -- file handle
+  local f, err             -- file handle and error message
   local modtime      -- last modified time, if available
   
   _log("new file read - " .. filename)
   if mountpoint then
     local path = mountpoint .. filename
     f = love.filesystem.newFile(path, 'r' )
-    modtime = (lf.getInfo(path) or {}) .modtime   -- last modified date
+    modtime = (lf.getInfo(path) or {}) .modtime           -- last modified date
   else
-    f = io.open(folder .. filename, 'rb')       -- standard io library
+    f, err = io.open(folder .. '/' .. filename, 'rb')     -- standard io library
+    if not f then return f, err end                       -- return error to caller
   end
    
   local imageData, keywords, headers
@@ -115,8 +118,6 @@ function _M.read(folder, filename, mountpoint)
     creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
     camera = k.INSTRUME,
   }
-  
---  _log(pretty(iframe))    -- * * * * *
   
   return iframe
   

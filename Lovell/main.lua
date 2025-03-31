@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.25",
+  VERSION = "2025.03.31",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
   LICENCE = [[  
@@ -34,6 +34,9 @@ local logger = require "logger"    -- get access to logger.close()
 local _log = logger(_M)
 
 -- 2024.09.25  Version 0
+
+-- 2025.03.28  Add new thread for reloads
+
 
 local love = _G.love
 local lt = love.thread
@@ -69,12 +72,18 @@ lt.newThread "threads/watcher.lua" :start "watcher"
 
 local newWatchFolder = lt.getChannel "newWatchFolder"
 
--- NB: All callbacks are only called in main thread. 
+-------------------------
+--
+-- RELOADER THREAD
+--
+
+lt.newThread "threads/reloader.lua" :start "reloader"
+
+local reloadFolder = love.thread.getChannel "reloadFolder"
 
 -------------------------
 --
 -- FILE/FOLDER DROPPED
-
 --
 
 local mountpoint = "watched/"
@@ -146,6 +155,7 @@ end
 
 function love.quit()
   session.close()                   -- save current session
+  reloadFolder: push "EXIT"
   _log "Lövell – system exit"
   logger.close()                    -- close the log file
 end

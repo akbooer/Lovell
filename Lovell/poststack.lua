@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.24",
+    VERSION = "2025.03.31",
     AUTHOR = "AK Booer",
     DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
   }
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.01.29  integrate colour and filter methods into workflow 
 -- 2025.02.24  added invert() option in workflow
 -- 2025.03.24  show insufficient RGB as mono
+-- 2025.03.31  fix halos round coloured star (Issue #3)
 
 
 local _log = require "logger" (_M)
@@ -32,7 +33,6 @@ local function poststack(frame)
   w.RGBL = RGBL                                           -- so that GUI infopanel has access
   local R, G, B, L = unpack(RGBL)
   local ratio = (R + G + B) / (3 * L + 1e-6)             -- is there a Luminance filter? (avoid zero division)
---  _log("RGB:L ratio %.2f" % ratio)
   
 --  local elapsed = require "utils" .newTimer()
   
@@ -43,7 +43,7 @@ local function poststack(frame)
   
   workflow: newInput(frame.image)  
   workflow: background(frame.gradients, controls.gradient.value) 
-  workflow: stats()   -- give CPU something to do
+--  workflow: stats()   -- give CPU something to do
   
   -------------------------------
   --
@@ -60,7 +60,7 @@ local function poststack(frame)
   if R > 0 and G > 0 and B > 0 then                   -- enough for LRGB
     workflow: save "temp"                             -- save lum
     workflow: undo()                                  -- revert to previous input buffer
-    workflow: gaussian(1)                             -- reduce colour noise
+    workflow: gaussian(0.3)                           -- reduce colour noise
     workflow: scnr()                                  -- Subtractive Chromatic Noise Reduction
     workflow: normalise()
     workflow: satboost(controls.saturation.value * 5) -- apply saturation stretch
