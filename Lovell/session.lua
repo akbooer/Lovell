@@ -184,7 +184,8 @@ local stack
 local screenImage
 
 
-local function newObservation()
+--local function newObservation()
+function _M.new()
   saveSession(stack, controls)
   controls.reset()        -- start with new default values for processing options
   stack = nil
@@ -193,8 +194,8 @@ local function newObservation()
 end
 
 -- start a new observation, by saving metadata from the old one
-function _M.new()
-end
+--function _M.new()
+--end
 
 
 function _M.update()
@@ -210,13 +211,13 @@ function _M.update()
   
   if frame then
     
-    if frame.first then newObservation() end
+--    if frame.first then newObservation() end
 
     stack = observer.newSub(frame, controls)
 
     if frame.first then 
       local info = loadSession(stack, controls)          -- load relevant session info
---      _M.ID = info.session.ID
+      
       controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
 
       local zoom = math.max(utils.calcScreenRatios(stack.image))     -- full screen image

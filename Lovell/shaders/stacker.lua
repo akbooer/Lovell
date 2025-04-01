@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.25",
+    VERSION = "2025.04.01",
     AUTHOR = "AK Booer",
     DESCRIPTION = "stacks individual subs",
   }
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.02.09  use workflow: renderTo()
 -- 2025.03.11  combine rotation and translation into one operation
 -- 2025.03.25  prototype minimum variance stack
+-- 2025.04.01  add RGBLexposure for (issue #6)
 
 
 local _log = require "logger" (_M)
@@ -172,17 +173,19 @@ local function stack(workflow, params)
   local filter = p.filter:upper()
   local filterChans = rgb_filter[filter] or rgb_filter.RGB
   local countChans  = rgb_count[filter]  or rgb_count.RGB
-  local w, h = workflow.output: getDimensions()
+  local w, h = workflow: getDimensions()
   
-  -- determine whether luminance or multi-spectral stack, and update stack count
+  -- determine whether luminance or multi-spectral stack, and update stack count and exposures
   local mono = (filter == "L")
   local stack = mono and workflow.luminance or workflow.stack
-  local RGBL = matrix {workflow.RGBL or {0, 0, 0, 0}}       -- initalise stack counts
-  RGBL = (RGBL + matrix {countChans}) [1]
+  
+  local RGBL = matrix {workflow.RGBL or {0,0,0,0,  0,0,0,0}}       -- initalise stack counts, and exposures
+  RGBL = (RGBL + (matrix {countChans} .. (matrix {countChans} * p.exposure))) [1]
   workflow.RGBL = RGBL
   local idx = index[filter] or 1
   local depth = RGBL[idx]
   
+  _log("RGBL exposures (s):", unpack(RGBL))
   local x, y, r, ox, oy = w/2 + p.xshift, h/2 + p.yshift, p.theta, w/2, h/2 -- rotate and shift parameters
   
   lg.setColorMask(unpack(filterChans))                -- only update relevant channels

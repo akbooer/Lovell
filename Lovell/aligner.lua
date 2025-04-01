@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.20",
+  VERSION = "2025.04.01",
   DESCRIPTION = "image alignment using Fast Global Registration",
 }
 
@@ -12,9 +12,8 @@ local _M = {
 
 -- 2025.01.27  return matched point pairs for later display
 -- 2025.03.05  use Fast Global Registration algorithm
--- 2025.05.09  use image centre as rotation origin
+-- 2025.03.09  use image centre as rotation origin
 -- 2025.03.11  linearize angle around previous transformation estimate (as per the paper)
--- 2025.03.20  roll-back linearization for the time being (poor implementation)
 
 
 --[[
@@ -44,6 +43,7 @@ local _M = {
 local _log = require "logger" (_M)
 
 local solve     = require "lib.solver" .solve
+local matrix    = require "lib.matrix"
 local newTimer  = require "utils" .newTimer
 
 local deg = 180 / math.pi
@@ -163,14 +163,21 @@ end
 -- FAST GLOBAL REGISTRATION
 --
 
+local function xform_matrix(theta, x, y)
+  local c, s = math.cos(theta), math.sin(theta)
+  return matrix { {c, -s, x}, {s, c, y}, {0, 0, 1} }
+end
+
 -- build equation to solve Ax = b
-local function Ab(X, Y, XP, YP, L)
+local function Ab(X, Y, XP, YP, L, theta, h, v)
+  local c, s = math.cos(theta), math.sin(theta)
   local A,b = {}, {}
   L = L or {}           -- vector of lpq weights
   local j = 0
   for i = 1, #X do
     local lpq = L[i] or 1
-    local x,y, xp,yp = X[i], Y[i], XP[i], YP[i]
+    local x,y, xp,yp = X[i], Y[i], XP[i], YP[i]    
+    x, y = c * x - s * y + h, s * x + c * y + v     -- linearize around old transformation angle
     j = j + 1
     A[j] = {-y * lpq, lpq, 0}
     b[j] = {lpq * (xp - x)}
@@ -185,7 +192,7 @@ end
 local function fast_global_registration(point_pairs, ox, oy)
   
   ox, oy = ox or 0, oy or 0
-  local D, delta = 1000, 0.1
+  local D, delta = 1000, 0.001
   local D2, delta2 = D * D, delta * delta
   local mu = D2
   local theta, h, v = 0, 0, 0    -- initial transform T
@@ -209,13 +216,17 @@ local function fast_global_registration(point_pairs, ox, oy)
       lpqMean = lpqMean + lpq[i]
       var = var + e2 * lpq[i]
     end
-    theta, h, v = solve(Ab(X, Y, XP, YP, lpq))    -- update and solve weighted least-squares equations
+    local xform = xform_matrix(theta, h, v)
+--    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, 0,0,0))     -- update and solve weighted least-squares equations
+    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, theta, h, v))     -- update and solve weighted least-squares equations
+    xform = xform_matrix(theta, h, v)  * xform                 -- calculate total transform
+    theta, h, v = math.asin(xform[2][1]), xform[1][3], xform[2][3]
 --    _log("%.3f (%.3f,%.3f)" % {theta * deg, h, v})
     local err = var/#lpq * (lpqMean / #lpq)       -- normalize by weights
     if err < delta2 then 
       return theta, h, v                          -- finish if sufficiently converged
     end
-    mu = mu / 2                                   -- update graduated non-convexity parameter
+    mu = mu / 1.8                                   -- update graduated non-convexity parameter
   end
   -- no return signals failure
 end

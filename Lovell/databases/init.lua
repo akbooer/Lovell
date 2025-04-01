@@ -10,7 +10,6 @@ local _M = {
 
 
 -- 2025.01.08  Version 0
--- 2025.01.13  add generic search function
 -- 2025.01.20  separate titles in telescope loader
 -- 2025.02.09  include watchlist database code
 

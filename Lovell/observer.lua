@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.23",
+    VERSION = "2025.04.01",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -14,6 +14,7 @@ local _M = {
 -- 2025.01.01  pass workflow controls to aligner
 -- 2025.01.22  add thumbnails to stack frame
 -- 2025.03.23  fix nil alignment error (thanks @Songwired, issue #1)
+-- 2025.04.01  add RGBLexposure for (issue #6)
 
 
 local _log = require "logger" (_M)
@@ -92,7 +93,7 @@ function _M.newSub(frame, controls)
     workflow: clear "luminance"
     workflow: save "stack"
     workflow: clear "stack"
-    workflow. RGBL = nil     -- clear count of separate R,G,B,L exposures
+    workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
     
     stack = {}           
     for n,v in pairs(frame) do 
@@ -110,8 +111,9 @@ function _M.newSub(frame, controls)
     _log ("found %d keystars in frame #1" % #keystars)
     theta, xshift, yshift = 0, 0, 0
   else
+    if not stack then return end
     frame.stars = workflow: starfinder(starspan)      -- EXTRACT star positions and intensities
-    local w, h = workflow.output: getDimensions()
+    local w, h = workflow: getDimensions()
     theta, xshift, yshift, paired = aligner.transform(frame.stars, stack.keystars, workflow.controls, w/2, h/2)
     frame.matched_pairs = paired
   end
@@ -148,8 +150,10 @@ function _M.newSub(frame, controls)
     and (xshift * xshift + yshift * yshift) < controls.workflow.offset.value ^ 2 
     and not frame.omit_from_stack then
     stack.Nstack = stack.Nstack + 1
-    stack.exposure = stack.exposure + (frame.exposure or 0)
+    local exposure = frame.exposure or 0
+    stack.exposure = stack.exposure + exposure
     
+    align.exposure = exposure
 --    align.minVar = true   -- * * * * * use minimum variance stacker * * * * *
     
     workflow: stacker (align)

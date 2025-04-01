@@ -53,7 +53,7 @@ local function getfiles(folder)
   local dir = {}
   local f = io.popen (get[sep] % folder)                        -- read folder directory
   for item in f: lines() do
-    item = item: gsub("\\",'/')
+    item = item: gsub("\\",'/')                                 -- ensure consistent path separators
     dir[#dir+1] = item: match "%.fits?$" and item or nil        -- only consider FITS files
   end
   f: close()

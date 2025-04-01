@@ -159,7 +159,7 @@ function _M.saveSession(stack, controls)
   obs.frames = stack.subs and #stack.subs or 0
   obs.exposure = stack.subs and stack.exposure / #stack.subs or 0   -- AVERAGE exposure per sub (seconds)
   obs.size = "%dx%d" % {stack.image: getDimensions()}
-  obs.rotate = controls.rotate.value ~= 0 and tonumber("%f.3" % controls.rotate.value) or nil
+  obs.rotate = controls.rotate.value ~= 0 and tonumber("%.3f" % controls.rotate.value) or nil
   obs.telescope = non_blank(controls.telescope.text)
   info.observations[obsID] = obs
   
