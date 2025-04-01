@@ -5,10 +5,11 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.03.23"
+  _M.VERSION = "2025.04.01"
   _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
+-- 2025.04.01  add RGBL exposure values for post-processing
 
 
 local _log = require "logger" (_M)
@@ -69,7 +70,7 @@ local frame = {
     workflow = workflow,
   }
 
-workflow.RGBL = {1,1,1,0}       -- needed for poststack processing to handle this as RGB image
+workflow.RGBL = {1,1,1,0, 0,0,0,0}       -- needed for poststack processing to handle this as RGB image
 
 local floor = math.floor
 
