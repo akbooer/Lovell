@@ -64,9 +64,15 @@ Close button returns to main display.
 * **Blink** toggles between adjacent subs
 * **Show stars** indicates detected stars (in blue) and those matched for alignment (orange)
 
+## Acknowledgements
 
-
-
+* Martin Cooke, of course, for Jocular and Canisp.
+* Matthias Richter for the impeccably written libraries [SUIT](https://github.com/vrld/suit) and [Moonshine](https://github.com/vrld/moonshine/)
+* Malvar-He-Cutler Bayer demosaic [McGuire](https://casual-effects.com/research/McGuire2009Bayer/) and [Rasmus25](https://github.com/rasmus25/debayer-rpi/tree/master)
+* <a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
+* [LÖVE 2D](https://love2d.org/)
+* [Lua](https://www.lua.org/)
+* [LuaJit](https://luajit.org/)
 
 
 
