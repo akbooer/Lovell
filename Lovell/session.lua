@@ -24,14 +24,15 @@ local json = require "lib.json"
 local utils = require "utils"
 
 local observer        = require "observer"
-local channelOptions  = require "shaders.colour"  .channelOptions
+local channelOptions  = require "shaders.colour"    .channelOptions
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
-local obsessions    = require "databases.obsessions"
+local stackOptions    = require "shaders.stacker"   .stackOptions
 
+local obsessions  = require "databases.obsessions"
 local saveSession = obsessions.saveSession
 local loadSession = obsessions.loadSession
 
-local telescopes       = require "databases" .telescopes
+local telescopes  = require "databases" .telescopes
 
 local love = _G.love
 
@@ -70,6 +71,8 @@ local controls = {    -- most of these are SUIT widgets
     enhanceOptions = {"Enhance", "TNR", "Bilateral", "FABADA", "———————", "Unsharp", "APF",  "Decon"},
     denoise = {default = 0},
     sharpen = {default = 0},
+    
+    stackOptions = stackOptions,
     
     -- screen appearance
     X = 0,    -- these offsets are in the image coordinate system (not the screen)
@@ -190,6 +193,7 @@ function _M.new()
   controls.reset()        -- start with new default values for processing options
   stack = nil
   screenImage = nil
+  _M.ID = nil
   observer.new()          -- reset the observer
 end
 
@@ -217,6 +221,7 @@ function _M.update()
 
     if frame.first then 
       local info = loadSession(stack, controls)          -- load relevant session info
+      _M.ID = info.session.ID                   
       
       controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
 

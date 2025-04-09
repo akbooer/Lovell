@@ -4,19 +4,22 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.19",
+    VERSION = "2025.04.08",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
 
 -- 2025.02.19  Version 0
+-- 2025.04.08  start adding image attributes from file data
 
 
 local _log = require "logger" (_M)
 
 local fits = require "lib.fits"
 
-local love = love
+local formatSeconds = require "utils" .formatSeconds
+
+local love = _G.love
 local lf = love.filesystem
 
 
@@ -58,21 +61,22 @@ local lf = love.filesystem
 
 _M.cols = {
     {"Name",   w = 250, },
-    {"Type", w = 60, type = "number", align = "center"},
-    {"Exposure", w = 100, type = "number", align = "right"},
+    {"Type", w = 60, align = "center"},
+    {"Exposure", w = 100, type = "number", align = "center", format = formatSeconds},
     {"ºC", w = 50, },
     {"Gain", w = 50, },
 --    {"Offset", },
     {"Filter", w = 80, },
     {"Date", w = 100, },
     {"Size", w = 100, align = "center", },
+    {"Bits", w = 50, align = "center", },
     {"Nsubs", w = 60, },
     {"Camera", w = 250},
   }
 
-_M.col_index = {1,2,3,4,5,6,7,8, 10}
+_M.col_index = {1,2,3,4,5,6,7,8,9, 11}
   
-local Size, Camera = 8, 10
+local Type, Size, Bits, Camera = 2, 8, 9, 11
 
 function _M.load(path)
   local masters = {}
@@ -86,11 +90,16 @@ function _M.load(path)
       local k = fits.readHeaderUnit(file)
       file: close()
 --      print(pretty(k))
-      local naxis1, naxis2 = k["NAXIS1"], k["NAXIS2"]
-      masters[#masters + 1] = {name, 
+      
+      local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2
+      local ftype = k.IMAGETYP or k.SUBTYPE or k.SUB_TYPE or ''
+      local exposure = k.EXPOSURE or k.EXPTIME or 0
+      ftype = ftype: match "bias" or ftype: match "dark" or ftype: match "flat" or '?'
+      masters[#masters + 1] = {name, ftype, exposure,
         [Size] = "%dx%d" % {naxis1, naxis2},
+        [Bits] = math.abs(bitpix),
         [Camera] = k.CAMERA}
---      _log("[%d x %d]"  % {naxis1, naxis2}, fname)
+      _log("[%d x %d]"  % {naxis1, naxis2}, bitpix, fname)
     end
   end
 

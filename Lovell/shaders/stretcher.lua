@@ -40,7 +40,7 @@ local asinh = love.graphics.newShader[[
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords);
-      vec3 x = (pixel.rgb - black) / white ;
+      vec3 x = (pixel.rgb - black) * white ;
       vec3 y = arsinh(x * c) / arsinh(c + eps);
       return vec4(clamp(y, 0.0, 1.0) , 1.0);
     }
@@ -65,7 +65,7 @@ local modgamma = lg.newShader [[
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) / white, 0.0, 1.0);
+      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
     
      return vec4(gamma(x.r), gamma(x.g), gamma(x.b), 1.0);
       
@@ -99,7 +99,7 @@ local gamma = lg.newShader [[
 
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) / white, 0.0, 1.0);
+      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
       return vec4(pow(x, c), 1.0);      
     }
   ]]
@@ -120,7 +120,7 @@ local log = lg.newShader [[
 
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) / white, 0.0, 1.0);
+      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
       return vec4(log(c*x + 1) / log(c + 1), 1.0);      
     }
   ]]
@@ -141,7 +141,7 @@ local hyper = lg.newShader [[
         
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
       vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) / white, 0.0, 1.0);
+      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
       return vec4(clamp((1 + c) * (x / (x + c)), 0.0, 1.0), 1.0);      
     }
   ]]
@@ -184,7 +184,7 @@ function _M.stretch(workflow, selected, stretch)
     
   local shader = setup (stretch) 
   shader: send("black", black)
-  shader: send("white", math.max(0.005, 2 * white))
+  shader: send("white", math.min(50, 1 / (3 * white + 1e-3)))
 
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)

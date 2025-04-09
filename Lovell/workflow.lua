@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.24",
+    VERSION = "2025.04.06",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -18,10 +18,12 @@ local _M = {
 -- 2025.01.20  add saveInput()
 -- 2025.02.06  add renderTo()
 -- 2025.03.08  added stats()
--- 2025.03.12  use class methods, shared betwen instances
+-- 2025.03.12  use class methods, shared between instances
 -- 2025.03.13  added clear()
 -- 2025.03.16  added save()
 -- 2025.03.21  added buffer(), to get names workflow buffer (or not)
+-- 2025.04.04  restore blend mode after changing it in copy()
+-- 2025.04.06  added colour_magic()
 
 
 local _log = require "logger" (_M)
@@ -90,15 +92,16 @@ local function copy(self, source, dest, settings)
   assert(type(dest) == "string")
   local saved = buffer(self[source], self[dest], settings, "%s.copy %s to %s" % {self.name, source, dest})
   self[dest] = saved
+  local mode, alphamode = lg.getBlendMode()
   lg.setBlendMode("replace", "premultiplied")
   saved: renderTo(lg.draw, self[source])
-  lg.setBlendMode "alpha"
+  lg.setBlendMode(mode, alphamode)            -- restore blend mode
   return saved
 end
 
 -- save current output to "dest"
-local function save(self, dest)
-  copy(self, "output", dest)
+local function save(self, ...)
+  copy(self, "output", ...)
 end
 
 -- getDimensions()
@@ -167,7 +170,7 @@ function _M.new(ctrl, name)
     debayer     = debayer,
     prestack    = prestack,
     starfinder  = starfinder,
-    stacker     = stacker,
+    stacker     = stacker.stack,
     stretch     = stretcher.stretch,
     
     normalise   = stats.normalise,
@@ -189,6 +192,8 @@ function _M.new(ctrl, name)
     lrgb        = colour.lrgb,
     invert      = colour.invert,
     
+    colour_magic = colour.magic,
+
     boxblur     = filter.boxblur,
     gaussian    = filter.gaussian,
     fastgaussian = filter.fastgaussian,

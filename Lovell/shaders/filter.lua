@@ -16,7 +16,7 @@ local moonbridge  = require "shaders.moonbridge"   -- Moonshine proxy
 -- 2024.11.07  Version 0, @akbooer
 -- 2024.12.09  use workflow() function to acquire buffers and control parameters
 
--- 2025.01.29  incoporate moonshine bridge shaders
+-- 2025.01.29  incorporate moonshine bridge shaders
 -- 2025.03.21  use named buffers (possibly) in tnr() and apf()
 
 

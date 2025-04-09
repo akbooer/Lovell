@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.01",
+  VERSION = "2025.04.02",
   DESCRIPTION = "image alignment using Fast Global Registration",
 }
 
@@ -14,6 +14,7 @@ local _M = {
 -- 2025.03.05  use Fast Global Registration algorithm
 -- 2025.03.09  use image centre as rotation origin
 -- 2025.03.11  linearize angle around previous transformation estimate (as per the paper)
+-- 2025.04.02  remove tuple check code and add simple test routine
 
 
 --[[
@@ -82,7 +83,7 @@ end
 -- two-way match of star pairs
 local function matchPairs(stars, keystars, controls)
   local elapsed= newTimer()
-  local maxDist = controls.workflow.offset.value
+  local maxDist = controls and controls.workflow.offset.value or 50
   local maxLumDiff = 0.1 -- 0.05  
   local sIndex = oneWayMatch(stars, keystars, maxDist, maxLumDiff)     -- match one to the other...
   local kIndex = oneWayMatch(keystars, stars, maxDist, maxLumDiff)     -- ...and then the other way around
@@ -101,52 +102,8 @@ local function matchPairs(stars, keystars, controls)
   return starIndex, keyIndex
 end
 
---[=[
-local function check(p, q, i, j)
-  return true
-end
-
--- three-way tuple constraint
-local function tuple_constraint(stars, keystars, starIndex, keyIndex)
-  local N = #starIndex
-  local random = _G.love.math.random
-  local include = {}
-  for _ = 1,42 do
-    local idx = {}
-    local p, q = {}, {}
-    for i = 1,3 do
-      local n = random(N)
-      idx[i] = n
-      p[i] = stars[starIndex[n]]
-      q[i] = keystars[keyIndex[n]]
-    end
-    local ok = check(p,q, 1,2)
-    ok = ok and check(p,q, 1,3)
-    ok = ok and check(p,q, 2,3)
-    if ok then
-      for i = 1,3 do
-        include[idx[i]] = true
-      end
-    end
-  end
-  -- build new indices
-  local newSI, newKI = {}, {}
-  for i = 1, N do
-    local j = include[i]
-    if j then
-      newSI[#newSI+1] = starIndex[j]
-      newKI[#newKI+1] = keyIndex[j]
-    end
-  end
-  return newSI, newKI
-end
---]=]
 
 local function NearestNeighbors(stars, keystars, controls)
-  
---  local Si, Ki = matchPairs(stars, keystars, controls)
---  local starIndex, keyIndex = tuple_constraint(stars, keystars, Si, Ki)
-  -- OR
   local starIndex, keyIndex = matchPairs(stars, keystars, controls)
   
   local point_pairs = {}
@@ -192,7 +149,7 @@ end
 local function fast_global_registration(point_pairs, ox, oy)
   
   ox, oy = ox or 0, oy or 0
-  local D, delta = 1000, 0.001
+  local D, delta = 1000, 0.01
   local D2, delta2 = D * D, delta * delta
   local mu = D2
   local theta, h, v = 0, 0, 0    -- initial transform T
@@ -217,9 +174,9 @@ local function fast_global_registration(point_pairs, ox, oy)
       var = var + e2 * lpq[i]
     end
     local xform = xform_matrix(theta, h, v)
---    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, 0,0,0))     -- update and solve weighted least-squares equations
-    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, theta, h, v))     -- update and solve weighted least-squares equations
-    xform = xform_matrix(theta, h, v)  * xform                 -- calculate total transform
+--    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, 0,0,0))           -- update and solve weighted least-squares equations
+    theta, h, v = solve(Ab(X, Y, XP, YP, lpq, theta, h, v))    -- update and solve weighted least-squares equations
+    xform = xform_matrix(theta, h, v)  * xform                  -- calculate total transform
     theta, h, v = math.asin(xform[2][1]), xform[1][3], xform[2][3]
 --    _log("%.3f (%.3f,%.3f)" % {theta * deg, h, v})
     local err = var/#lpq * (lpqMean / #lpq)       -- normalize by weights
@@ -247,9 +204,32 @@ function _M.transform(stars, keystars, controls, ox, oy)
 
   local degrees = theta * deg
   _log(elapsed("%.3f ms, transform: %.3fº  (%.1f, %.1f)", degrees, x,y))
-  return theta, x,y, point_pairs
+  return {theta, x,y}, point_pairs
 end
 
+-- return null transformation
+function _M.null()
+  return {0, 0, 0}
+end
+
+
+-- TEST
+
+function _M.TEST()
+  local theta, h, v = 0.5, 4, 7   -- angle in radians
+  local X = { {0,0}, {100,100}, {20,50} }
+  local Y = {}
+  for i, p in ipairs(X) do
+    local x, y = p[1], p[2]
+    local c, s = math.cos(theta), math.sin(theta)
+    local x2, y2 = c * x - s * y + h, s * x + c * y + v
+    Y[i] = {x2, y2}
+  end
+  print("actual:", theta, h, v)
+  print("found:", _M.transform(Y, X))
+end
+
+--_M.TEST()
 
 return _M
 

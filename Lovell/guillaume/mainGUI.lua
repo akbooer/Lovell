@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2025.03.31"
+  _M.VERSION = "2025.04.07"
   _M.DESCRIPTION = "main GUI"
 
 local _log = require "logger" (_M)
@@ -21,7 +21,6 @@ local _log = require "logger" (_M)
 -- 2025.02.24  add double-click to invert image
 -- 2025.02.28  correct zoom and rotate origin (centre of displayed image, rather than centre of frame)
 -- 2025.03.31  change keyboard shortcuts (Issue #2)
-
 
 local suit      = require "suit"
 local session   = require "session"
@@ -226,12 +225,6 @@ local function reset_origin()
   controls.X, controls.Y = 0, 0 
 end
 
-local function change_mode(mode, submode)
-  if lm.getPosition() < (lg.getDimensions() - margin) then 
-    _M.set(mode, submode)
-  end
-end
-
 lk.setKeyRepeat(true)
 
 local function rotate_to_zero() controls.rotate.value = 0 end
@@ -297,12 +290,8 @@ local special =  {
 }
 
 local cmd = {
-  d = function() change_mode ("database", "dso") end,
-  o = function() change_mode ("database", "observations") end,                    -- open previous observation
-  p = function() change_mode "workflow" end,                                      -- processing workflow
-  s = function() change_mode "settings" end,
+  -- for other app-wide keys see guillaume.init
   t = function() controls.eyepiece.checked = not controls.eyepiece.checked end,   -- toggle eyepiece / landscape
-  v = function() change_mode "stack" end,                                         -- view stack
 
   -- these next two, by analogy to Mac OS Preview commands
   ["0"]   = full_size,                -- one screen pixel = one image pixel 
@@ -326,11 +315,8 @@ function _M.keypressed(key)
   
   local ctrl = lk.isDown "lctrl" or lk.isDown "rctrl"
   local cmnd = lk.isDown "lgui" or lk.isDown "rgui"
-  
-  if ctrl or cmnd or special[key] then
-    local action = cmd[key] or special[key]
-    if action then action() end
-  end
+  local action = (ctrl or cmnd) and cmd[key] or special[key]
+  if action then action() end
 end
 
 function _M.textinput(...)      

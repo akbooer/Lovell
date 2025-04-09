@@ -5,20 +5,21 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.27",
+    VERSION = "2025.04.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
 
 -- 2024.09.25  Version 0, @akbooer
 -- 2024.11.08  use love.filesystem
--- 2024.11.18  improve error checkking
+-- 2024.11.18  improve error checking
 -- 2024.11.29  read() now takes an opened file object, rather than a filename
 -- 2024.12.08  move readImageData() here from watcher.lua (for calibration use by masters.lua)
 
 -- 2025.03.01  readImageData() now takes an opened file object (file system agnostic)
 -- 2025.03.10  fix handling of unquoted string in header (Starlight Live DATE has no surrounding quotes)
 -- 2025.03.27  change check for full file read (for lua.io and love.filesystem library compatibility)
+-- 2025.04.08  add 32-bit handling
 
 
 local _log = require "logger" (_M)
@@ -163,6 +164,41 @@ end
 
 -----------
 --
+-- byte swapping
+--
+
+local function swap2(ptr, n, bzero)
+  local byt = ffi.cast('uint8_t*', ptr)
+  local r16 = ffi.cast('uint16_t*', ptr)
+  -- swap bytes and add offsets from FITS file header for unsigned integers
+  local j = 0
+  for i = 0, 2*n-1, 2 do
+    byt[i], byt[i+1] = byt[i+1], byt[i]     -- swap bytes
+    r16[j] = r16[j] + bzero
+    j = j + 1
+  end  
+end
+
+local function swap4(ptr, n)
+  local byt = ffi.cast('uint8_t*', ptr)
+  for i = 0, 4*n-1, 4 do
+    byt[i], byt[i+1], byt[i+2], byt[i+3] = 
+            byt[i+3], byt[i+2], byt[i+1], byt[i]     -- swap bytes
+  end
+end
+
+local function swap8(ptr, n)
+  local byt = ffi.cast('uint8_t*', ptr)
+  for i = 0, 8*n-1, 8 do
+    byt[i], byt[i+1], byt[i+2], byt[i+3], byt[i+4], byt[i+5], byt[i+6], byt[i+7] = 
+            byt[i+7], byt[i+6], byt[i+5], byt[i+4], byt[i+3], byt[i+2], byt[i+1], byt[i]     -- swap bytes
+  end
+end
+
+local swapper =  {[2] = swap2, [4]= swap4, [8]= swap8}
+
+-----------
+--
 -- return imageData format
 --
 
@@ -171,7 +207,9 @@ function _M.readImageData(file)
   local ok, data, k, h = pcall(_M.read, file)
   if not ok then return end       -- fail silently
   
-  local naxis1, naxis2= k["NAXIS1"], k["NAXIS2"]
+  local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
+  local fp, bytes = bitpix < 0, math.abs(bitpix) / 8
+  
   local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
   
   if not ok2 then
@@ -180,20 +218,13 @@ function _M.readImageData(file)
   end
   
   local ptr = imageData:getFFIPointer()          -- grab byte pointer
-  local byt = ffi.cast('uint8_t*', ptr)
-  local r16 = ffi.cast('uint16_t*', ptr)
-
-  -- swap bytes and add offsets from FITS file header
   local n = naxis1 * naxis2
-  local j = 0
-  local bzero = k["BZERO"]
   
-  for i = 0, 2*n-1, 2 do
-    byt[i], byt[i+1] = byt[i+1], byt[i]     -- swap bytes
-    r16[j] = r16[j] + bzero
-    j = j + 1
+  local swap = swapper[bytes]
+  if swap then
+    swap(ptr, n, k["BZERO"])
   end
-
+  
   _log(elapsed ("%.3f ms, readImageData [%d x %d %s]", naxis1, naxis2, k.BAYERPAT or 'NONE'))
   return imageData, k, h
 end

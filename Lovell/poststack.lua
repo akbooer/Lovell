@@ -17,7 +17,7 @@ local _M = {
 -- 2025.02.24  added invert() option in workflow
 -- 2025.03.24  show insufficient RGB as mono
 -- 2025.03.31  fix halos round coloured star (issue #3)
--- 2025.04.01  add RGBLexposure for (issue #6)
+-- 2025.04.01  add RGBL exposure (issue #6)
 
 
 local zeros = _G.READONLY {0,0,0,0}
@@ -51,13 +51,12 @@ local function poststack(frame)
 
   workflow: newInput(frame.image)  
   workflow: background(frame.gradients, controls.gradient.value) 
---  workflow: stats()   -- give CPU something to do
 
   -------------------------------
   --
   -- MONO WORKFLOW / SYNTH LUM
   --
-
+  
   workflow: balance {w.Rweight.value, w.Gweight.value, w.Bweight.value}   -- apply RGB balance presets
   workflow: synthL({.7,.2,.1}, workflow.luminance, ratio)                 -- mix synthetic and real lum (if any)
 
@@ -65,14 +64,17 @@ local function poststack(frame)
   --
   -- COLOUR WORKFLOW
   --  
-  if R > 0 and G > 0 and B > 0 then                   -- enough for LRGB
+
+  if R > 0 and G > 0 and B > 0 then                  -- enough for LRGB
     workflow: save "temp"                             -- save lum
     workflow: undo()                                  -- revert to previous input buffer
-    workflow: gaussian(0.3)                           -- reduce colour noise
-    workflow: scnr()                                  -- Subtractive Chromatic Noise Reduction
+    workflow: gaussian(0.5)                           -- reduce colour noise
     workflow: normalise()
+--    workflow: stretch("Asinh", 1)
+    workflow: scnr()                                  -- Subtractive Chromatic Noise Reduction
     workflow: satboost(controls.saturation.value * 5) -- apply saturation stretch
     workflow: tint(controls.tint.value)               -- R / GB balance
+--    workflow: colour_magic()
     workflow: selector(controls.channelOptions)       -- select channel for display (LRGB, L, R, G, B)
     workflow: lrgb "temp"                             -- create LRBG image
   end
@@ -81,6 +83,7 @@ local function poststack(frame)
   --
   -- GAMMA STRETCH (of various kinds)
   --
+  
   workflow: stretch ()
 
   -------------------------------

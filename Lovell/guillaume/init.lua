@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.22",
+    VERSION = "2025.04.07",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
@@ -15,6 +15,7 @@ local _M = {
 
 -- 2025.01.05  add SUIT-able extensions
 -- 2025.01.17  add GUI-wide CLOSE button
+-- 2025.04.07  add app-wide ctrl-/cmd-keyboard actions to change page
 
 
 local _log = require "logger" (_M)
@@ -24,6 +25,7 @@ local suit    = require "suit"
 local love = _G.love
 local lg = love.graphics
 local lf = love.filesystem
+local lk = love.keyboard
 
 suit.theme.color.text = suit.theme.color.hovered.bg 
 
@@ -91,11 +93,29 @@ end
 -- KEYBOARD
 --
 
+local special = {
+ ["escape"] = function() GUI.set "main" end, 
+}
+
+local cmd = {
+  c = function() GUI.set ("database", "calibration") end,
+  d = function() GUI.set ("database", "dso") end,
+  o = function() GUI.set ("database", "observations") end,                    -- open previous observation
+  p = function() GUI.set "workflow" end,                                      -- processing workflow
+  s = function() GUI.set "settings" end,
+--  t = function() controls.eyepiece.checked = not controls.eyepiece.checked end,   -- toggle eyepiece / landscape
+  v = function() GUI.set "stack" end,                                         -- view stack
+}
+
 function love.keypressed(key, ...)
-  if key == "escape" then
-    GUI.set "main"
+  local ctrl = lk.isDown "lctrl" or lk.isDown "rctrl"
+  local cmnd = lk.isDown "lgui" or lk.isDown "rgui"
+  local action = (ctrl or cmnd) and cmd[key] or special[key]
+  
+  if action then 
+    action() 
   else
-    GUI.keypressed(key, ...)   
+    GUI.keypressed(key, ...)      -- pass keypress to GUI
   end
 end
 

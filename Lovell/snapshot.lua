@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.14",
+    VERSION = "2025.04.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -14,6 +14,7 @@ local _M = {
 -- 2025.02.24  Format annotations for landscape and eyepiece snaps
 -- 2025.03.10  add HiRes option (when in landscape and info panel not pinned)
 -- 2025.03.14  add count of individual filter subs
+-- 2025.04.08  correct FOV label in landscape mode
 
 
 local _log = require "logger" (_M)
@@ -115,11 +116,14 @@ local function get_annotations()
   Rotation = formatDegrees(controls.rotate.value or 0)
   if focal > 0 and pixel > 0 then
     local arcsize = 36 * 18 / math.pi * pixel / focal     -- camera pixel size in arc seconds (assume square)
-    arcsize = arcsize / controls.zoom.value                -- screen pixel size
     local radius, w, h = Oculus.radius()
     
-    FOV = "fov: " .. (eyepiece and formatAngle(arcsize * radius * 2)
-            or table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n") : gsub('\n', ' '))
+    if eyepiece then
+      FOV = "fov: " .. formatAngle(arcsize * radius * 2 / controls.zoom.value)
+    else
+      local w, h = image:getDimensions()
+      FOV = "fov: " .. table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n") : gsub('\n', ' ')
+    end
   end
   
   local T = stack.exposure or 0

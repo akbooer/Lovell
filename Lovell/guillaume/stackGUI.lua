@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.04.01"
+  _M.VERSION = "2025.04.02"
   _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
@@ -23,12 +23,12 @@ local workflow    = require "workflow" .new(session.controls, "thumbnails")
 
 local love = _G.love
 local lg = love.graphics
-local lm = love.mouse
 local lt = love.timer
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
 
 local empty = _G.READONLY {}
+local deg = 180 / math.pi
 
 local margin = 200
 local controls = session.controls
@@ -82,14 +82,6 @@ local floor = math.floor
 local sprites, matches do -- mark position of alignment stars, and matched pairs
 
   local idata = { 
-            {1,1,1,1,1},
-            {1,0,0,0,1},
-            {1,0,0,0,1},
-            {1,0,0,0,1},
-            {1,1,1,1,1},
-          }
-
-  idata = { 
             {1,1,1,1,1,1,1},
             {1,0,0,0,0,0,1},
             {1,0,0,0,0,0,1},
@@ -186,9 +178,9 @@ local function panel(subframe)
   
   self: Label("alignment", Loptions, row(w, 20))
   local align = subframe.align
-  if align and align[3] then
-    self: Label(xy % align, Woptions, row())
-    self: Label(theta % align[3], Woptions, row())
+  if align then
+    self: Label(xy: format(align[2], align[3]), Woptions, row())
+    self: Label(theta % (align[1] * deg), Woptions, row())
   end
   self: Label(epoch, Loptions, row(300,20))
 end
@@ -207,13 +199,11 @@ local function scrollbar(n)
 end
 
 -- Add stars to sprite batch for drawing.
-local function markstars(sprites, stars, scale, index)
-  index = index or 1
-  local j, k = index, index + 1
+local function markstars(sprites, stars, scale)
 	sprites:clear()
   for i = 1, #stars do
     local star = stars[i]
-    local x, y = star[j] * scale - 4, star[k] * scale - 4
+    local x, y = star[1] * scale - 4, star[2] * scale - 4
 		sprites:add(x, y)
 	end
 end
@@ -302,7 +292,7 @@ function _M.update()
   
   subs = stack.subs
   w,h = subs[1].thumb: getDimensions()  
-  local ws, hs = stack.image: getDimensions()
+  local ws = stack.image: getWidth()
   scale = 0.70 * H / h          -- image is X % of screen height
   local n = #subs
   index = 1
@@ -321,7 +311,7 @@ function _M.update()
     poststack(frame)                            -- run poststack processing chain
     
     markstars(sprites, subframe.stars, w / ws)                        -- mark found stars
-    markstars(matches, subframe.matched_pairs or empty, w / ws, 3)    -- mark matched stars
+    markstars(matches, subframe.matched_pairs or empty, w / ws)       -- mark matched stars
     
   end
   lastindex = index

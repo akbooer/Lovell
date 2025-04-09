@@ -15,14 +15,12 @@ local _log = require "logger" (_M)
 
 local session = require "session"
 
-
 local suit = require "suit"
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
 
-_M.StackOptions = {"Average", "Min Variance", selected = 1}
-
-local w = session.controls.workflow   -- export
+local controls = session.controls
+local w = controls.workflow           -- export
 
 local M = 60    -- margin
 local W = 120
@@ -118,7 +116,7 @@ local function stack()
   reset(M)
   self: Label("stacking mode", lalign, row(W, 20))
   row(W/2, 30)
-  self: Dropdown(_M.StackOptions, col(W * 1.5, 30))
+  self: Dropdown(controls.stackOptions, col(W * 1.5, 30))
 end
 
 
@@ -153,26 +151,33 @@ end
 -- COLOUR
 --
 
+local Cr, Cg, Cb = {}, {}, {}   -- unique IDs
+local fmt = "%4.1f"
+
 local function colour()
   M = 50
   layout: reset(M, 350, 10, 10)
   
     
   reset()
+  down()
   self: Button("Colour", row(Wcol - 100, 30))
   self: Label("Channel weights", row(W, 20))
   down()
   
   self: Label("R", ralign, col(40, 10))
   self: Slider(w.Rweight, col(W, 10))
+  self: Label(fmt % (w.Rweight.value), Cr, col(40, 10))
   reset()
   down()
   self: Label("G", ralign, col(40, 10))
   self: Slider(w.Gweight, col(W, 10))
+  self: Label(fmt % (w.Gweight.value), Cg, col(40, 10))
   reset()
   down()
   self: Label("B", ralign, col(40, 10))
   self: Slider(w.Bweight, col(W, 10))
+  self: Label(fmt % (w.Bweight.value), Cb, col(40, 10))
   
 end
 

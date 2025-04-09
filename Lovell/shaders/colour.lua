@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.24",
+    VERSION = "2025.04.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.01.29  integrate into workflow
 -- 2025.02.24  add invert()
 -- 2025.03.23  recoding of synthL(), lrgb(), added satboost, removed HSL processing
+-- 2024.04.08  add RGB weighting to lrgb()
 
 
 local _log = require "logger" (_M)
@@ -93,12 +94,13 @@ end
 
 local lrgb = lg.newShader ([[
     uniform Image luminance;
+    uniform vec3 weights;
     const float eps = 1.0e-6;
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       float lum = Texel(luminance, texture_coords) .r;
-      float l = dot(rgb, vec3(1.0) + eps);
+      float l = dot(rgb, vec3(weights)) + eps;
       vec3 lrgb = clamp(rgb * lum / l, 0.0, 1.0);
       return vec4(lrgb, 1.0);
     }
@@ -108,8 +110,8 @@ function _M.lrgb(workflow, luminance)
   local input, output = workflow()
   luminance = workflow: buffer (luminance)    -- access by name, possibly
   local shader = lrgb
---  local shader = rgb2hsl2rgb
   shader: send("luminance", luminance)
+  shader: send("weights", {0.2, 0.7, 0.1})
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)
   lg.setShader()
@@ -212,7 +214,7 @@ local sat = lg.newShader [[
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       rgb = clamp(rgb, 0.0, 1.0);
       vec3 intensity = vec3(dot(rgb, weights));
-      return vec4(mix(intensity, rgb, sat), 1.0);
+      return vec4(clamp(mix(intensity, rgb, sat), 0.0, 1.0), 1.0);
     }
 ]]
 
@@ -288,11 +290,11 @@ end
 --]]
 
 local scnrShader = lg.newShader[[
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords);
-      pixel.g = min(pixel.g, 0.5*(pixel.r + pixel.b));
-      return pixel;
-    }
+  vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec4 pixel = Texel(texture, texture_coords);
+    pixel.g = min(pixel.g, 0.5*(pixel.r + pixel.b));
+    return pixel;
+  }
   ]]
 
 function _M.scnr(workflow)
@@ -302,6 +304,35 @@ function _M.scnr(workflow)
   lg.setShader()
   return output
 end
+
+
+-------------------------
+
+local magic = lg.newShader [[
+
+  uniform float c;
+  
+  vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+    vec3 p = Texel(texture, texture_coords) .rgb;
+    float mini = min(p.r, min(p.g, p.b));
+    p = p - mini + 0.05;
+    float m = max(p.r, max(p.g, p.b));
+    float s = 0.95 / (m + 1e-5);
+    float foo = c;
+    p = p * s + 0.01;
+    return vec4(clamp(p, 0.0, 1.0), 1.0);
+  }
+]]
+
+function _M.magic(workflow, c)
+ local input, output = workflow()      -- get hold of the workflow buffers
+ c = c or 0.8
+  lg.setShader(magic) 
+  magic: send("c", c)
+  output:renderTo(lg.draw, input)
+  lg.setShader()
+end
+
 
 -------------------------
 

@@ -220,7 +220,7 @@ local function getChannelStats(image, channel)
   columns: send("channel", channel)
   lg.setBlendMode("replace", "premultiplied")
   oneD: renderTo(lg.draw, twoD)
-  lg.setBlendMode("alpha", "alphamultiply")
+--  lg.setBlendMode("alpha", "alphamultiply")
 
   -- combine the min(x), max(x), sum(x), sum(x^2) column subtotals
   local d1 = oneD: newImageData()
@@ -234,7 +234,7 @@ local function getChannelStats(image, channel)
       return ...
     end)
   
-  lg.setShader()
+  lg.reset()
   local mean = sum / n
   local var = sum2 / n - mean * mean
   return {min, max, mean, var > 0 and math.sqrt(var) or 0}  -- avoid square root of negative due to rounding errors
@@ -305,7 +305,7 @@ end
 -- TESTING
 --
 
-function _M.test(N)
+function _M.TEST(N)
   
   -- create test image
   
@@ -352,7 +352,7 @@ function _M.test(N)
   _log(pretty(s))
 end
 
---_M.test()
+--_M.TEST()
 
 return _M
 
