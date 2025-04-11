@@ -190,7 +190,8 @@ end
 --local rgba = {LRGB = {t,t,t,t}, Red = {t,f,f,t}, Green={f,t,f,t}, Blue = {f,f,t,t}}
 
 --function _M.selector(workflow)
---  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+--  local input, output = workflow()
+--  local controls = workflow.controls
 --  local selected = controls.channelOptions[controls.channel]
 --  love.graphics.setColorMask(unpack(rgba[selected] or rgba.LRGB))
 --  workflow()
@@ -326,7 +327,7 @@ local magic = lg.newShader [[
 
 function _M.magic(workflow, c)
  local input, output = workflow()      -- get hold of the workflow buffers
- c = c or 0.8
+  c = c or 0.8
   lg.setShader(magic) 
   magic: send("c", c)
   output:renderTo(lg.draw, input)

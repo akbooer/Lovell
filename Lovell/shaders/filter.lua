@@ -156,7 +156,8 @@ local apf0 = love.graphics.newShader[[
   }]]
 
 function _M.apf0(background, workflow)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  local input, output = workflow()      -- get hold of the workflow buffers
+  local controls = workflow.controls
   local strength = controls.sharpen.value
   local shader = apf0
   if strength == 0 then return end
@@ -195,7 +196,8 @@ local apf2 = love.graphics.newShader[[
   }]]
 
 function _M.apf2(workflow, background, background2)
-  local input, output, controls = workflow()      -- get hold of the workflow buffers and controls
+  local input, output = workflow()
+  local controls = workflow.controls
   background  = workflow: buffer(background)
   background2 = workflow: buffer(background2)
   local strength = controls.sharpen.value

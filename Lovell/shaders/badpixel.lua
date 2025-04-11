@@ -103,7 +103,8 @@ local rgb = lg.newShader [[
 
 
 local function badPixelRemoval(workflow, bayerpat)
-  local input, output, controls = workflow()
+  local input, output = workflow()
+  local controls = workflow.controls
   local elapsed = newTimer()
 
   local hasBayer = (bayerpat or ''): match "[RGB][RGB][RGB][RGB]"

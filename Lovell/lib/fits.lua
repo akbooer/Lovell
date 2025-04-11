@@ -24,11 +24,14 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-
+local bit = require "bit"
 local ffi = require "ffi"
 local newTimer = require "utils" .newTimer
 
 local li = require "love.image"
+
+local love = _G.love
+local ld = love.data
 
 -- these read routines are called with an open file handle, to remain file system agnostic...
 -- ...usable by both love.filesystem.open() and Lua's native io.open()
@@ -151,7 +154,7 @@ function _M.read(file)
   
   local k, h = _M.readHeaderUnit(file)
   local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2, k.NAXIS3 or 1
-  local size = naxis1 * naxis2 * naxis3 * bitpix/8
+  local size = naxis1 * naxis2 * naxis3 * math.abs(bitpix/8)
 --  local data, n = file: read(size, "data")      -- "data" format
   local data = file: read(size) 
   assert(size == #data, "failed to read complete file")
@@ -167,35 +170,46 @@ end
 -- byte swapping
 --
 
-local function swap2(ptr, n, bzero)
-  local byt = ffi.cast('uint8_t*', ptr)
+-- 40ms for 12 Mpixels
+-- swap bytes and add offset from FITS file header for unsigned integers
+local function i16(bytes, ptr, n, bzero)
+  local inp = bytes: getPointer()
+  local byt = ffi.cast('uint16_t*', inp)        -- LuaJit FFI approach is fastest
   local r16 = ffi.cast('uint16_t*', ptr)
-  -- swap bytes and add offsets from FITS file header for unsigned integers
-  local j = 0
-  for i = 0, 2*n-1, 2 do
-    byt[i], byt[i+1] = byt[i+1], byt[i]     -- swap bytes
-    r16[j] = r16[j] + bzero
-    j = j + 1
+  for i = 0, n-1 do
+    r16[i] = bit.bswap(bit.lshift(byt[i],16)) + bzero
   end  
 end
 
-local function swap4(ptr, n)
-  local byt = ffi.cast('uint8_t*', ptr)
-  for i = 0, 4*n-1, 4 do
-    byt[i], byt[i+1], byt[i+2], byt[i+3] = 
-            byt[i+3], byt[i+2], byt[i+1], byt[i]     -- swap bytes
-  end
+-- swap bytes implementation for f32
+local function f32(bytes, ptr, n) 
+  local inp = bytes: getPointer()
+  local byt = ffi.cast('uint32_t*', inp)
+  local f32 = ffi.cast('uint32_t*', ptr)
+--  local r32 = ffi.cast('float*', ptr)
+  for i = 0, n-1 do
+    f32[i] = bit.bswap(byt[i])                  -- swap bytes
+--    if i < 10 then _log("f32 %.3f" % r32[i]) end
+  end  
 end
 
-local function swap8(ptr, n)
-  local byt = ffi.cast('uint8_t*', ptr)
-  for i = 0, 8*n-1, 8 do
-    byt[i], byt[i+1], byt[i+2], byt[i+3], byt[i+4], byt[i+5], byt[i+6], byt[i+7] = 
-            byt[i+7], byt[i+6], byt[i+5], byt[i+4], byt[i+3], byt[i+2], byt[i+1], byt[i]     -- swap bytes
-  end
+-- swap bytes implementation for f64
+local function f64(bytes, ptr, n)
+  local inp = bytes: getPointer()
+  local byt = ffi.cast('uint64_t*', inp)        -- input is 64 bits
+  local f32 = ffi.cast('uint32_t*', ptr)        -- output is only 32 bits
+  local f64 = ffi.cast('double*', inp)
+  for i = 0, n-1 do
+    byt[i] = bit.bswap(byt[i])                  -- swap bytes (in place)
+    f32[i] = f64[i]                             -- convert to 32-bit destination
+--    if i < 10 then _log("f64 %.3f" % r32[i]) end
+  end  
 end
 
-local swapper =  {[2] = swap2, [4]= swap4, [8]= swap8}
+local swapper =  {
+    [true]  = {[4]= f32, [8]= f64},             -- floating point
+    [false] = {[2] = i16},                      -- integer
+  }
 
 -----------
 --
@@ -203,29 +217,26 @@ local swapper =  {[2] = swap2, [4]= swap4, [8]= swap8}
 --
 
 function _M.readImageData(file)
+
   local elapsed = newTimer()
   local ok, data, k, h = pcall(_M.read, file)
   if not ok then return end       -- fail silently
   
   local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
   local fp, bytes = bitpix < 0, math.abs(bitpix) / 8
+  local imageData = li.newImageData(naxis1, naxis2, fp and "r32f" or "r16")
   
-  local ok2, imageData = pcall(li.newImageData, naxis1, naxis2, "r16", data)
-  
-  if not ok2 then
-    _log("ERROR on imageData : " ..(imageData or '?'))
-    return
-  end
-  
-  local ptr = imageData:getFFIPointer()          -- grab byte pointer
-  local n = naxis1 * naxis2
-  
-  local swap = swapper[bytes]
+  local swap = swapper[fp][bytes]
   if swap then
-    swap(ptr, n, k["BZERO"])
+    local bytes = ld.newByteData(data)
+    local ptr = imageData:getFFIPointer()          -- grab byte pointer
+    swap(bytes, ptr, naxis1 * naxis2, k["BZERO"])
+    bytes: release()
   end
   
-  _log(elapsed ("%.3f ms, readImageData [%d x %d %s]", naxis1, naxis2, k.BAYERPAT or 'NONE'))
+  local fmt = bytes*8 .. (fp and "-bit float" or "-bit integer")
+  _log(elapsed ("%.3f ms, readImageData [%d x %d %s] %s", naxis1, naxis2, k.BAYERPAT or 'NONE', fmt))
+  
   return imageData, k, h
 end
 

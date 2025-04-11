@@ -21,6 +21,7 @@ local _M = {
 local _log = require "logger" (_M)
 
 local suit    = require "suit"
+local session = require "session"
 
 local love = _G.love
 local lg = love.graphics
@@ -93,6 +94,8 @@ end
 -- KEYBOARD
 --
 
+local eyepiece = session.controls.eyepiece
+
 local special = {
  ["escape"] = function() GUI.set "main" end, 
 }
@@ -100,10 +103,11 @@ local special = {
 local cmd = {
   c = function() GUI.set ("database", "calibration") end,
   d = function() GUI.set ("database", "dso") end,
+  e = function() GUI.set "main";  eyepiece.checked = true  end,
+  l = function() GUI.set "main";  eyepiece.checked = false end,
   o = function() GUI.set ("database", "observations") end,                    -- open previous observation
   p = function() GUI.set "workflow" end,                                      -- processing workflow
   s = function() GUI.set "settings" end,
---  t = function() controls.eyepiece.checked = not controls.eyepiece.checked end,   -- toggle eyepiece / landscape
   v = function() GUI.set "stack" end,                                         -- view stack
 }
 

@@ -14,7 +14,7 @@ function love.conf(t)
 --    t.audio.mixwithsystem = true        -- Keep background music playing when opening LOVE (boolean, iOS and Android only)
 
   t.window.title = "Lövell"            -- The window title (string)
-  -- <a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a
+  -- <a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
   t.window.icon = "guillaume/icons8-gps-antenna-80.png"  -- Filepath to an image to use as the window's icon (string)
   t.window.width = 1280                -- The window width (number)
   t.window.height = 740                -- The window height (number)

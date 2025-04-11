@@ -42,6 +42,27 @@ end
 
 -------------------------------
 --
+-- SUBS
+--
+
+local subs = {}
+
+function subs: reject_list()
+  local x = {}
+  for _, s in ipairs(self) do
+    x[#x+1] = s.rejected and s.name or nil
+  end
+  return #x > 0 and x or nil
+end
+
+function subs.new()
+  return setmetatable({}, subs)
+end
+
+
+
+-------------------------------
+--
 -- THUMBNAIL
 --
 
@@ -89,9 +110,7 @@ function _M.newSub(frame, controls)
     workflow: clear ("stack_variance", 1e3,0,0,0)
     workflow: save "luminance"   --, {dpiscale = 1, format = "r16f"})
     workflow: clear "luminance"
-    workflow: save "stack"
---    workflow: clear "stack"
-    workflow.stack: renderTo(love.graphics.draw, workflow.output)
+    workflow: copy ("output", "stack")
     workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
     
     stack = {}           
@@ -102,7 +121,7 @@ function _M.newSub(frame, controls)
     stack.image = workflow.stack
     stack.Nstack = 0
     stack.exposure = 0
-    stack.subs = {}
+    stack.subs = subs.new ()
     stack.workflow = workflow
     local keystars = workflow: starfinder(starspan)   -- EXTRACT keystars
     frame.stars = keystars
@@ -138,7 +157,7 @@ function _M.newSub(frame, controls)
   -- STACK, if valid alignment
   --
 
-  if align and not frame.omit_from_stack then
+  if align and not frame.rejected then
     stack.Nstack = stack.Nstack + 1
     local exposure = frame.exposure or 0
     stack.exposure = stack.exposure + exposure

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.06",
+    VERSION = "2025.04.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -24,6 +24,7 @@ local _M = {
 -- 2025.03.21  added buffer(), to get names workflow buffer (or not)
 -- 2025.04.04  restore blend mode after changing it in copy()
 -- 2025.04.06  added colour_magic()
+-- 2025.04.09  remove controls parameter and returns
 
 
 local _log = require "logger" (_M)
@@ -121,11 +122,11 @@ end
  
 -- toggle input/output workflow between two buffers,
 -- matched and initialised to input canvas type
-local function work(self, controls)
+local function work(self)
   self.input, self.output = self.output, self.input       -- toggle buffer input/output
   local input = self.canvas or self.input                      -- ... and use input canvas as first input
   self.canvas = nil                                            -- ... but only once, unless newInput() called
-  return input, self.output, controls or self.controls    -- use existing controls if not otherwise specified
+  return input, self.output
 end
 
 -- renderTo()
@@ -135,12 +136,11 @@ local function renderTo(self, fct, ...)
 end
 
 -- set new input for workflow
-local function newInput(self, input, settings, controls)
+local function newInput(self, input, settings)
   input = (type(input) == "string") and self[input] or input
   self.input = buffer(input, self.input, settings, self.name .. " input")
   self.output = buffer(input, self.output, settings, self.name .. " output")
   self.canvas = input
-  self.controls = controls or self.controls
 end
 
 -- clear buffer
@@ -157,14 +157,12 @@ local function byName(self, buf)
   return buf
 end
 
-function _M.new(ctrl, name)
+function _M.new(name)
   local W = {
     name = name or "workflow",
     input = nil,        -- the two working buffers...
     output = nil,       -- .. yet to be initialised
     canvas = nil,       -- temporary input
-    
-    controls = ctrl,    -- saved default control settings
     
     badpixel    = badpixel,
     debayer     = debayer,
@@ -179,32 +177,29 @@ function _M.new(ctrl, name)
     
     background  = background.remove,
     
-    clear       = clear,
-    buffer      = name,
     scnr        = colour.scnr,
     synthL      = colour.synthL,
     balance     = colour.balance,
---    rgb2hsl     = colour.rgb2hsl,
---    hsl2rgb     = colour.hsl2rgb,
     satboost    = colour.satboost,
     tint        = colour.balance_R_GB,
     selector    = colour.selector,
     lrgb        = colour.lrgb,
     invert      = colour.invert,
     
-    colour_magic = colour.magic,
+    colour_magic  = colour.magic,
 
-    boxblur     = filter.boxblur,
-    gaussian    = filter.gaussian,
-    fastgaussian = filter.fastgaussian,
-    tnr         = filter.tnr,         -- 'Tony's Noise Reduction'   (smoothing)
-    apf         = filter.apf,         -- 'Absolute Point of Focus'  (sharpening)
+    boxblur       = filter.boxblur,
+    gaussian      = filter.gaussian,
+    fastgaussian  = filter.fastgaussian,
+    tnr           = filter.tnr,         -- 'Tony's Noise Reduction'   (smoothing)
+    apf           = filter.apf,         -- 'Absolute Point of Focus'  (sharpening)
     
     -- local methods
     
     undo = undo,
     copy = copy,
     save = save,
+    clear = clear,
     buffer = byName,
     renderTo = renderTo,
     newInput = newInput,

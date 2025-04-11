@@ -19,7 +19,10 @@ local suit = require "suit"
 
 local poststack   = require "poststack"
 local session     = require "session"
-local workflow    = require "workflow" .new(session.controls, "thumbnails")
+local controls = session.controls
+
+local workflow    = require "workflow" .new "thumbnails"
+workflow.controls = controls
 
 local love = _G.love
 local lg = love.graphics
@@ -31,7 +34,6 @@ local empty = _G.READONLY {}
 local deg = 180 / math.pi
 
 local margin = 200
-local controls = session.controls
 
 local PLAY, BLINK  = 0, 0
 local playtime = 0          -- last time play position was updated
@@ -139,6 +141,7 @@ end
 -- control panel
 local xy = "(%0.1f, %0.1f)"
 local theta = "%0.3fº"
+local stack = {checked = false, text = "stacked"}
 
 local function panel(subframe)
   layout:reset(50,150, 10,10)                       -- leaving space for CLOSE button
@@ -174,9 +177,13 @@ local function panel(subframe)
   else
     row(w, 50)
   end
-  row(w, 60)
+  row(w, 40)
   
-  self: Label("alignment", Loptions, row(w, 20))
+  if self: Checkbox(stack, row(w, 20)) .hit then
+--    stack.checked = not stack.checked
+  end
+  
+  self: Label("alignment", Loptions, row())
   local align = subframe.align
   if align then
     self: Label(xy: format(align[2], align[3]), Woptions, row())

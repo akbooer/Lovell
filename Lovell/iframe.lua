@@ -75,7 +75,7 @@ function _M.read(folder, filename, mountpoint)
   local f, err             -- file handle and error message
   local modtime      -- last modified time, if available
   
-  _log("new file read - " .. filename)
+  _log("reading new file - " .. filename)
   if mountpoint then
     local path = mountpoint .. filename
     f = love.filesystem.newFile(path, 'r' )
