@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.11",
+  VERSION = "2025.04.18",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
   LICENCE = [[  

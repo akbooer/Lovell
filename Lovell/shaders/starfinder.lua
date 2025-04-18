@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.09",
+  VERSION = "2025.04.18",
   AUTHOR = "AK Booer",
   DESCRIPTION = "star detection",
 }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.01.28  add DoG (Difference of Gaussians)
 -- 2025.02.06  use workflow buffers rather than internal monochrome ones
 -- 2025.03.09  abandon DoG, use mean-relative threshold
+-- 2025.04.18  Issue #13, use FWHM-related metric to discriminate against hot pixels
 
 
 local _log = require "logger" (_M)
@@ -58,23 +59,41 @@ local function maxchan(canvas, direction, radius, channel)
 end
 
 
--- returns matching pixels in two images, 
--- or sets pixel value to zero if not matching
 local matchPixels = lg.newShader [[
   uniform Image stars, maxed;
   const float eps = 1.0e-4;
+  uniform vec2 dx, dy;
   
   vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
     float c = Texel(texture, tc).r;
     float d = Texel(maxed, tc).r;
     float e = Texel(stars, tc).r;   // original star intensities
-    float r = abs(c - d) < eps ? e : 0.0;
+    
+    float t = 0.0;
+    t += Texel(stars, tc + dx).r;
+    t += Texel(stars, tc - dx).r;
+    t += Texel(stars, tc + dy).r;
+    t += Texel(stars, tc - dy).r;
+    
+    bool near = abs(c - d) < eps;
+    bool fwhm_ok = e + e < t;     // Issue #13, use FWHM-related metric to discriminate against hot pixels
+    
+    float r = near && fwhm_ok ? e : 0.0;
     return vec4(r,r,r, 1.0);
   }]]
+
+
+--]]
+
 
 local function matchStars(input, maxed, stars)
   matchPixels: send("maxed", maxed)
   matchPixels: send("stars", stars)
+  
+  local w, h = stars: getDimensions()
+  matchPixels: send("dx", {1 / w, 0})
+  matchPixels: send("dy", {0, 1 / h})
+  
   lg.setShader(matchPixels)
   lg.draw(input)
   lg.setShader() 

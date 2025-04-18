@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.10",
+    VERSION = "2025.04.16",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -17,14 +17,15 @@ local _M = {
 -- 2025.01.28  separate module from util
 -- 2025.01.20  add saveInput()
 -- 2025.02.06  add renderTo()
--- 2025.03.08  added stats()
+-- 2025.03.08  add stats()
 -- 2025.03.12  use class methods, shared between instances
--- 2025.03.13  added clear()
--- 2025.03.16  added save()
--- 2025.03.21  added buffer(), to get names workflow buffer (or not)
+-- 2025.03.13  add clear()
+-- 2025.03.16  add save()
+-- 2025.03.21  add buffer(), to get names workflow buffer (or not)
 -- 2025.04.04  restore blend mode after changing it in copy()
--- 2025.04.06  added colour_magic()
+-- 2025.04.06  add colour_magic()
 -- 2025.04.09  remove controls parameter and returns
+-- 2025.04.14  add calibrate()
 
 
 local _log = require "logger" (_M)
@@ -40,6 +41,7 @@ local colour      = require "shaders.colour"
 local filter      = require "shaders.filter"
 local stats       = require "shaders.stats"
 local stretcher   = require "shaders.stretcher"
+local calibrator  = require "shaders.calibrator"
 
 
 local love = _G.love
@@ -132,7 +134,7 @@ end
 -- renderTo()
 local function renderTo(self, fct, ...)
   local input, output = work(self)
-  output: renderTo(fct, input, ...)
+  output: renderTo(fct or lg.draw, input, ...)
 end
 
 -- set new input for workflow
@@ -176,6 +178,7 @@ function _M.new(name)
     stats       = mystats,
     
     background  = background.remove,
+    calibrate   = calibrator.calibrate,
     
     scnr        = colour.scnr,
     synthL      = colour.synthL,

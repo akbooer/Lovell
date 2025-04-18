@@ -106,6 +106,46 @@ function _M.load(path)
   return masters
 end
 
+function _M.update(self)
+  local layout = self.layout
+  local function row(...) return layout: row(...) end
+  local function col(...) return layout: col(...) end
+
+  -- masters list buttons
+  
+--  if self: Button("Select compatible", row(120, 30)) .hit then
+----    select_all()
+--  end
+--  col(15, 30)
+--  if self: Button("Deselect all", col(120, 30)) .hit then
+----    deselect_all()
+--  end
+
+  col(50, 30)
+--  if self: Button("Add to Watchlist", col(170, 30)) .hit then
+--    add_to_observing_list()
+--  end
+--  col(15, 30)
+--  if self: Button("Delete from Watchlist", col(170, 30)) .hit then
+--    remove_from_observing_list()
+--  end
+  
+  layout: reset(550,20, 10,10)
+  if self: Button("Apply Selected Masters", layout: col(220, 30)) .hit then
+--    reloadFolder: push(current)       -- send the whole metadata
+--    pager: push "main"                -- switch to main display
+  end
+
+  layout: reset(1120, 10, 10,10)
+  if self: Button("Match", col(80,50)) .hit then
+    
+  end
+  
+--  local h = love.graphics.getHeight()
+--  self: Label(name, Loptions, layout: col(250, 30))
+--  self: Label(folder, Loptions, 20, h - 40, 550, 30)
+end
+
 
 return _M
 

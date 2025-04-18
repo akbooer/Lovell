@@ -21,6 +21,7 @@ local _log = require "logger" (_M)
 
 local aligner     = require "aligner"
 local poststack   = require "poststack"
+local calibration = require "databases.calibration"
 
 local background  = require "shaders.background"
 
@@ -98,20 +99,26 @@ function _M.newSub(frame, controls)
 
   local align, paired
   local starspan = workflow.controls.workflow.keystar.value   -- star peak search radius
-
+  
   -------------------------------
   --
   -- FIRST NEW FRAME in an observation sets up new STACK frame (and Luminance)
   --
 
   if frame.first then
+--    workflow: save ("snap", {dpiscale = 1, format = "normal"})
+--    workflow.snap: renderTo(love.graphics.draw, workflow.output)
+--    workflow.snap: newImageData() : encode ("png", "settings/snapshot.png")
+    
     -- create/clear new multi-spectral and mono stacks
-    workflow: save ("stack_variance", {dpiscale = 1, format = "r32f"})
+    workflow: save ("stack_variance", {dpiscale = 1, format = "r16f"})
     workflow: clear ("stack_variance", 1e3,0,0,0)
     workflow: save "luminance"   --, {dpiscale = 1, format = "r16f"})
     workflow: clear "luminance"
     workflow: copy ("output", "stack")
     workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
+    
+    --TODO:  check for suitable calibration files
     
     stack = {}           
     for n,v in pairs(frame) do 
@@ -132,7 +139,6 @@ function _M.newSub(frame, controls)
     if not stack then return end
     frame.stars = workflow: starfinder(starspan)      -- EXTRACT star positions and intensities
     local w, h = workflow: getDimensions()
---    theta, xshift, yshift, paired = aligner.transform(frame.stars, stack.keystars, workflow.controls, w/2, h/2)
     align, paired = aligner.transform(stack.keystars, frame.stars, workflow.controls, w/2, h/2)
     frame.matched_pairs = paired
   end

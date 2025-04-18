@@ -172,44 +172,30 @@ end
 
 -- 40ms for 12 Mpixels
 -- swap bytes and add offset from FITS file header for unsigned integers
-local function i16(bytes, ptr, n, bzero)
-  local inp = bytes: getPointer()
-  local byt = ffi.cast('uint16_t*', inp)        -- LuaJit FFI approach is fastest
-  local r16 = ffi.cast('uint16_t*', ptr)
+local function i16(data, out, n, bzero)
+  local byteData = ld.newByteData(data)
+  local inp = byteData: getPointer()
+  local byt = ffi.cast('uint16_t*', inp)                            -- LuaJit FFI approach is fastest
+  local r16 = ffi.cast('uint16_t*', out)
   for i = 0, n-1 do
     r16[i] = bit.bswap(bit.lshift(byt[i],16)) + bzero
   end  
+  byteData: release()
 end
 
--- swap bytes implementation for f32
-local function f32(bytes, ptr, n) 
-  local inp = bytes: getPointer()
-  local byt = ffi.cast('uint32_t*', inp)
-  local f32 = ffi.cast('uint32_t*', ptr)
---  local r32 = ffi.cast('float*', ptr)
+-- swap bytes implementation for f32 or f64 input
+local function float(fmt, data, out, n) 
+  local f32 = ffi.cast('float*', out)                               -- output is only 32 bits
+  local index
   for i = 0, n-1 do
-    f32[i] = bit.bswap(byt[i])                  -- swap bytes
---    if i < 10 then _log("f32 %.3f" % r32[i]) end
-  end  
-end
-
--- swap bytes implementation for f64
-local function f64(bytes, ptr, n)
-  local inp = bytes: getPointer()
-  local byt = ffi.cast('uint64_t*', inp)        -- input is 64 bits
-  local f32 = ffi.cast('uint32_t*', ptr)        -- output is only 32 bits
-  local f64 = ffi.cast('double*', inp)
-  for i = 0, n-1 do
-    byt[i] = bit.bswap(byt[i])                  -- swap bytes (in place)
-    f32[i] = f64[i]                             -- convert to 32-bit destination
---    if i < 10 then _log("f64 %.3f" % r32[i]) end
+    f32[i], index = love.data.unpack(fmt, data, index)              -- unpack is easiest for floats
   end  
 end
 
 local swapper =  {
-    [true]  = {[4]= f32, [8]= f64},             -- floating point
-    [false] = {[2] = i16},                      -- integer
-  }
+    [false] = { [2] = i16},                                         -- integer
+    [true]  = { [4]= function(...) float('>f', ...) end,
+                [8]= function(...) float('>d', ...) end}}           -- floating point
 
 -----------
 --
@@ -217,7 +203,6 @@ local swapper =  {
 --
 
 function _M.readImageData(file)
-
   local elapsed = newTimer()
   local ok, data, k, h = pcall(_M.read, file)
   if not ok then return end       -- fail silently
@@ -228,12 +213,10 @@ function _M.readImageData(file)
   
   local swap = swapper[fp][bytes]
   if swap then
-    local bytes = ld.newByteData(data)
-    local ptr = imageData:getFFIPointer()          -- grab byte pointer
-    swap(bytes, ptr, naxis1 * naxis2, k["BZERO"])
-    bytes: release()
+    local out = imageData: getPointer()
+    swap(data, out, naxis1 * naxis2, k.BZERO)
   end
-  
+    
   local fmt = bytes*8 .. (fp and "-bit float" or "-bit integer")
   _log(elapsed ("%.3f ms, readImageData [%d x %d %s] %s", naxis1, naxis2, k.BAYERPAT or 'NONE', fmt))
   

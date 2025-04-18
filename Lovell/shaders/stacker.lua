@@ -28,7 +28,7 @@ local love = _G.love
 local lg = love.graphics
 
 --_M.stackOptions = {"Average", "Sigma Clipping", "Min Variance", selected = 1}
-_M.stackOptions = {"Average", "Sigma Clipping", selected = 1}
+_M.stackOptions = {"Average", "Sigma Clipping", "Min Variance", selected = 1}
 
 
 local stacker = lg.newShader [[
@@ -47,11 +47,11 @@ local stacker = lg.newShader [[
 -- AVERAGE STACK
 --
 
-local function average(workflow, stack, depth, x, y, r, ox, oy)
+local function average(workflow, stack, depth, _, ...)
   lg.setBlendMode "alpha"
   lg.setShader(stacker)
   stacker: send("alpha", 1 / depth)
-  stack: renderTo(lg.draw, workflow.output, x, y, r, 1, 1, ox, oy)
+  stack: renderTo(lg.draw, workflow.output, ...)
 end
 
 ------------------------
@@ -61,21 +61,36 @@ end
 -- variance buffer contains current stack covariance estimate
 --
 
--- calculate image variance, input is new sub
 local variance = lg.newShader [[
     
     uniform Image stack;
-    
-    const vec3 ones = vec3(1.0);
+    uniform vec4 channels;
     
     vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
       vec3 new = Texel(texture, tc) .rgb;
       vec3 ref = Texel(stack, tc) .rgb;
-      float diff = 100.0 * (dot(new, ones) - dot(ref, ones));  // scale to avoid underflow
-      return vec4(vec3(diff * diff), 1.0);
+      vec3 foo =  vec3(channels);
+      vec3 diff = 10.0 * abs(new - ref);  // scale to avoid underflow
+      float var = dot(diff, foo);
+      return vec4(vec3(var), 1.0);
     }
     
 ]]
+
+--local variance = lg.newShader [[
+    
+--    uniform Image stack;
+--    uniform vec4 channels;
+    
+--    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+--      vec4 new = Texel(texture, tc);
+--      vec4 ref = Texel(stack, tc);
+--      vec4 foo =  channels;
+--      vec4 diff = 10.0 * abs(new - ref);  // scale to avoid underflow
+--      return diff;
+--    }
+    
+--]]
 
 -- calculate minimum variance weighted stack, input is new sub
 local minvar = lg.newShader [[
@@ -101,35 +116,38 @@ local newvar = lg.newShader [[
     
     uniform Image stack_variance;
     
+    const float eps = 1e-4;
+    
     vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
       float vsub = Texel(texture, tc) .r;
       float vstack = Texel(stack_variance, tc) .r;
-      float var = vsub * vstack / (vsub + vstack);
+      float var = vsub * vstack / (vsub + vstack + eps);
       return vec4(vec3(var), 1.0);
     }
     
 ]]
 
 
-local function min_variance(workflow, stack, depth, x, y, r, ox, oy)
-  depth = depth             -- unused
+local function min_variance(workflow, stack, _, channels, ...)
+  
   --(0) ignore alpha channel for all these shaders which operate on RGBL pixels (Alpha channel replaced by Luminance)
   lg.setBlendMode ("replace", "premultiplied")
   workflow: clear "input"   -- actually, the next output buffer
   
   -- (1) rotate and shift input, saving in temp...
   --      ...image must be aligned BEFORE new variance estimate!
-  workflow: renderTo(lg.draw, x, y, r, 1, 1, ox, oy)
+  workflow: renderTo(lg.draw, ...)
   workflow: save "temp"
 
 --  -- (2) calculate sub variance, save in temp1 (and output)
   lg.setShader(variance)
   variance: send("stack", stack)
+  variance: send("channels", channels)
   workflow: renderTo(lg.draw)
   workflow: save "temp1"
   
-  _log "Sub variance"
-  workflow: stats(true) 
+--  _log "MINIMUM VARIANCE"
+--  workflow: stats(true) 
   
   -- (3) variance weighted stack of rotated and shifted image in temp
   lg.setShader(minvar)
@@ -145,9 +163,10 @@ local function min_variance(workflow, stack, depth, x, y, r, ox, oy)
   lg.setBlendMode ("replace", "premultiplied")
   newvar: send("stack_variance", workflow.stack_variance)
   workflow.stack_variance: renderTo(lg.draw, workflow.temp1)    -- temp1 is sub variance
-  workflow: copy("stack_variance", "output")
-  _log "Stack variance"
-  workflow: stats(true) 
+  
+--  workflow: copy("stack_variance", "output")
+--  _log "Stack variance"
+--  workflow: stats(true) 
    
 end
 
@@ -156,6 +175,7 @@ end
 --
 -- SIGMA STACK
 --
+
 local sigma = lg.newShader [[
     
     uniform Image stack, sub_variance;
@@ -174,7 +194,7 @@ local sigma = lg.newShader [[
     
 ]]
 
-local function sigma_clip(workflow, stack, depth, x, y, r, ox, oy)
+local function sigma_clip(workflow, stack, depth, channels, ...)
   
   --(0) ignore alpha channel for all these shaders which operate on RGBL pixels (Alpha channel replaced by Luminance)
   lg.setBlendMode ("replace", "premultiplied")
@@ -182,28 +202,29 @@ local function sigma_clip(workflow, stack, depth, x, y, r, ox, oy)
   
   -- (1) rotate and shift input, saving in temp...
   --      ...image must be aligned BEFORE new variance estimate!
-  workflow: renderTo(lg.draw, x, y, r, 1, 1, ox, oy)
+  workflow: renderTo(lg.draw, ...)
   workflow: save "temp"
-
---  -- (2) calculate sub variance, save in temp1 (and output)
+  
+--  -- (2) calculate sub variance
   lg.setShader(variance)
   variance: send("stack", stack)
-  workflow: renderTo(lg.draw)
-  workflow: save "temp1"
+  variance: send("channels", channels)
+--  workflow: renderTo(lg.draw)
+--  workflow: save "temp1"
   
-  _log "Sub variance"
+--  _log "SIGMA CLIP"
 --  workflow: stats(true) 
   
   -- (3) sigma-clipped stack of rotated and shifted image in temp
   lg.setShader(sigma)
   lg.setBlendMode ("replace", "premultiplied")
   sigma: send("stack", stack)
-  sigma: send("alpha", 1 / depth)
+--  Ssigma: send("sub_variance", workflow.output)
   sigma: send("min_variance", 0);
+  sigma: send("alpha", 1 / depth)
   stack: renderTo(lg.draw, workflow.temp)
    
 end
-
 
 
 ------------------------
@@ -256,15 +277,16 @@ function _M.stack(workflow, params)
   local depth = RGBL[idx]
   
   _log("RGBL exposures (s):", unpack(RGBL))
-  local x, y, r, ox, oy = w/2 + xshift, h/2 + yshift, theta, w/2, h/2 -- rotate and shift parameters
+  local x, y, r, sx, sy, ox, oy = w/2 + xshift, h/2 + yshift, theta, 1, 1, w/2, h/2 -- rotate and shift parameters
   
   lg.setColorMask(unpack(filterChans))                -- only update relevant channels
-  local fct = process[controls.stackOptions.selected] or average
-  fct(workflow, stack, depth, x, y, r, ox, oy)
+  local sel = controls.stackOptions.selected
+  local fct = process[sel] or average
+  fct(workflow, stack, depth, countChans, x, y, r, sx, sy, ox, oy)
   lg.reset()
   
   local rgbl = "%dR %dG %dB %dL" % workflow.RGBL
-  _log(elapsed ("%.3f ms, %s %s stack", rgbl, fct == average and "average" or "minimum variance"))
+  _log(elapsed ("%.3f ms, %s %s stack", rgbl, controls.stackOptions[sel]))
 end
 
 
