@@ -68,7 +68,7 @@ Close button returns to main display.
 
 * Martin Cooke, of course, for Jocular and Canisp.
 * Matthias Richter for the impeccably written libraries [SUIT](https://github.com/vrld/suit) and [Moonshine](https://github.com/vrld/moonshine/)
-* Malvar-He-Cutler Bayer demosaic [McGuire](https://casual-effects.com/research/McGuire2009Bayer/) and [Rasmus25](https://github.com/rasmus25/debayer-rpi/tree/master)
+* [Malvar-He-Cutler](https://stanford.edu/class/ee367/reading/Demosaicing_ICASSP04.pdf) Bayer demosaic [McGuire](https://casual-effects.com/research/McGuire2009Bayer/) and [Rasmus25](https://github.com/rasmus25/debayer-rpi/tree/master)
 * Fast Global Registration [Qian-Yi Zhou, Jaesik Park & Vladlen Koltun](https://link.springer.com/chapter/10.1007/978-3-319-46475-6_47)
 * <a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
 * [LÖVE 2D](https://love2d.org/)
