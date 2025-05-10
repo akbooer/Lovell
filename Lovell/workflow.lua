@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.16",
+    VERSION = "2025.05.07",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -26,6 +26,10 @@ local _M = {
 -- 2025.04.06  add colour_magic()
 -- 2025.04.09  remove controls parameter and returns
 -- 2025.04.14  add calibrate()
+-- 2025.05.02  add dump() to snapshot current output to settings/ folder
+-- 2025.05.05  add thumbnail()
+-- 2025.05.07  change clear() alpha channel default to zero (for RGBL canvases)
+-- 2025.05.08  add logistic function
 
 
 local _log = require "logger" (_M)
@@ -121,7 +125,15 @@ end
 local function statsTexel(self, ...)
   return stats.statsTexel(self.output, ...)
 end
- 
+
+-- dump an image to Lovell folder
+local function dump(self, name)
+  self: save ("_dump", {dpiscale = 1, format = "normal"})
+  self._dump: renderTo(lg.draw, self.output)
+  self._dump: newImageData() : encode ("png", (name or "dump") .. ".png")
+  self._dump: release()
+end
+
 -- toggle input/output workflow between two buffers,
 -- matched and initialised to input canvas type
 local function work(self)
@@ -147,7 +159,7 @@ end
 
 -- clear buffer
 local function clear(self, name, r, g, b, a)
-  r, g, b, a = r or 0, g or 0, b or 0, a or 1
+  r, g, b, a = r or 0, g or 0, b or 0, a or 0
   self[name]: renderTo(lg.clear, r,g,b,a)
 end
 
@@ -173,6 +185,7 @@ function _M.new(name)
     stacker     = stacker.stack,
     stretch     = stretcher.stretch,
     
+    logistic    = stats.logistic,
     normalise   = stats.normalise,
     statsTexel  = statsTexel,
     stats       = mystats,
@@ -188,6 +201,7 @@ function _M.new(name)
     selector    = colour.selector,
     lrgb        = colour.lrgb,
     invert      = colour.invert,
+    thumbnail   = colour.thumbnail,
     
     colour_magic  = colour.magic,
 
@@ -199,6 +213,7 @@ function _M.new(name)
     
     -- local methods
     
+    dump = dump,
     undo = undo,
     copy = copy,
     save = save,

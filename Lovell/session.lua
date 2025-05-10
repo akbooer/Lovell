@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.22",
+    VERSION = "2025.05.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -16,6 +16,7 @@ local _M = {
 
 -- 2025.02.18  add lat, long, sun_time
 -- 2025.02.21  initialise on load, remove load() function
+-- 2025.05.08  add default stacking option to settings
 
 
 local _log = require "logger" (_M)
@@ -104,6 +105,7 @@ local controls = {    -- most of these are SUIT widgets
     
     settings = {
         signature = {text = "made with Lövell"},
+        stacking  = 1,                    -- default stacking option
         latitude  = {text = '51.5'},      -- defaults are approximation to Greenwich...
         longitude = {text = '0'},         -- it's actually on the O2 arena
       },
@@ -117,7 +119,7 @@ local controls = {    -- most of these are SUIT widgets
         debayer   = {checked = false, text = "force debayer"},
         bayerpat  = {text = ''},
         
-        maxstar   = {value = 100, min = 0,  max = 200},
+        maxstar   = {value =  50, min = 0,  max = 100},
         keystar   = {value =  50,  min = 5, max = 100},         -- window to search for star peaks
         offset    = {value = 150,  min = 0, max = 300},         -- limit to between-frame shifts
         
@@ -143,6 +145,7 @@ do -- inititalise from saved settings
   local s = controls.settings
   local f = (json.read "settings.json") or controls.settings   -- use defaults if file read fails
   for n,v in pairs(f) do s[n] = v end
+  stackOptions.selected = s.stacking or 1
   _log "settings loaded"
 end
 
@@ -188,7 +191,7 @@ local screenImage
 
 
 -- start a new observation, by saving metadata from the old one
-function _M.new()
+function _M.new(folder)
   saveSession(stack, controls)
   controls.reset()        -- start with new default values for processing options
   stack = nil
@@ -236,7 +239,8 @@ end
 
 function _M.close()
   saveSession(stack, controls)
-  json.write("settings.json", controls.settings)
+  local ok, err = json.write("settings.json", controls.settings)
+  if not ok then _log(err) end
   _log "settings saved"
   _log "closed"
 end

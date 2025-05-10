@@ -147,7 +147,9 @@ function _M.update(self, screen)
   
  layout:row()
   
-  self:Label("stacked ", Loptions, layout:row(Wcol, 10))
+--  self:Label("stacked ", Loptions, layout:row(Wcol, 10))
+  local so = controls.stackOptions
+  self:Label(so.displayname[so.selected], Loptions, layout:row(Wcol, 10))
   self:Label("mm:ss", Loptions, layout:col(Wcol, 10))
   layout:left()
   local stacks = "%d/%d" % {stack.Nstack or 0, stack.subs and #stack.subs or 0}

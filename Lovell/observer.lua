@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.02",
+    VERSION = "2025.05.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -15,6 +15,7 @@ local _M = {
 -- 2025.01.22  add thumbnails to stack frame
 -- 2025.03.23  fix nil alignment error (thanks @Songwired, issue #1)
 -- 2025.04.01  add RGBL exposures (issue #6)
+-- 2025.05.10  use 1.0e5 for starting stack variance (large number in half float precision)
 
 
 local _log = require "logger" (_M)
@@ -61,64 +62,35 @@ function subs.new()
 end
 
 
-
--------------------------------
---
--- THUMBNAIL
---
-
-local function thumbnail(image)
-  local Wthumb = 700        -- thumbnail width, height scales to preserve aspect ratio
-  local lg = _G.love.graphics
-  local elapsed = require "utils" .newTimer()
-  
-  local w,h = image:getDimensions()
-  local scale = Wthumb / w
-  local Hthumb = math.floor(scale * h)
-  local thumb = lg.newCanvas(Wthumb, Hthumb, {dpiscale = 1, format = "rgba16f"})
-  lg.setColor (1,1,1, 1)
-  thumb: renderTo(lg.draw, image, 0,0, 0, scale, scale)
-  
-  _log(elapsed ("%0.3f ms, [%dx%d] created thumbnail", Wthumb, Hthumb))
-  return thumb
-end
-
 -------------------------------
 --
 -- new sub frame - 16-bit image input
 --
 
 function _M.newSub(frame, controls)
-
   _log ''
   _log ("newSub #%d %s" % {(stack and #stack.subs or 0) + 1, frame.name})
   
   workflow.controls = controls
-  
-  workflow: prestack(frame)       -- PRESTACK processing
-
   local align, paired
-  local starspan = workflow.controls.workflow.keystar.value   -- star peak search radius
-  
+  local starspan = controls.workflow.keystar.value   -- star peak search radius
+ 
   -------------------------------
   --
   -- FIRST NEW FRAME in an observation sets up new STACK frame (and Luminance)
   --
-
+  
+  workflow: prestack(frame)       -- PRESTACK processing
+  
   if frame.first then
---    workflow: save ("snap", {dpiscale = 1, format = "normal"})
---    workflow.snap: renderTo(love.graphics.draw, workflow.output)
---    workflow.snap: newImageData() : encode ("png", "settings/snapshot.png")
     
     -- create/clear new multi-spectral and mono stacks
-    workflow: save ("stack_variance", {dpiscale = 1, format = "r16f"})
-    workflow: clear ("stack_variance", 1e3,0,0,0)
-    workflow: save "luminance"   --, {dpiscale = 1, format = "r16f"})
-    workflow: clear "luminance"
-    workflow: copy ("output", "stack")
+    workflow: save "stack_variance"
+    workflow: clear ("stack_variance", 1e5,1e5,1e5,1e5)   -- start with huge variance
+    workflow: save "stack"
+    love.graphics.setCanvas{workflow.stack, stencil=true}
+    workflow: clear "stack"
     workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
-    
-    --TODO:  check for suitable calibration files
     
     stack = {}           
     for n,v in pairs(frame) do 
@@ -135,6 +107,7 @@ function _M.newSub(frame, controls)
     stack.keystars = keystars     -- possible to choose a different stack for keystars subsequently
     _log ("found %d keystars in frame #1" % #keystars)
     align = aligner.null()
+    
   else
     if not stack then return end
     frame.stars = workflow: starfinder(starspan)      -- EXTRACT star positions and intensities
@@ -146,13 +119,9 @@ function _M.newSub(frame, controls)
   -- remove keywords and headers from subframes
   frame.headers = nil
   frame.keywords = nil
-  
-  -- calculate & remove gradients from sub
-  local gradients = background.calculate(workflow.output)
-  workflow: background(gradients) 
-  
+   
   -- store thumbnail and alignment info
-  frame.thumb = thumbnail (workflow.output)
+  frame.thumb = workflow: thumbnail()
   frame.align = align
   stack.subs[#stack.subs + 1] = frame
   
@@ -171,7 +140,7 @@ function _M.newSub(frame, controls)
     align.filter = frame.filter               -- stacker needs to know which filter(s)
     align.exposure = exposure                 -- ...and the exposure    
     workflow: stacker (align)
-    stack.gradients = background.calculate(workflow.stack)    
+    stack.gradients = background.gradients(workflow.stack)    
   end
   
 --    stack.thumbnail = thumbnail(workflow.stack)          -- add overall stack thumbnail too? * * * *

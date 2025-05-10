@@ -179,6 +179,7 @@ local function panel(subframe)
   end
   row(w, 40)
   
+--  self: Label("filter: " .. (frame.filter or '?'), row(w, 20))
   if self: Checkbox(stack, row(w, 20)) .hit then
 --    stack.checked = not stack.checked
   end

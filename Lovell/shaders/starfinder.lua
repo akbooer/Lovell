@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.18",
+  VERSION = "2025.04.30",
   AUTHOR = "AK Booer",
   DESCRIPTION = "star detection",
 }
@@ -18,10 +18,10 @@ local _M = {
 -- 2025.02.06  use workflow buffers rather than internal monochrome ones
 -- 2025.03.09  abandon DoG, use mean-relative threshold
 -- 2025.04.18  Issue #13, use FWHM-related metric to discriminate against hot pixels
+-- 2025.05.02  remove Texelstats and simplify finder shader
 
 
 local _log = require "logger" (_M)
-
 
 local newTimer  = require "utils" .newTimer
 
@@ -61,7 +61,7 @@ end
 
 local matchPixels = lg.newShader [[
   uniform Image stars, maxed;
-  const float eps = 1.0e-4;
+  const float eps = 1.0e-6;
   uniform vec2 dx, dy;
   
   vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
@@ -83,9 +83,6 @@ local matchPixels = lg.newShader [[
   }]]
 
 
---]]
-
-
 local function matchStars(input, maxed, stars)
   matchPixels: send("maxed", maxed)
   matchPixels: send("stars", stars)
@@ -99,21 +96,40 @@ local function matchStars(input, maxed, stars)
   lg.setShader() 
 end
 
-local function recoverCoordinates(coords, w, h)
-  local a = coords:newImageData()
+local function recoverCoordinates(coords, w, h, maxstar)
+  local a = coords:newImageData()       -- this is what takes most of the time
   local floor = math.floor
+  local foo = {}
+  local min, max, avg, var
+  local calc = require "shaders.stats" .calc()
+  for i = 0, w - 1 do
+    local x, y, z, n = a: getPixel(i, 0)
+    foo[i+1] = {x, y, z, n}
+    if z > 0 then 
+      min, max, avg, var = calc(z)
+    end
+  end
+  local sdev = math.sqrt(var)
+  table.sort(foo, function(a,b) return a[3] > b[3] end)   -- largest peaks first
+  _log("stars (min, max, mean, sdev): %.3f, %.3f, %.3f, %.3f" % {min, max, avg, sdev})
+  
+  local thold = 0
+  _log("threshold", thold)
   local xyzn = {}
-  a: mapPixel(function(_,_, ...)
-      local x, y, z, n = ...
-      local margin = 5       -- margin in pixels
-      local xok = x > margin and  x < w - margin
-      local yok = y > margin and  y < h - margin
-      if n ~= 0 and xok and yok then
-        xyzn[#xyzn+1] = {floor(x), floor(y), z, n}
-      end
-      return ...
-    end)
+  for i = 1, maxstar do
+    local x, y, z, n = unpack(foo[i])
+    if z <= thold then break end
+--    _log(z)
+    local margin = 5       -- margin in pixels
+    local xok = x > margin and  x < w - margin
+    local yok = y > margin and  y < h - margin
+    if n ~= 0 and xok and yok then
+--      _log(floor(x),y,z)
+      xyzn[#xyzn+1] = {floor(x), floor(y), z, n}
+    end
+  end
   a: release()
+--  print(pretty(xyzn))
   return xyzn
 end
 
@@ -122,8 +138,7 @@ end
 
 local finder = lg.newShader [[
   uniform float h;
-  uniform Image maxima, statsTexel;
-  float threshold = 2.0 * Texel(statsTexel, vec2(0.0)) .z;     // twice the mean value
+  uniform Image maxima;
   
   vec4 effect(vec4 color, Image texture, vec2 tc, vec2 sc) {
     float n = 0.0;
@@ -132,7 +147,7 @@ local finder = lg.newShader [[
     {
       float y = i / h;
       float a = Texel(maxima, vec2(tc.x, y)) .r;
-      bool ok = a > xyzn.a && a > threshold;                      // select the biggest peak
+      bool ok = a > xyzn.a;                      // select the biggest peak
       xyzn = ok ? vec4(sc.x + 1.0, i + 1.0, a, n + 1.0) : xyzn;
       n = xyzn.a;
     }
@@ -140,42 +155,20 @@ local finder = lg.newShader [[
   }
 ]]
 
--- statsTexel is 1x1 canvas with min, max, avg, var of a R, G, or B channel (or A)
-local function findPeaksUsingShader(peaks, statsTexel)
+local function findPeaksUsingShader(peaks, maxstar)
   local w, h = peaks: getDimensions()
   lg.setShader(finder)
   finder: send("h", peaks: getHeight())
   finder: send("maxima", peaks)
-  finder: send("statsTexel", statsTexel)
 
   oneD: renderTo(lg.clear)
   lg.setBlendMode("replace", "premultiplied")
   oneD: renderTo(lg.draw, peaks)
-  lg.setBlendMode("alpha", "alphamultiply")
+  lg.setBlendMode "alpha"
 
   lg.setShader()
-  local xyzn = recoverCoordinates(oneD, w, h)
+  local xyzn = recoverCoordinates(oneD, w, h, maxstar)
   return xyzn
-end
-
--- findPeaks() 
--- original way to extract star coordinates.
--- could have been speeded up using FFI pointer
--- but now replaced with above shader
-
-local function findPeaks(img, threshold)
-  threshold = threshold or 0.001
-  local a = img:newImageData()
-  local xyl = {}
-  a: mapPixel(function(...)
-      local x,y, r = ...
-      if r > threshold then
-        xyl[#xyl+1] = {x, y, r}
-      end
-      return ...
-    end)
-  a: release()
-  return xyl
 end
 
 -- detects stars , returning array 'xyl' of {x, y, luminosity} tuples
@@ -183,6 +176,7 @@ end
 -- as it restores original workflow output before returning
 local function starfinder(workflow, span)
   local channel = 0       -- use the red channel (maybe just monochrome anyway)
+  local maxstar = math.floor(workflow.controls.workflow.maxstar.value)  -- max # of stars to find
 
   local elapsed = newTimer()
 
@@ -192,8 +186,7 @@ local function starfinder(workflow, span)
     oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
   end
   
-  local statsTexel = workflow: statsTexel(channel)    -- get channel statistics (as a texture)
-  
+  lg.setBlendMode("replace", "premultiplied")
   workflow: copy("output", "temp")
   workflow: gaussian(3)
   workflow: copy("output", "temp1")
@@ -202,23 +195,17 @@ local function starfinder(workflow, span)
   workflow: renderTo(maxchan, {1 / w, 0}, span, channel)
   workflow: renderTo(maxchan, {0, 1 / h}, span)  
   workflow: renderTo(matchStars, workflow.temp1, workflow.temp)
+  lg.setBlendMode "alpha"
 
   -- recover coordinates of maxima
---  local xyl = findPeaks(workflow.output, threshold)
-  local xyl = findPeaksUsingShader(workflow.output, statsTexel)
+  local xyl = findPeaksUsingShader(workflow.output, maxstar)
 
-  table.sort(xyl, function(a,b) return a[3] > b[3] end)     -- largest peaks first
   local nxyl = #xyl
   _log(elapsed ("%.3f ms, detected %d stars", nxyl))
   if nxyl < 3 then return {} end
   
   -- revert workflow buffer
   workflow.output, workflow.temp = workflow.temp, workflow.output
-
-  local maxstar = math.floor(workflow.controls.workflow.maxstar.value)
-  for i = maxstar + 1, #xyl do
-    xyl[i] = nil
-  end
 
   return xyl
 end

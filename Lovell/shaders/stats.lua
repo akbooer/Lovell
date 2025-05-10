@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.25",
+    VERSION = "2025.05.02",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry statistical calculations in images using SHADERS",
   }
@@ -13,9 +13,10 @@ local _M = {
 -- 2024.11.16  use shader to calculate min, max, mean, standard deviation
 -- 2024.11.17  avoid negative square root in standard deviation (due to rounding errors)
 
--- 2025.03.17  added offset()
--- 2025.03.19  added shader to calculate min, max, mean, var... much, much faster than mapPixel() (100µs vs 50 ms)
+-- 2025.03.17  add offset()
+-- 2025.03.19  add shader to calculate min, max, mean, var... much, much faster than mapPixel() (100µs vs 50 ms)
 -- 2025.03.25  revert to non-Texel based stats (Issue #1, broken on PCs, thanks @Songwired)
+-- 2025.05.02  add calc(), add RGBA stats
 
 
 local _log = require "logger" (_M)
@@ -136,10 +137,10 @@ function _M.statsXXX(image, log_results)
           
   if log_results then
     _log(elapsed "%.3f ms, results...")
-    _log("RGB min: %6.3f, %6.3f, %6.3f" % min) 
-    _log("RGB max: %6.3f, %6.3f, %6.3f" % max) 
-    _log("RGB avg: %6.3f, %6.3f, %6.3f" % mean) 
-    _log("RGB std: %6.3f, %6.3f, %6.3f" % sdev) 
+    _log("RGB min: %6.3e, %6.3e, %6.3e" % min) 
+    _log("RGB max: %6.3e, %6.3e, %6.3e" % max) 
+    _log("RGB avg: %6.3e, %6.3e, %6.3e" % mean) 
+    _log("RGB std: %6.3e, %6.3e, %6.3e" % sdev) 
   end
   
   return {min = min, max = max, mean = mean, sdev = sdev}
@@ -245,27 +246,29 @@ end
 function _M.stats(image, log_results)
   local elapsed = newTimer()
   
-  local red, green, blue
+  local red, green, blue, alpha
   red   = getChannelStats(image, 0)
   green = getChannelStats(image, 1)
   blue  = getChannelStats(image, 2)
+  alpha = getChannelStats(image, 3)
   
   local min, max, mean, sdev
-  min  = {red[1], green[1], blue[1]}
-  max  = {red[2], green[2], blue[2]}
-  mean = {red[3], green[3], blue[3]}
-  sdev = {red[4], green[4], blue[4]}
+  min  = {red[1], green[1], blue[1], alpha[1]}
+  max  = {red[2], green[2], blue[2], alpha[2]}
+  mean = {red[3], green[3], blue[3], alpha[3]}
+  sdev = {red[4], green[4], blue[4], alpha[4]}
           
   if log_results then
     _log(elapsed "%.3f ms, results...")
-    _log("RGB min: %6.3f, %6.3f, %6.3f" % min) 
-    _log("RGB max: %6.3f, %6.3f, %6.3f" % max) 
-    _log("RGB avg: %6.3f, %6.3f, %6.3f" % mean) 
-    _log("RGB std: %6.3f, %6.3f, %6.3f" % sdev) 
+    _log("RGBA min: %6.3e, %6.3e, %6.3e, %6.3e" % min) 
+    _log("RGBA max: %6.3e, %6.3e, %6.3e, %6.3e" % max) 
+    _log("RGBA avg: %6.3e, %6.3e, %6.3e, %6.3e" % mean) 
+    _log("RGBA std: %6.3e, %6.3e, %6.3e, %6.3e" % sdev) 
   end
   
   return {min = min, max = max, mean = mean, sdev = sdev}
 end
+
 
   
 -------------------------------
@@ -299,6 +302,53 @@ function _M.normalise(workflow, reference, Max)
   lg.setShader()
 end
   
+  
+-------------------------------
+--
+-- LOGISTIC function
+--
+
+local logistic = lg.newShader [[
+
+  vec4 effect(vec4 color, Image image, vec2 tc, vec2 _) {
+    vec3 rgb = Texel(image, tc) .rgb;
+    vec3 new = 1 / 1 + exp(-4 * (rgb - 0.5));
+    return vec4(new, 1.0);
+  }
+]]
+
+-- maps resultant to be between 0 and 1
+function _M.logistic(workflow)
+  local input, output = workflow()
+  lg.setShader(logistic)
+  output: renderTo(lg.draw, input)
+  lg.setShader()
+end
+  
+
+-------------------------------
+--
+-- CALC, incremental stats calculator
+--
+
+function _M.calc()
+  local min, max
+  local sum, sum2, n = 0, 0, 0
+  return function(x)
+    n = n + 1
+    sum  = sum  + x
+    sum2 = sum2 + x * x
+    min = x < (min or x + 1) and x or min
+    max = x > (max or x - 1) and x or max
+  
+    n = n > 0 and n or 1
+    local mean = sum / n
+    local var = sum2 / n - mean * mean
+    
+    return min, max, mean, var
+  end
+end
+
 
 -------------------------------
 --

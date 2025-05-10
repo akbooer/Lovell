@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.10",
+    VERSION = "2025.05.05",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -16,15 +16,18 @@ local _M = {
 
 -- 2025.01.29  integrate into workflow
 -- 2025.03.10  pass Bayer pattern (possibly overridden) to badpixel()
+-- 2025.05.05  move background offet subtraction to here from observer module
 
 
 local _log = require "logger" (_M)
 
+local background = require "shaders.background"
+
+local utils = require "utils"
+local newTimer = utils.newTimer
+
 local love = _G.love
 local lg = love.graphics
-
-local utils     = require "utils"
-local newTimer = utils.newTimer
 
 
 local function prestack(workflow, img)
@@ -47,10 +50,13 @@ local function prestack(workflow, img)
   workflow: calibrate()
   workflow: badpixel(bayerpat)      -- hot pixel removal different if there's a Bayer matrix  
   workflow: debayer(bayerpat)       -- debayer or or replicate to R,G,B channels
-    
+  
   local elapsed = newTimer()
-  workflow: normalise()
-  _log(elapsed "%.3f ms, normalisation")
+  local offset = background.offset(workflow.output)  -- calculate & remove background offset from sub
+  workflow: background(offset) 
+    
+--  workflow: normalise()
+  _log(elapsed "%.3f ms, background")
   
   rawImage:  release()
   imageData: release()

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.08",
+    VERSION = "2025.05.05",
     AUTHOR = "AK Booer",
     DESCRIPTION = "colour processing (synth lum, colour balance, ...)",
   }
@@ -18,6 +18,8 @@ local _M = {
 -- 2025.02.24  add invert()
 -- 2025.03.23  recoding of synthL(), lrgb(), added satboost, removed HSL processing
 -- 2024.04.08  add RGB weighting to lrgb()
+-- 2025.05.04  make balance() RGBA ready
+-- 2025.05.05  add thumbnail()
 
 
 local _log = require "logger" (_M)
@@ -32,32 +34,19 @@ _M.channelOptions = {"LRGB", "Luminance", "Inverted", "Red", "Green", "Blue", de
 --
 -- SYNTHL, synthetic luminance from RGB and OPTIONAL separate L subs
 --
+-- RGBL version... alpha channel is luminance
 
--- no additional Luminance image
---local synth = lg.newShader([[
+local synthRGBL = lg.newShader([[
     
---    uniform vec3 rgb;           // mixing ratio of RGB for synthL
-    
---    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
---      vec3 pixel = Texel(texture, texture_coords ) .rgb;
---      float grey = dot(pixel, rgb);     // vector dot product, weighted sum of RGB
---      return vec4(vec3(grey), 1.0);
---    }
---]])
-
--- with additional Luminance image
-local synthLL = lg.newShader([[
-    
-    uniform Image luminance;    // Luminance filter stack
     uniform float a, b;         // mixing ratio of synthL to L 
     uniform vec3 rgb;           // mixing ratio of RGB for synthL
     
-    vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 _){
-      vec3 pixel = Texel(texture, texture_coords ) .rgb;
-      float lum = clamp(Texel(luminance, texture_coords) .r, 0.0, 1.0);
-      float synthL = dot(pixel, rgb);     // vector dot product, weighted sum of RGB
-      float grey = a * synthL + b * lum;
-      return vec4(vec3(grey), 1.0);
+    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+      vec4 pixel = Texel(texture, tc );
+      float L = clamp(pixel.a, 0.0, 1.0);
+      float synthL = dot(pixel.rgb, rgb);     // vector dot product, weighted sum of RGB
+      float grey = a * synthL + b * L;
+      return vec4(vec3(grey), 1.0);     // now creating 'normal' mono RGB image with unity alpha channel
     }
 ]])
 
@@ -72,15 +61,11 @@ function  _M.synthL(workflow, rgb, luminance, ratio)
   r, g, b = r / sum, g / sum, b / sum   -- scale to sum to unity
   
   local shader
---  local shader = synth
---  if luminance then
-    local R = ratio or 0.5    -- ratio for synthL to L mixture
-    local A, B = R / (1 + R), 1 / (1 + R)
-    shader = synthLL
-    shader: send("a", A)
-    shader: send("b", B)
-    shader: send("luminance", luminance or workflow.input)
---  end
+  local R = ratio or 0.5    -- ratio for synthL to L mixture
+  local A, B = R / (1 + R), 1 / (1 + R)
+  shader = synthRGBL
+  shader: send("a", A)
+  shader: send("b", B)
   
   shader: send("rgb", {r, g, b})  
   lg.setShader(shader)
@@ -93,15 +78,17 @@ end
 -------------------------
 
 local lrgb = lg.newShader ([[
-    uniform Image luminance;
     uniform vec3 weights;
+    uniform Image luminance;
+
     const float eps = 1.0e-6;
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 _ ){
       vec3 rgb = Texel(texture, texture_coords) .rgb;
       float lum = Texel(luminance, texture_coords) .r;
       float l = dot(rgb, vec3(weights)) + eps;
-      vec3 lrgb = clamp(rgb * lum / l, 0.0, 1.0);
+      vec3 RGB = 0.99 * rgb / l ;     // normalised RGB
+      vec3 lrgb = clamp(RGB * lum, 0.0, 1.0);
       return vec4(lrgb, 1.0);
     }
 ]])
@@ -110,8 +97,8 @@ function _M.lrgb(workflow, luminance)
   local input, output = workflow()
   luminance = workflow: buffer (luminance)    -- access by name, possibly
   local shader = lrgb
-  shader: send("luminance", luminance)
   shader: send("weights", {0.2, 0.7, 0.1})
+  shader: send("luminance", luminance)
   lg.setShader(shader) 
   output:renderTo(lg.draw, input)
   lg.setShader()
@@ -135,10 +122,11 @@ function _M.balance(workflow, rgb)
   local sum = r + g + b + 0.02
   r, g, b = r / sum, g / sum, b / sum   -- scale to sum to (nearly) unity
   
-  balance: send("rgb", {r, g, b})
+  lg.setBlendMode("replace", "premultiplied")
   lg.setShader(balance) 
+  balance: send("rgb", {r, g, b})
   output: renderTo(lg.draw, input)
-  lg.setShader()
+  lg.reset()
   return output  
 end
 
@@ -185,18 +173,6 @@ function _M.selector(workflow, opts)
   lg.setShader()
   return output  
 end
-
---local t, f = true, false
---local rgba = {LRGB = {t,t,t,t}, Red = {t,f,f,t}, Green={f,t,f,t}, Blue = {f,f,t,t}}
-
---function _M.selector(workflow)
---  local input, output = workflow()
---  local controls = workflow.controls
---  local selected = controls.channelOptions[controls.channel]
---  love.graphics.setColorMask(unpack(rgba[selected] or rgba.LRGB))
---  workflow()
---  return output  
---end
 
 -------------------------
 
@@ -334,8 +310,35 @@ function _M.magic(workflow, c)
   lg.setShader()
 end
 
+-------------------------------
+--
+-- THUMBNAIL
+--
 
--------------------------
+local thumbshade = lg.newShader [[
+  vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+    vec3 pixel = Texel(texture, tc) .rgb;
+    return vec4(pixel, 1.0);    // override luminance in alpha channel
+  }
+]]
+
+function _M.thumbnail(workflow)
+  local image = workflow.output
+  local Wthumb = 700        -- thumbnail width, height scales to preserve aspect ratio
+  local lg = _G.love.graphics
+  
+  local w,h = image:getDimensions()
+  local scale = Wthumb / w
+  local Hthumb = math.floor(scale * h)
+  local thumb = lg.newCanvas(Wthumb, Hthumb, {dpiscale = 1, format = "rgba16f"})
+  lg.setColor (1,1,1, 1)
+  lg.setShader(thumbshade)
+  thumb: renderTo(lg.draw, image, 0,0, 0, scale, scale)
+  lg.setShader()
+  _log("created thumbnail [%dx%d]" % {Wthumb, Hthumb})
+  return thumb
+end
+
 
 return _M
 

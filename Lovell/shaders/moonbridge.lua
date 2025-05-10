@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2024.12.09",
+    VERSION = "2025.05.06",
     AUTHOR = "AK Booer",
     DESCRIPTION = "proxy wrapper for Moonshine shaders",
   }
@@ -28,6 +28,8 @@ local _M = {
 
 -- 2024.12.09  Version 0
 
+-- 2025.05.06  use setBlendMode("replace", "premultiplied")
+
 
 local _log = require "logger" (_M)
 
@@ -44,7 +46,9 @@ local proxy = {
     draw_shader = function(buffer, shader)
       local front, back = buffer()
       lg.setShader(shader)
+      love.graphics.setBlendMode("replace", "premultiplied")
       front: renderTo(lg.draw, back)
+      love.graphics.setBlendMode "alpha"
       lg.setShader()
     end,
       

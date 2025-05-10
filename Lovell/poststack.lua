@@ -37,7 +37,7 @@ local function poststack(frame)
 
   local R, G, B, L, Re, Ge, Be, Le = unpack(RGBL)         -- get exposure counts AND times
   if Re + Ge + Be + Le > 0 then                           --  use exposure times if available (issue #6)
-      R, G, B, L = Re, Ge, Be, Le            
+    R, G, B, L = Re, Ge, Be, Le            
   end
 
   local ratio = (R + G + B) / (3 * L + 1e-6)             -- is there a Luminance filter? (avoid zero division)
@@ -56,9 +56,10 @@ local function poststack(frame)
   --
   -- MONO WORKFLOW / SYNTH LUM
   --
-  
+
   workflow: balance {w.Rweight.value, w.Gweight.value, w.Bweight.value}   -- apply RGB balance presets
   workflow: synthL({.7,.2,.1}, workflow.luminance, ratio)                 -- mix synthetic and real lum (if any)
+  workflow: save "temp"                                                   -- save lum
 
   -------------------------------
   --
@@ -66,24 +67,22 @@ local function poststack(frame)
   --  
 
   if R > 0 and G > 0 and B > 0 then                  -- enough for LRGB
-    workflow: save "temp"                             -- save lum
     workflow: undo()                                  -- revert to previous input buffer
     workflow: gaussian(0.5)                           -- reduce colour noise
     workflow: normalise()
---    workflow: stretch("Asinh", 1)
     workflow: scnr()                                  -- Subtractive Chromatic Noise Reduction
     workflow: satboost(controls.saturation.value * 5) -- apply saturation stretch
     workflow: tint(controls.tint.value)               -- R / GB balance
 --    workflow: colour_magic()
     workflow: selector(controls.channelOptions)       -- select channel for display (LRGB, L, R, G, B)
-    workflow: lrgb "temp"                             -- create LRBG image
   end
 
   -------------------------------
   --
   -- GAMMA STRETCH (of various kinds)
   --
-  
+
+  workflow: lrgb "temp"                             -- create LRBG image
   workflow: stretch ()
 
   -------------------------------

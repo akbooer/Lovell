@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.01.29",
+    VERSION = "2025.05.04",
     AUTHOR = "Morgan McGuire / Rasmus Raag / AK Booer",
     DESCRIPTION = "Malvar-He-Cutler Bayer demosaic",
   }
@@ -17,6 +17,7 @@ local newTimer = require "utils" .newTimer
 -- 2024.11.11  fix issue with unknown Bayer patterns
 
 -- 2025.01.29  integrate into workflow
+-- 2025.05.04  put non-debayered image into all RGBA channels
 
 
 -- see: https://casual-effects.com/research/McGuire2009Bayer/
@@ -218,9 +219,9 @@ local debayer = lg.newShader(frg, vrt)
 
 local nodebayer = lg.newShader [[
 
-vec4 effect( vec4 color, Image source, vec2 texture_pos, vec2 screen_coords ){
-    float pixel = Texel(source, texture_pos).r;   // input is from monochrome source
-    return vec4(vec3(pixel), 1);
+vec4 effect( vec4 color, Image source, vec2 tp, vec2 _ ){
+    float pixel = Texel(source, tp).r;   // input is from monochrome source
+    return vec4(pixel);
 }
 
 ]]
@@ -250,8 +251,9 @@ local function demosaic(workflow, bayer)
   end
   
   lg.setShader(shader) 
+  lg.setBlendMode("replace", "premultiplied")
   output: renderTo(lg.draw, input)
-  lg.setShader()
+  lg.reset()
 
   _log(elapsed("%.3f ms, %s", bayerPattern and bayer .. " demosaic" or "no Bayer pattern"))
 end

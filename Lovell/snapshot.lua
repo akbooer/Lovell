@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.08",
+    VERSION = "2025.05.01",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -15,6 +15,7 @@ local _M = {
 -- 2025.03.10  add HiRes option (when in landscape and info panel not pinned)
 -- 2025.03.14  add count of individual filter subs
 -- 2025.04.08  correct FOV label in landscape mode
+-- 2025.05.01  add stacking type label "average / sigma / min var"
 
 
 local _log = require "logger" (_M)
@@ -128,7 +129,10 @@ local function get_annotations()
   
   local T = stack.exposure or 0
   Exposure = T / stack.Nstack     -- average per sub
-  Stacks = "stack: %d/%d x %ds" % {stack.Nstack or 0, stack.subs and #stack.subs or 0, Exposure}
+  local so = controls.stackOptions
+  local stackname = so.displayname[so.selected]   -- get stacking type
+  
+  Stacks = "%s: %d/%d x %ds" % {stackname, stack.Nstack or 0, stack.subs and #stack.subs or 0, Exposure}
   Total = "total exposure: %d:%02d" % {math.floor(T / 60), T % 60}
   
   local RGBL = controls.workflow.RGBL 

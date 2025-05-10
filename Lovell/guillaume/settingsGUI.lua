@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.03.07"
+  _M.VERSION = "2025.05.08"
   _M.DESCRIPTION = "settings GUI, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -13,6 +13,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
 -- 2025.02.17  add latitude and longitude, and signature, from session.controls.settings
 -- 2025.03.07  remove old FITS headers.txt before writing new one
+-- 2025.05.08  add default stacking mode
 
 
 local _log = require "logger" (_M)
@@ -33,9 +34,10 @@ local controls = session.controls
 local ses = controls.ses_notes
 local obs = controls.obs_notes
 
-local settings = controls.settings
+local stack_default = {selected = 1, unpack(controls.stackOptions)}
 
-  
+local Lalign = {align = "left"}
+
 -------------------------
 --
 -- UPDATE / DRAW
@@ -47,12 +49,13 @@ function _M.update(dt)
   
   local w,h = lg.getDimensions()
   local layout = self.layout
-  layout: reset(20, 100)
+  layout: reset(20, 130)
   layout: row(80,30)
   
   local scope = controls.telescope
   local focal = controls.focal_len
   local pixel = controls.pixelsize
+  
   if self: Button("Clear", {id = "clearScope"}, layout:row()) .hit then
     scope.text = ''
     focal.text = ''
@@ -68,31 +71,41 @@ function _M.update(dt)
   if self: Button("Clear", {id = "clearSes"},   layout:row()) .hit then
     controls.ses_notes.text = ''
   end
-    
+   
+   -- stacking default
+   
+  layout: reset(120, 70)  
+  self:Label("default stacking mode", {align = "left"}, layout:col(150, 30))
+  local settings = controls.settings
+  stack_default.selected = settings.stacking or 1
+  self: Dropdown(stack_default, layout:row(150, 30))
+  settings.stacking = stack_default.selected
+   
   -- telescope
   
-  layout: reset(120, 100)
-  
-  self:Label("telescope", {align = "left"}, layout:col(150, 30))
-  layout: right(60,30)
-  self:Label("focal length (mm)", {align = "left"}, layout:col(120, 30))
-  layout: right(60,30)
-  self:Label("pixel size (µm)", {align = "left"}, layout:col(120, 30))
-  
   layout: reset(120, 130)
+  
+  self:Label("telescope", Lalign, layout:col(150, 30))
+  layout: right(60,30)
+  self:Label("focal length (mm)", Lalign, layout:col(120, 30))
+  layout: right(60,30)
+  self:Label("pixel size (µm)", Lalign, layout:col(120, 30))
+  
+  layout: reset(120, 160)
   self:Input(scope, {id = "scope", align = "left"}, layout:col(150, 30))
   layout: right(60,30)
   self:Input(focal, {id = "focal", align = "left"}, layout:col(120, 30))
   layout: right(60,30)
   self:Input(pixel, {id = "pixel", align = "left"}, layout:col(120, 30))
-  layout: reset(120, 160)
 
   -- obs notes
   
-  self:Label("observing notes", {align = "left"}, layout:row(120, 30))
+  layout: reset(120, 190)
+  
+  self:Label("observing notes", Lalign, layout:row(120, 30))
   self:Input(obs, {id = "obs_notes", align = "left"}, layout:row(w - 250))
 
-  self:Label("session notes", {align = "left"}, layout:row())
+  self:Label("session notes", Lalign, layout:row())
   self:Input(ses, {id = "ses_notes", align = "left"}, layout:row(w - 250, 30))
 
   
@@ -144,9 +157,9 @@ function _M.update(dt)
   layout: pop()
   layout: row(10,100)
   layout: push(layout: row(0,0))
-  self:  Label("latitude", layout: row(120, 30))
+  self:  Label("latitude", Lalign, layout: row(120, 30))
   layout: col(40,30)
-  self: Label("longitude", layout: col(120, 30))
+  self: Label("longitude", Lalign, layout: col(120, 30))
   
   layout: pop()
 --  layout: row(10, 30)
