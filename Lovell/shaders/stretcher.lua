@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.24",
+    VERSION = "2025.05.11",
     AUTHOR = "Martin Meredith / AK Booer",
     DESCRIPTION = "stretches of various sorts on final stack",
   }
@@ -15,6 +15,7 @@ local _log = require "logger" (_M)
 -- 2024.11.12  add modgamma() and the rest!
 
 -- 2025.01.29  integrate into workflow chain
+-- 2025.05.11  add bw_points() adjustment (separated from stretch)
 
 
 local love = _G.love
@@ -180,6 +181,8 @@ function _M.stretch(workflow, selected, stretch)
 
   local black = 0.01 * (0.5 - controls.background.value)
   local white = 1 - controls.brightness.value
+--  local black = 0
+--  local white = 1 
   stretch = stretch or controls.stretch.value
     
   local shader = setup (stretch) 
@@ -191,6 +194,37 @@ function _M.stretch(workflow, selected, stretch)
   lg.setShader()
   
   return output
+end
+
+-------------------------
+--
+-- adjustment of black/white points
+--
+
+
+local bw_points = lg.newShader [[
+    uniform float black, white;
+        
+    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+      vec3 pixel = Texel(texture, tc) .rgb;
+      return vec4(clamp((pixel - black) * white, 0.0, 1.0), 1.0);
+    }
+  ]]
+
+
+function _M.bw_points(workflow)
+  local input, output = workflow()
+  local controls = workflow.controls
+
+  local black = 0.01 * (0.5 - controls.background.value)
+  local white = 1 - controls.brightness.value
+    
+  bw_points: send("black", black)
+  bw_points: send("white", math.min(50, 1 / (3 * white + 5e-4)))
+
+  lg.setShader(bw_points) 
+  output:renderTo(lg.draw, input)
+  lg.setShader()
 end
 
 

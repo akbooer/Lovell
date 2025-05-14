@@ -193,7 +193,9 @@ local screenImage
 -- start a new observation, by saving metadata from the old one
 function _M.new(folder)
   saveSession(stack, controls)
-  controls.reset()        -- start with new default values for processing options
+  if not controls.settings.retainControls then
+    controls.reset()        -- start with new default values for processing options
+  end
   stack = nil
   screenImage = nil
   _M.ID = nil

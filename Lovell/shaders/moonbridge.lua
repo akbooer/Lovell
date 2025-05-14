@@ -46,9 +46,12 @@ local proxy = {
     draw_shader = function(buffer, shader)
       local front, back = buffer()
       lg.setShader(shader)
-      love.graphics.setBlendMode("replace", "premultiplied")
+      local r,g,b,a = lg.getColorMask()
+      lg.setColorMask(true, true, true, true)
+      lg.setBlendMode("replace", "premultiplied")
       front: renderTo(lg.draw, back)
-      love.graphics.setBlendMode "alpha"
+      lg.setBlendMode "alpha"
+      lg.setColorMask(r,g,b,a)
       lg.setShader()
     end,
       

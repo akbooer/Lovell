@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.10",
+    VERSION = "2025.05.11",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -88,7 +88,6 @@ function _M.newSub(frame, controls)
     workflow: save "stack_variance"
     workflow: clear ("stack_variance", 1e5,1e5,1e5,1e5)   -- start with huge variance
     workflow: save "stack"
-    love.graphics.setCanvas{workflow.stack, stencil=true}
     workflow: clear "stack"
     workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
     

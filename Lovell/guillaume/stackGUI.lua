@@ -10,6 +10,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
 -- 2025.01.22  Version 0
 -- 2025.04.01  add RGBL exposure values for post-processing
+-- 2025.05.14  remove subtraction of stack gradients (adds false colour)
 
 
 local _log = require "logger" (_M)
@@ -218,7 +219,7 @@ end
   
 -- draw the top frame
 local function draw_image()
-  lg.setColor(1,1,1, 1)
+  lg.reset()
   local thumbnail = workflow.output
   if not thumbnail then return end
   local ws, hs = w * scale, h * scale
@@ -314,7 +315,7 @@ function _M.update()
   frame.image = subframe.thumb
   panel(subframe)
   if index ~= lastindex then
-    frame.gradients = stack.gradients           -- use the offset and gradients from the whole stack
+--    frame.gradients = stack.gradients           -- use the offset and gradients from the whole stack
     frame.bayer = stack.bayer
     poststack(frame)                            -- run poststack processing chain
     

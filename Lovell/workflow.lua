@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.07",
+    VERSION = "2025.05.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -30,6 +30,7 @@ local _M = {
 -- 2025.05.05  add thumbnail()
 -- 2025.05.07  change clear() alpha channel default to zero (for RGBL canvases)
 -- 2025.05.08  add logistic function
+-- 2025.05.11  add bw_points()
 
 
 local _log = require "logger" (_M)
@@ -184,6 +185,7 @@ function _M.new(name)
     starfinder  = starfinder,
     stacker     = stacker.stack,
     stretch     = stretcher.stretch,
+    bw_points   = stretcher.bw_points,
     
     logistic    = stats.logistic,
     normalise   = stats.normalise,

@@ -194,8 +194,8 @@ end
 
 local swapper =  {
     [false] = { [2] = i16},                                         -- integer
-    [true]  = { [4]= function(...) float('>f', ...) end,
-                [8]= function(...) float('>d', ...) end}}           -- floating point
+    [true]  = { [4]= function(...) float('>f', ...) end,            -- 32f
+                [8]= function(...) float('>d', ...) end}}           -- 64f
 
 -----------
 --

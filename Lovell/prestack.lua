@@ -54,8 +54,6 @@ local function prestack(workflow, img)
   local elapsed = newTimer()
   local offset = background.offset(workflow.output)  -- calculate & remove background offset from sub
   workflow: background(offset) 
-    
---  workflow: normalise()
   _log(elapsed "%.3f ms, background")
   
   rawImage:  release()

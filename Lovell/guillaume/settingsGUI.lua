@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.05.08"
+  _M.VERSION = "2025.05.12"
   _M.DESCRIPTION = "settings GUI, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -14,6 +14,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.02.17  add latitude and longitude, and signature, from session.controls.settings
 -- 2025.03.07  remove old FITS headers.txt before writing new one
 -- 2025.05.08  add default stacking mode
+-- 2025.05.12  add retain controls settings option (on observation reload)
 
 
 local _log = require "logger" (_M)
@@ -35,7 +36,7 @@ local ses = controls.ses_notes
 local obs = controls.obs_notes
 
 local stack_default = {selected = 1, unpack(controls.stackOptions)}
-
+local showSliderValues, retainControls = {}, {}
 local Lalign = {align = "left"}
 
 -------------------------
@@ -75,11 +76,28 @@ function _M.update(dt)
    -- stacking default
    
   layout: reset(120, 70)  
-  self:Label("default stacking mode", {align = "left"}, layout:col(150, 30))
+  self:Label("default stacking mode", Lalign, layout:col(150, 30))
+  layout: right(60,30)
+  self:Label("show slider values", Lalign, layout:col(150, 30))
+  layout: right(30,30)
+  self:Label("retain controls", Lalign, layout:col(150, 30))
+  
+  layout: reset(120, 100)  
   local settings = controls.settings
+  
   stack_default.selected = settings.stacking or 1
   self: Dropdown(stack_default, layout:row(150, 30))
   settings.stacking = stack_default.selected
+  
+  layout: col(110,10)
+  showSliderValues.checked = settings.showSliderValues
+  self: Checkbox(showSliderValues, layout:col(50, 20))
+  settings.showSliderValues = showSliderValues.checked or nil
+  
+  layout: col(120,10)
+  retainControls.checked = settings.retainControls
+  self: Checkbox(retainControls, layout:col(50, 20))
+  settings.retainControls = retainControls.checked or nil
    
   -- telescope
   

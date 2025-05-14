@@ -75,8 +75,12 @@ local function slider(name, ...)
   name = name:lower()
   local control = controls[name] or {value = 0.5}
   controls[name] = control
-  self: Label(name, Loptions, layout:row(...))
-  self: Slider(control, layout:row())
+  local x,y, w,h = layout:row(...)
+  self: Label(name, Loptions, x,y, w,h)
+  if self: Slider(control, layout:row()) .hovered 
+    and controls.settings.showSliderValues then
+      self:Label("%.2f" % control.value, x, y, w, h)
+  end
 end
 
 
