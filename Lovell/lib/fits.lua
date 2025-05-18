@@ -5,7 +5,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.08",
+    VERSION = "2025.05.15",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -20,6 +20,7 @@ local _M = {
 -- 2025.03.10  fix handling of unquoted string in header (Starlight Live DATE has no surrounding quotes)
 -- 2025.03.27  change check for full file read (for lua.io and love.filesystem library compatibility)
 -- 2025.04.08  add 32-bit handling
+-- 2025.05.15  add readImageInfo() for calibration files
 
 
 local _log = require "logger" (_M)
@@ -196,6 +197,18 @@ local swapper =  {
     [false] = { [2] = i16},                                         -- integer
     [true]  = { [4]= function(...) float('>f', ...) end,            -- 32f
                 [8]= function(...) float('>d', ...) end}}           -- 64f
+
+-----------
+--
+-- return image header info only
+--
+
+function _M.readImageInfo(file)
+  local elapsed = newTimer()
+  local ok, k, h = pcall(_M.readHeaderUnit, file)
+  if not ok then return end       -- fail silently
+  return {}, k, h 
+end
 
 -----------
 --

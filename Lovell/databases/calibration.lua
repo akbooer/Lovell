@@ -15,7 +15,10 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-local fits = require "lib.fits"
+local json = require "lib.json"
+
+local iframe = require "iframe"
+local newTimer = require "utils" .newTimer
 
 local formatSeconds = require "utils" .formatSeconds
 
@@ -61,50 +64,126 @@ local lf = love.filesystem
 
 _M.cols = {
     {"Name",   w = 250, },
-    {"Type", w = 60, align = "center"},
-    {"Exposure", w = 100, type = "number", align = "center", format = formatSeconds},
-    {"ºC", w = 50, },
-    {"Gain", w = 50, },
---    {"Offset", },
-    {"Filter", w = 80, },
-    {"Date", w = 100, },
+    {"Type", w = 60, align = "center", },
+    {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
+    {"ºC", w = 50, format = function(t) return t and t .. 'º' or '' end, align = "center", type = "number", },
+    {"Gain", w = 50, format = function(g) return g and 'x' .. g or '' end, align = "center", type = "number", },
+    {"Offset", w = 60, format = function(o) return o and "%+d" % o or '' end, align = "center", type = "number", },
+    {"Filter", w = 60, align = "center", },
+    {"Date", w = 100, type = "number", format = function(t) return t and os.date("%Y%m%d", t) or '' end},
     {"Size", w = 100, align = "center", },
     {"Bits", w = 50, align = "center", },
-    {"Nsubs", w = 60, },
-    {"Camera", w = 250},
+    {"Nsubs", w = 60, align = "right", type = "number", },
+    {"Camera", w = 200},
+    {"Filename", },
   }
 
-_M.col_index = {1,2,3,4,5,6,7,8,9, 11}
-  
-local Type, Size, Bits, Camera = 2, 8, 9, 11
+_M.col_index = {1,2,3,4,5,6,7,8,9, 10,11, 12}
 
-function _M.load(path)
-  local masters = {}
-  path = path or "masters/"
+local FILENAME = #_M.cols         -- full filename is last column
+local PATH = "masters/"
+
+local library = {}
+
+local file_pattern = "([^%.]+)%.fits?$"
+
+-------------------------------
+--
+-- UTILITIES
+--
+
+local function FITS_files(path)
+  local files = {}
   local dir = lf.getDirectoryItems (path)
-  for i, fname in ipairs(dir) do
-    local name = fname: match "([^%.]+)%.fits?$"
-    if name then
-      local file = lf.newFile (path .. fname)
-      file: open 'r'
-      local k = fits.readHeaderUnit(file)
-      file: close()
---      print(pretty(k))
-      
-      local bitpix, naxis1, naxis2, naxis3 = k.BITPIX, k.NAXIS1, k.NAXIS2
-      local ftype = k.IMAGETYP or k.SUBTYPE or k.SUB_TYPE or ''
-      local exposure = k.EXPOSURE or k.EXPTIME or 0
-      ftype = ftype: match "bias" or ftype: match "dark" or ftype: match "flat" or '?'
-      masters[#masters + 1] = {name, ftype, exposure,
-        [Size] = "%dx%d" % {naxis1, naxis2},
-        [Bits] = math.abs(bitpix),
-        [Camera] = k.CAMERA}
-      _log("[%d x %d]"  % {naxis1, naxis2}, bitpix, fname)
+  for _, fname in ipairs(dir) do
+    if fname: match (file_pattern) then
+      files[#files+1] = fname
     end
   end
-
-  return masters
+  return files
 end
+
+-- index a list using optional function
+local function index(list, fct)
+  local idx = {}
+  fct = fct or function(x) return x end
+  for i, x in ipairs(list) do
+    idx[fct(x)] = i
+  end
+  return idx
+end
+
+local function readfile(fname)
+  local skip_data = true
+  local f = iframe.read(nil, fname, PATH, skip_data)
+  
+  local k = f.keywords
+  local subtype = (f.subtype or ''): match "[bdf][ial][ar][skt]"
+  local filter = subtype == "flat" and f.filter: upper() or nil
+  local nsubs = k.STACKCNT or k.NSUBS or nil
+  local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
+
+  return {
+      f.name: match(file_pattern), subtype, f.exposure,
+      f.temperature, f.gain, f.offset,
+      filter, f.epoch,
+      "%dx%d" % {naxis1, naxis2}, math.abs(bitpix),
+      nsubs, f.camera,
+      fname,              -- full filename is last column
+    }
+end
+
+-------------------------------
+--
+-- LOAD
+--
+
+function _M.load()
+  
+  local elapsed = newTimer()
+  
+  -- read the index file and the directory of FITS files
+  local catalogue = json.read (PATH .. "index.json") or  {}
+  local files = FITS_files (PATH)
+  local index = index(files)
+  
+  -- go through the catalogue, removing any missing files
+  local added, removed = 0
+  local newcat = {}
+  for _, item in ipairs(catalogue) do
+    local filename = item[FILENAME]
+    if index[filename] then
+      newcat[#newcat + 1] = item    -- add to new catalogue
+      index[filename] = nil         -- remove from file index
+    end
+  end
+  removed = #catalogue - #newcat
+
+  -- add any remaining files to the new catalogue
+  for filename, n in pairs(index) do
+    newcat[#newcat + 1] = readfile(filename)
+    added = added + 1
+  end
+  
+  json.write (PATH .. "index.json", newcat)
+
+  _log(elapsed ("%.3f ms, loaded database, total: %d, added: %d, removed: %d", #newcat, added, removed))
+  return newcat
+end
+
+-------------------------------
+--
+-- RELOAD, called when new master dropped
+--
+
+function _M.reload()
+  -- TO DO
+end
+
+-------------------------------
+--
+-- UPDATE
+--
 
 function _M.update(self)
   local layout = self.layout

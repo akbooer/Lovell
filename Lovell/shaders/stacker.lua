@@ -30,7 +30,7 @@ local love = _G.love
 local lg = love.graphics
 
 
-_M.stackOptions = {"Average", "Min Variance", "Sigma Clip", selected = 1,
+_M.stackOptions = {"Average", "Min Variance", selected = 1,
                     displayname = {"average", "min var", "sigma"}}
 
 

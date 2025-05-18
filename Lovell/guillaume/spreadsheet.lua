@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.19",
+    VERSION = "2025.05.18",
     AUTHOR = "AK Booer",
     DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
 
@@ -13,6 +13,7 @@ local _M = {
 -- 2025.01.20  Version 0
 -- 2025.02.11  move sorters and filters into here
 -- 2025.03.19  set scroll to top when clearing sorting and filters
+-- 2025.05.18  change Table widget parameters to align with those of spreadsheet
 
 
 local _log = require "logger" (_M)
@@ -291,31 +292,12 @@ function _M.new(self, cat, x,y, w,h)
       end
     end
   end
-  
-  -- create options for Table
-  if not cat.tableOpts then
-    local cwid, cfmt, caln = {}, {}, {}
-    local cols = cat.cols
-    for i = 1, #cols do
-      local col = cols[i]
-      cwid[i] = col.w or Wdefault
-      cfmt[i] = col.format
-      caln[i] = col.align
-    end
-    cat.tableOpts = {   -- persistent tables, so create once here
-        row_index = cat.row_index, 
-        col_index = cat.col_index, 
-        col_width = cwid, 
-        col_format = cfmt,
-        col_align = caln,
-      }
-  end
-  cat.tableOpts.highlight = cat.highlight   -- dynamically changes, so update here
 
   layout: reset(x + 5, top + 65)
   local grid = cat.grid
   
-  if self: Table(grid, cat.tableOpts, layout:row(w - 30, h * 0.75)) .hit then
+--  if self: Table(grid, cat.tableOpts, layout:row(w - 30, h * 0.75)) .hit then
+  if self: Table(grid, cat, layout:row(w - 30, h * 0.75)) .hit then
   
     -- row selection
     -- see: https://stackoverflow.com/a/62670884/22498830

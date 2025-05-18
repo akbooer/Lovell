@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.27",
+  VERSION = "2025.05.15",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
@@ -13,6 +13,7 @@ local love = _G.love
 
 -- 2025.03.02  separate module from watcher (needed also for masters and observation reloads)
 -- 2025.03.27  improve error returns for Lua io library reads (when reloading observations)
+-- 2025.05.15  add keyword OFFSET to frame (for calibration)
 
 
 local _log = require "logger" (_M)
@@ -71,11 +72,11 @@ end
 --  READ IMAGE FRAME
 --
 
-function _M.read(folder, filename, mountpoint)
+function _M.read(folder, filename, mountpoint, skip_data)
   local f, err             -- file handle and error message
   local modtime      -- last modified time, if available
   
-  _log("reading new file - " .. filename)
+  if not skip_data then _log("reading new file - " .. filename) end
   if mountpoint then
     local path = mountpoint .. filename
     f = love.filesystem.newFile(path, 'r' )
@@ -87,7 +88,8 @@ function _M.read(folder, filename, mountpoint)
    
   local imageData, keywords, headers
   if f then
-    imageData, keywords, headers = fits.readImageData (f)
+    local reader = skip_data and "readImageInfo" or "readImageData"
+    imageData, keywords, headers = fits [reader] (f, skip_data)
     f: close()
   end
   if not imageData then return end    -- fail silently
@@ -97,6 +99,8 @@ function _M.read(folder, filename, mountpoint)
   local datetime = k.DATE or k["DATE-OBS"] or k["DATE-AVG"] or k["DATE-END"] or k["DATE-LOC"] or k["DATE-STA"] 
   local datestring, epoch = parse_date(datetime or modtime)
   local bayer = k.BAYERPAT
+  
+  subtype = k.SUBTYPE or k.SUB_TYPE or subtype or nil
   
   local iframe = {
     name = filename,              -- file name
@@ -115,6 +119,7 @@ function _M.read(folder, filename, mountpoint)
     date = datestring,
     epoch = epoch,
     gain = k.GAIN or k.EGAIN,
+    offset = k.OFFSET,
     creator = k.CREATOR or k.PROGRAM or k.SWCREATE,
     camera = k.INSTRUME,
   }

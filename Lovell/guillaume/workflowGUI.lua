@@ -64,7 +64,9 @@ local function prestack()
   reset(60)
   self: Button("Prestack", row(Wcol - 100, 30))
   down()
-    
+   
+  self: Checkbox(w.do_dark, row(200, 20))
+  self: Checkbox(w.do_flat, row(200, 20))
   self: Checkbox(w.badpixel, row(200, 20))
   down()
   self: Label("ratio", ralign, col(W, 10))
@@ -156,7 +158,7 @@ local fmt = "%4.1f"
 
 local function colour()
   M = 50
-  layout: reset(M, 350, 10, 10)
+  layout: reset(M, 400, 10, 10)
   
     
   reset()

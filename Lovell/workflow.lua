@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.10",
+    VERSION = "2025.05.18",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -133,6 +133,7 @@ local function dump(self, name)
   self._dump: renderTo(lg.draw, self.output)
   self._dump: newImageData() : encode ("png", (name or "dump") .. ".png")
   self._dump: release()
+  self._dump = nil
 end
 
 -- toggle input/output workflow between two buffers,

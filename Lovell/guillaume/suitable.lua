@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.15",
+    VERSION = "2025.05.18",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.01.12  Table widget
 -- 2025.01.17  rename Popup to Dropdown, and add separate Popup
 -- 2025.02.15  refactor Table widget to handle row and column indices
+-- 2025.05.18  require Table info.cols with array of formatting information  (width, align, ...)
 
 
 local _log = require "logger" (_M)
@@ -282,16 +283,24 @@ local function Dropdown(core, info, ...)
     data = row-wise table of data
     scroll = {value = nnn}      -- slider widget
     
-  Table opts contains: (they are optional!)
+  Table opts contains: (axcept for cols, they are optional!)
   
     row_index  = {n,m, ...}       -- which rows to show from data
     col_index  = {n,m, ...}       -- which cols to show from data
     col_width  = {n,m, ...}       -- width in pixels of each column (default to 50)
-    col_format = {f1, f2, ...}    -- formatting function for each column
-    col_align  = {a1, a2, ...}    -- horizontal algnment: left / center / right
-    highlight  = {[n]  = true, [m]= true}   -- which rows to highlight
-    spacinging = n                -- spacing between columns
     
+    highlight  = {[n]  = true, [m]= true}   -- which rows to highlight
+    
+    cols = {col1_info, col2-info, ...}
+    
+    colN_info = {
+      "Name",         -- required
+                      -- the rest are optional...
+      w = width,      -- column width
+      format  = fmt,  -- formatting function
+      align  = "...", -- horizontal alignment: left / center / right
+    }
+
 --]]
 
 local scrollOpt = {vertical = true}
@@ -300,23 +309,22 @@ local function index(info, opt)
   local data = info.data
   local ridx = opt.row_index
   local cidx = opt.col_index
+  local cols = opt.cols
   local nr = ridx and (ridx.n or #ridx) or #data                  -- number of rows
   local nc = cidx and (cidx.n or #cidx) or #(data[1] or empty)    -- number of columns
   
   ridx = ridx or empty                        -- allow indexing anyway   
   cidx = cidx or empty
-  local cfmt = opt.col_format or empty        -- optional formatter
   
   local highlight = opt.highlight or empty
-  local wide = opt.col_width or empty
-  local align = opt.col_align or empty
   local H = opt.font:getHeight() * 1.5
 
   local function get(r, c)
     r = ridx[r] or r 
     c = cidx[c] or c 
     local value = data[r][c]
-    return cfmt[c] and cfmt[c] (value, r, c) or value or ''
+    local fmt = cols[c].format
+    return fmt and fmt (value, r, c) or value or ''
   end
   
   return {
@@ -324,8 +332,8 @@ local function index(info, opt)
       row = function(r) return ridx[r] or r end,
       col = function(c) return cidx[c] or c end,
       get = get,
-      width = function(c) return wide[cidx[c] or c] or 100 end,     -- width of column c
-      align = function(c) return align[cidx[c] or c] or nil end,
+      width = function(c) return cols[cidx[c] or c].w or 100 end,     -- width of column c
+      align = function(c) return cols[cidx[c] or c].align end,
       rows = function(h) return floor(h / H) - 1, H end,            -- number of visible rows, and row height
       high = function(r) return highlight[ridx[r] or r] end,
     }

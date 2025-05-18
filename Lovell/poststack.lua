@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.01",
+  VERSION = "2025.05.18",
   AUTHOR = "AK Booer",
   DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
 }
@@ -75,6 +75,7 @@ local function poststack(frame)
     workflow: tint(controls.tint.value)               -- R / GB balance
 --    workflow: colour_magic()
     workflow: selector(controls.channelOptions)       -- select channel for display (LRGB, L, R, G, B)
+    workflow: lrgb "temp"                             -- create LRBG image
   end
 
   -------------------------------
@@ -82,7 +83,6 @@ local function poststack(frame)
   -- GAMMA STRETCH (of various kinds)
   --
 
-  workflow: lrgb "temp"                             -- create LRBG image
   workflow: stretch ()
 
   -------------------------------

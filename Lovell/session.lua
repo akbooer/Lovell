@@ -113,6 +113,8 @@ local controls = {    -- most of these are SUIT widgets
     -- workflow
     
     workflow = {
+        do_dark   = {checked = true, text = "dark calibration"},
+        do_flat   = {checked = true, text = "flat calibration"},
         badpixel  = {checked = true, text = "bad pixel removal"},
         badratio  = {value = 2.5, min = 1, max = 5 },
         
