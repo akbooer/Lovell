@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.18",
+    VERSION = "2025.05.19",
     AUTHOR = "AK Booer",
     DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
 
@@ -181,10 +181,10 @@ end
 
   -- smooth scroll wheel
 local function tween(nrow, scroll)
-  scroll.value = min(1, max(0, scroll.value + 4 * glide / (nrow + 100)))
+  scroll.value = min(1, max(0, scroll.value + 2 * glide / (nrow + 100)))
   glide = wheel or glide
   wheel = nil
-  glide = glide * 0.9   -- deceleration rate
+  glide = glide * 0.94   -- deceleration rate
 end
 
 -------------------------
@@ -296,7 +296,6 @@ function _M.new(self, cat, x,y, w,h)
   layout: reset(x + 5, top + 65)
   local grid = cat.grid
   
---  if self: Table(grid, cat.tableOpts, layout:row(w - 30, h * 0.75)) .hit then
   if self: Table(grid, cat, layout:row(w - 30, h * 0.75)) .hit then
   
     -- row selection

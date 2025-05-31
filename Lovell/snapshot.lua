@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.01",
+    VERSION = "2025.05.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.03.14  add count of individual filter subs
 -- 2025.04.08  correct FOV label in landscape mode
 -- 2025.05.01  add stacking type label "average / sigma / min var"
+-- 2025.05.23  added reducer to focal length calculation
 
 
 local _log = require "logger" (_M)
@@ -113,11 +114,12 @@ local function get_annotations()
   
   local pixel = tonumber(controls.pixelsize.text) or 0
   local focal = tonumber(controls.focal_len.text) or 0
+  local reducer = tonumber(controls.reducer.text) or 1
   FOV = ''
   Rotation = formatDegrees(controls.rotate.value or 0)
   if focal > 0 and pixel > 0 then
-    local arcsize = 36 * 18 / math.pi * pixel / focal     -- camera pixel size in arc seconds (assume square)
-    local radius, w, h = Oculus.radius()
+    local arcsize = 36 * 18 / math.pi * pixel / (focal * reducer)    -- camera pixel size in arc seconds (assume square)
+    local radius = Oculus.radius()
     
     if eyepiece then
       FOV = "fov: " .. formatAngle(arcsize * radius * 2 / controls.zoom.value)

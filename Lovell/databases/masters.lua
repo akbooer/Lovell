@@ -1,16 +1,17 @@
 --
--- calibration.lua
+-- masters.lua
 --
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.08",
+    VERSION = "2025.05.31",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
 
 -- 2025.02.19  Version 0
 -- 2025.04.08  start adding image attributes from file data
+-- 2025.05.21  changed name to masters, deleted top-level module of that name, merged funcntionality
 
 
 local _log = require "logger" (_M)
@@ -24,11 +25,13 @@ local formatSeconds = require "utils" .formatSeconds
 
 local love = _G.love
 local lf = love.filesystem
+local lg = love.graphics
 
+local bias, dark, flat    -- current masters (used in update to display current values)
 
 -------------------------------
 --
--- CALIBRATION database
+-- MASTERS database
 --
 
 --[[
@@ -83,9 +86,14 @@ _M.col_index = {1,2,3,4,5,6,7,8,9, 10,11, 12}
 local FILENAME = #_M.cols         -- full filename is last column
 local PATH = "masters/"
 
-local library = {}
-
 local file_pattern = "([^%.]+)%.fits?$"
+local imageSize = "%dx%d"
+
+local tag = {} do
+  for i, col in ipairs(_M.cols) do
+    tag[col[1]] = i
+  end
+end
 
 -------------------------------
 --
@@ -113,12 +121,13 @@ local function index(list, fct)
   return idx
 end
 
-local function readfile(fname)
+-- read metatdata, not image
+local function read_meta(fname)
   local skip_data = true
   local f = iframe.read(nil, fname, PATH, skip_data)
   
   local k = f.keywords
-  local subtype = (f.subtype or ''): match "[bdf][ial][ar][skt]"
+  local subtype = (f.subtype or ''): match "[bdf][ial][ar][skt]"    -- bias / dark / flat
   local filter = subtype == "flat" and f.filter: upper() or nil
   local nsubs = k.STACKCNT or k.NSUBS or nil
   local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
@@ -127,11 +136,74 @@ local function readfile(fname)
       f.name: match(file_pattern), subtype, f.exposure,
       f.temperature, f.gain, f.offset,
       filter, f.epoch,
-      "%dx%d" % {naxis1, naxis2}, math.abs(bitpix),
+      imageSize % {naxis1, naxis2}, math.abs(bitpix),
       nsubs, f.camera,
       fname,              -- full filename is last column
     }
 end
+
+-------------------------
+--
+-- SEARCH
+--
+
+-- clear current masters
+function _M.clear()
+  bias, dark, flat = nil, nil
+end
+
+-- search for masters matching frame requirements
+function _M.search(frame)
+  local epoch = frame.epoch
+  if not epoch then 
+    _log "no date for current frame"
+    return
+  end
+  
+  _M.DB = _M.DB or _M.load() 
+  bias, dark, flat = nil, nil
+  _M.highlight = {}
+  
+  local w,h = frame.imageData: getDimensions()
+  local size = imageSize % {w, h}
+  
+  -- find matching size, and most recent master pre-dating frame capture
+  local btime, dtime, ftime = math.huge, math.huge, math.huge
+  for i, master in ipairs(_M.DB) do
+    local date = tonumber(master[tag.Date])
+    local ok = master[tag.Size] == size and epoch > date
+    if ok then 
+      local typ = master[tag.Type]
+      if typ == "bias" and date < btime then
+        bias, btime = master, date
+        _M.highlight[i] = true -- "flat"
+      elseif typ == "dark" and date < dtime then
+        dark, dtime = master, date
+        _M.highlight[i] = true -- "dark"
+      elseif typ == "flat" and date < ftime then
+        flat, ftime = master, date
+        _M.highlight[i] = true -- "flat"
+      end
+    end
+  end
+  return bias, dark, flat
+end
+
+-------------------------------
+--
+-- READ master image, using catalogue entry
+--
+ 
+function _M.read(info)
+  local filename = info[tag.Filename]
+  _log("reading", info[tag.Type], filename)
+  local frame = iframe.read(nil, filename, PATH)
+  local imageData = frame.imageData
+  local midpoint = imageData: getPixel(0.5, 0.5)                    -- for scaling flats
+  local image = lg.newImage(imageData, {dpiscale=1, linear = true})
+  frame.imageData: release()
+  return image, midpoint
+end 
 
 -------------------------------
 --
@@ -160,24 +232,52 @@ function _M.load()
   removed = #catalogue - #newcat
 
   -- add any remaining files to the new catalogue
-  for filename, n in pairs(index) do
-    newcat[#newcat + 1] = readfile(filename)
+  for filename in pairs(index) do
+    newcat[#newcat + 1] = read_meta(filename)
     added = added + 1
   end
   
   json.write (PATH .. "index.json", newcat)
-
+  
   _log(elapsed ("%.3f ms, loaded database, total: %d, added: %d, removed: %d", #newcat, added, removed))
+  
+  _M.DB = newcat
   return newcat
 end
 
 -------------------------------
 --
--- RELOAD, called when new master dropped
+-- NEW, called when new master dropped
 --
 
-function _M.reload()
-  -- TO DO
+function _M.new(file)
+  local pathname = file:getFilename()                 -- Beware!  on Windows, this comes with \ separators
+  local filename = pathname: match "[^%/%\\]*master[^%/%\\]*%.fi?ts?"   -- matches fits, fit, and fts (also ft!)
+  if not filename then
+    _log "not a master calibration FITS file"
+    return
+  end
+  
+  local data, size = file: read()  
+  _log ("file size %.3f Mbyte" % ((size or 0) * 1e-6))
+  file: close()
+  
+  -- copy the file to masters folder
+  
+  local path = "masters/%x_%s" % {os.time(), filename}
+  local f, err = lf.newFile(path, 'w')
+  if f then
+    f: write(data)
+    f: close()
+    f: release()
+    _log("wrote " .. path)
+  else
+    _log(err)
+  end
+  
+  -- now index the calibration file metadata
+--  calibration.reload()
+
 end
 
 -------------------------------
@@ -185,11 +285,27 @@ end
 -- UPDATE
 --
 
+local Roptions
+
 function _M.update(self)
   local layout = self.layout
   local function row(...) return layout: row(...) end
   local function col(...) return layout: col(...) end
+  Roptions = Roptions or {align = "right",  color = {normal = {fg = self.theme.color.hovered.bg }}}   -- fixed labels
 
+  -- current values
+  
+  row(0, 0)
+  if dark then
+    self: Label("current dark", Roptions, col(120, 20))
+    self: Label(dark[tag.Name], col(250, 20))
+  end
+  if flat then
+    self: Label("current flat", Roptions, col(120, 20))
+    self: Label(flat[tag.Name], col(250, 20))
+  end
+  
+ --[[ 
   -- masters list buttons
   
 --  if self: Button("Select compatible", row(120, 30)) .hit then
@@ -219,7 +335,7 @@ function _M.update(self)
   if self: Button("Match", col(80,50)) .hit then
     
   end
-  
+--]]
 --  local h = love.graphics.getHeight()
 --  self: Label(name, Loptions, layout: col(250, 30))
 --  self: Label(folder, Loptions, 20, h - 40, 550, 30)

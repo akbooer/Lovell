@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.11",
+    VERSION = "2025.05.22",
     AUTHOR = "AK Booer",
     DESCRIPTION = "stacks individual subs",
   }
@@ -276,8 +276,10 @@ function _M.stack(workflow, p)
   local fct = process[sel] or average
   
   local filter = p.filter:upper()
-  local filterChans = rgb_filter[filter] or rgb_filter.RGB
-  local countChans  = rgb_count[filter]  or rgb_count.RGB
+--  local filterChans = rgb_filter[filter] or rgb_filter.RGB
+--  local countChans  = rgb_count[filter]  or rgb_count.RGB
+  local filterChans = p.bayer and rgb_filter.RGB or rgb_filter[filter] 
+  local countChans  = p.bayer and rgb_count.RGB or rgb_count[filter]
   
   local theta, xshift, yshift = unpack(p)
   local w, h = workflow: getDimensions()

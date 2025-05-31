@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.28",
+  VERSION = "2025.05.31",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches a folder for new FITS files",
 }
@@ -29,6 +29,7 @@ local newFITSfile     = love.thread.getChannel "newFITSfile"
 -- 2025.01.05  limit idle cycles (dramatically reduce CPU usage for this thread)
 -- 2025.01.26  remove sub numbering, use 'newfolder' flag instead
 -- 2025.03.02  move reader to new iframe module
+-- 2025.05.31  allow .fit, .fits, and .fts files
 
 
 local _log = require "logger" (_M)

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.03.27",
+  VERSION = "2025.05.31",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD reloads a previous observation",
 }
@@ -30,7 +30,8 @@ local lt = require "love.timer"
 local reloadFolder    = love.thread.getChannel "reloadFolder"   -- receive a new folder to reload
 local newFITSfile     = love.thread.getChannel "newFITSfile"    -- send individual FITS files for processing
 
---- 2025.03.02 Version 0, derived from watcher
+-- 2025.03.02  Version 0, derived from watcher
+-- 2025.05.31  allow .fit, .fits, and .fts files
 
 
 local _log = require "logger" (_M)
@@ -54,7 +55,7 @@ local function getfiles(folder)
   local f = io.popen (get[sep] % folder)                        -- read folder directory
   for item in f: lines() do
     item = item: gsub("\\",'/')                                 -- ensure consistent path separators
-    dir[#dir+1] = item: match "%.fits?$" and item or nil        -- only consider FITS files
+    dir[#dir+1] = item: match "%.fi?ts?$" and item or nil       -- only consider FITS files
   end
   f: close()
   if #dir == 0 then _log "no files found" end

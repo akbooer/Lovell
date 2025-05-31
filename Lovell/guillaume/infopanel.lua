@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.24",
+    VERSION = "2025.05.28",
     AUTHOR = "AK Booer",
     DESCRIPTION = "info panel for display",
   }
@@ -12,6 +12,8 @@ local _M = {
 -- 2024.12.19  Version 0, extracted from mainGUI
 
 -- 2025.02.24  move formatting functions to utils module
+-- 2025.05.23  added reducer to focal length calculation
+-- 2025.05.28  add indication of calibration: dark / flat
 
 
 local _log = require "logger" (_M)
@@ -126,10 +128,11 @@ function _M.update(self, screen)
   
   local pixel = tonumber(controls.pixelsize.text) or 0
   local focal = tonumber(controls.focal_len.text) or 0
+  local reducer = tonumber(controls.reducer.text) or 1
   local angle = formatDegrees(controls.rotate.value or 0)
   if focal > 0 and pixel > 0 then
-    local arcsize = 36 * 18 / math.pi * pixel / focal     -- camera pixel size in arc seconds (assume square)
-    arcsize = arcsize / controls.zoom.value                -- screen pixel size
+    local arcsize = 36 * 18 / math.pi * pixel / (focal * reducer)    -- camera pixel size in arc seconds (assume square)
+    arcsize = arcsize / controls.zoom.value                           -- screen pixel size
     local radius, w, h = Oculus.radius()
     self: Label("fov", Loptions, layout:row(Wcol, 15))
     self: Label("rotation", Loptions, layout:col(Wcol, 15))
@@ -159,11 +162,11 @@ function _M.update(self, screen)
   self:Label(exp, Woptions, layout:col(Wcol, 15))
   layout:left()
   local RGBL = controls.workflow.RGBL 
-  if RGBL and not stack.bayer then
-    self: Label("%dR %dG %dB %dL" % RGBL, Woptions, layout:row(margin, 10))
+  local dark, flat = stack.dark_calibration and "dark ", stack.flat_calibration and "flat "
+  if dark or flat then
+    local calib = "calibration: " .. (dark or '') .. (flat or'')
+    self: Label(calib, Loptions, layout:row(margin - 20, 15))
   end
-  -- session and observation notes
-  
   local obs_notes = controls.obs_notes.text
   if #obs_notes > 0 then
     self:Label("observing notes", Loptions, layout:row(margin, 15))

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.05",
+    VERSION = "2025.05.25",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.01.29  integrate into workflow
 -- 2025.03.10  pass Bayer pattern (possibly overridden) to badpixel()
 -- 2025.05.05  move background offet subtraction to here from observer module
+-- 2025.05.25  don't remove background offset if image is already calbrated
 
 
 local _log = require "logger" (_M)
@@ -30,31 +31,36 @@ local love = _G.love
 local lg = love.graphics
 
 
-local function prestack(workflow, img)
+local function prestack(workflow, frame)
   local controls = workflow.controls
-  local input, output = workflow()
+--  local input, output = workflow()
   
-  local imageData = img.imageData     -- this is in R16 format
-  _log "creating R16 format image"
-  local rawImage = lg.newImage(imageData, {dpiscale=1, linear = false})  
+  local imageData = frame.imageData     -- this is in R16 format
+  _log ("creating R16 format image [%sx%s]" % {imageData: getDimensions()})
+  local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
   
   local w = controls.workflow
-  local bayerpat = w.debayer.checked and w.bayerpat.text or img.bayer
-
+  local forced = w.debayer.checked
+  local option = w.bayer_opt
+  local bayerpat = forced and (option[option.selected] or "RGGB") or frame.bayer
+  frame.bayer = bayerpat
+  
   -------------------------------
   --
   -- PRESTACK
   --
   
   workflow: newInput(rawImage, {format = "rgba16f", dpiscale = 1})
-  workflow: calibrate()
-  workflow: badpixel(bayerpat)      -- hot pixel removal different if there's a Bayer matrix  
-  workflow: debayer(bayerpat)       -- debayer or or replicate to R,G,B channels
+  workflow: calibrate(frame)
+  workflow: badpixel(bayerpat)            -- hot pixel removal is different if there's a Bayer matrix  
+  workflow: debayer(bayerpat)             -- debayer or or replicate to R,G,B, and A channels
   
-  local elapsed = newTimer()
-  local offset = background.offset(workflow.output)  -- calculate & remove background offset from sub
-  workflow: background(offset) 
-  _log(elapsed "%.3f ms, background")
+--  if not frame.dark_calibration then      -- calculate & remove background offset from sub
+    local elapsed = newTimer()
+    local offset = background.offset(workflow.output)
+    workflow: background(offset) 
+    _log(elapsed "%.3f ms, background")
+--  end
   
   rawImage:  release()
   imageData: release()

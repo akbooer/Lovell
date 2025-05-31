@@ -15,6 +15,8 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.03.07  remove old FITS headers.txt before writing new one
 -- 2025.05.08  add default stacking mode
 -- 2025.05.12  add retain controls settings option (on observation reload)
+-- 2025.05.22  add reducer parameter
+-- 2025.05.31  show _G.VERSION
 
 
 local _log = require "logger" (_M)
@@ -55,11 +57,13 @@ function _M.update(dt)
   
   local scope = controls.telescope
   local focal = controls.focal_len
+  local reducer = controls.reducer
   local pixel = controls.pixelsize
   
   if self: Button("Clear", {id = "clearScope"}, layout:row()) .hit then
     scope.text = ''
     focal.text = ''
+    reducer.text = ''
     pixel.text = ''
   end
   
@@ -107,12 +111,16 @@ function _M.update(dt)
   layout: right(60,30)
   self:Label("focal length (mm)", Lalign, layout:col(120, 30))
   layout: right(60,30)
+  self:Label("reducer (x)", Lalign, layout:col(120, 30))
+  layout: right(60,30)
   self:Label("pixel size (µm)", Lalign, layout:col(120, 30))
   
   layout: reset(120, 160)
   self:Input(scope, {id = "scope", align = "left"}, layout:col(150, 30))
   layout: right(60,30)
   self:Input(focal, {id = "focal", align = "left"}, layout:col(120, 30))
+  layout: right(60,30)
+  self:Input(reducer, {id = "reducer", align = "left"}, layout:col(120, 30))
   layout: right(60,30)
   self:Input(pixel, {id = "pixel", align = "left"}, layout:col(120, 30))
 
@@ -188,7 +196,8 @@ function _M.update(dt)
   layout: reset(w - 300, h - 150)
   self:Label("signature (for images)", {align = "left"}, layout:row(250, 30))
   self:Input(sig, {id = "signature", align = "left"}, layout:row())
- 
+  layout: down()
+  self:Label("version " .. _G.VERSION, layout: row())
 end
 
 function _M.draw()

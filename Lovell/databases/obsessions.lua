@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.27",
+    VERSION = "2025.05.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -13,6 +13,7 @@ local _M = {
 -- 2025.01.20  separate title line
 -- 2025.02.24  add tally of unique object names
 -- 2025.03.27  add LOAD button, using pager channel to switch display
+-- 2025.05.23  added reducer parameter to observation
 
 
 local _log, _err = require "logger" (_M)
@@ -161,6 +162,7 @@ function _M.saveSession(stack, controls)
   obs.size = "%dx%d" % {stack.image: getDimensions()}
   obs.rotate = controls.rotate.value ~= 0 and tonumber("%.3f" % controls.rotate.value) or nil
   obs.telescope = non_blank(controls.telescope.text)
+  obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
   info.observations[obsID] = obs
   
   -- write file
@@ -195,9 +197,10 @@ function _M.loadSession(stack, controls)
   end
   
   local scope = stack.telescope or thisObs.telescope or ''
-
+  
   controls.object.text    = stack.object or thisObs.object or ''
   controls.telescope.text = scope
+  controls.reducer.text   = thisObs.reducer or ''
   controls.pixelsize.text = pix
   controls.ses_notes.text = info.session.notes or ''
   controls.obs_notes.text = thisObs.notes or ''

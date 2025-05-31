@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.29",
+    VERSION = "2025.05.31",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -15,6 +15,7 @@ local _M = {
 -- 2025.12.11  add global JSON with .read() 
 -- 2025.02.17  remove json.write() (moved to json.lua)
 -- 2025.03.29  add _err() for highlight error messages in log
+-- 2025.05.31  save _G.VERSION
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -83,7 +84,10 @@ end
 
 function _M:new(about)
   local name = banner(about)
-  if about.NAME == "main" then banner(_M) end         -- announce this module after main module starts
+  if about.NAME == "main" then 
+    banner(_M)                    -- announce this module after main module starts
+    _G.VERSION = about.VERSION    -- save global version for GUI
+  end
   return function(...) log(name, ...) end, function(...) err(name, ...) end
 end
 

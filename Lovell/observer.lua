@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.11",
+    VERSION = "2025.05.22",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -22,11 +22,10 @@ local _log = require "logger" (_M)
 
 local aligner     = require "aligner"
 local poststack   = require "poststack"
-local calibration = require "databases.calibration"
 
 local background  = require "shaders.background"
 
-local workflow    = require "workflow" .new()    -- RGB or colour filter workflow
+local workflow    = require "workflow" .new()               -- RGB or colour filter workflow
 
 local stack
 
@@ -77,10 +76,10 @@ function _M.newSub(frame, controls)
  
   -------------------------------
   --
-  -- FIRST NEW FRAME in an observation sets up new STACK frame (and Luminance)
+  -- FIRST NEW FRAME in an observation sets up new STACK frame (RGB and and Luminance)
   --
   
-  workflow: prestack(frame)       -- PRESTACK processing
+  workflow: prestack(frame)      -- PRESTACK processing
   
   if frame.first then
     
@@ -137,7 +136,8 @@ function _M.newSub(frame, controls)
     stack.exposure = stack.exposure + exposure
     
     align.filter = frame.filter               -- stacker needs to know which filter(s)
-    align.exposure = exposure                 -- ...and the exposure    
+    align.exposure = exposure                 -- ...and the exposure 
+    align.bayer = frame.bayer
     workflow: stacker (align)
     stack.gradients = background.gradients(workflow.stack)    
   end

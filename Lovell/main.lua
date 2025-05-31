@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.05.18",
+  VERSION = "2025.05.31",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
   LICENCE = [[  
@@ -52,8 +52,8 @@ do -- log system info before other modules loaded
 end
 
 local session = require "session"
-local masters = require "masters"
 local GUI     = require "guillaume"
+local masters = require "databases.masters"
 
 
 -------------------------

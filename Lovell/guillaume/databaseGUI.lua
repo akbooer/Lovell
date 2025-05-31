@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.02.10"
+  _M.VERSION = "2025.05.21"
   _M.DESCRIPTION = "database GUI"
 
 local _log = require "logger" (_M)
@@ -15,6 +15,7 @@ local _log = require "logger" (_M)
 -- 2025.01.21  use external spreadsheet widget
 -- 2025.02.05  add "Set Current Object" from selection
 -- 2025.02.10  refactor spreadsheet parameters
+-- 2025.05.21  rename calibration database to masters
 
 
 local love = _G.love
@@ -52,7 +53,7 @@ local catalog = {   -- databases
   
     obslist,                  -- DSOs / observing list
     databases.observations,   -- previous observations
-    databases.calibration,    -- Masters
+    databases.masters,        -- Masters
     databases.telescopes,     -- Telescopes 
   }
 

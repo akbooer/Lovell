@@ -96,6 +96,7 @@ local controls = {    -- most of these are SUIT widgets
     
     telescope = {default = ''},      -- per observation (could have more than one scope in a session)
     focal_len = {default = ''},
+    reducer   = {default = ''},
     pixelsize = {default = ''},
     
     ses_notes = {default = ''},
@@ -119,7 +120,7 @@ local controls = {    -- most of these are SUIT widgets
         badratio  = {value = 2.5, min = 1, max = 5 },
         
         debayer   = {checked = false, text = "force debayer"},
-        bayerpat  = {text = ''},
+        bayer_opt = {"RGGB", "GRBG", "BGGR", "GBRG"},
         
         maxstar   = {value =  50, min = 0,  max = 100},
         keystar   = {value =  50,  min = 5, max = 100},         -- window to search for star peaks
@@ -180,7 +181,7 @@ _M.controls = controls    -- export the controls, for GUI, processing, etc...
 do -- init settings
   controls.reset()    
   -- initialise other control values
-  controls.reset {"telescope", "focal_len", "pixelsize", "ses_notes", "obs_notes"}
+  controls.reset {"telescope", "focal_len", "reducer", "pixelsize", "ses_notes", "obs_notes"}
 end
 
 -------------------------------

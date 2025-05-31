@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.19",
+    VERSION = "2025.05.21",
     DESCRIPTION = "Databases - DSOs, observing list, telescopes, ...",
   }
 
@@ -12,6 +12,7 @@ local _M = {
 -- 2025.01.08  Version 0
 -- 2025.01.20  separate titles in telescope loader
 -- 2025.02.09  include watchlist database code
+-- 2025.05.21  rename calibration database to masters
 
 
 local _log = require "logger" (_M)
@@ -21,7 +22,7 @@ local json = require "lib.json"
 
 _M.dsos         = require "databases.dso"
 _M.observations = require "databases.obsessions"
-_M.calibration  = require "databases.calibration"
+_M.masters      = require "databases.masters"
 
 local empty = _G.READONLY {}
 

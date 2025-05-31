@@ -77,7 +77,8 @@ local function prestack()
   self: Checkbox(w.debayer, layout: row(W, 20))
   down()
   self: Label("pattern", ralign, layout:col(W, 20))
-  self: Input(w.bayerpat, {id = "bayer", align = "left"}, layout:col(W, 20))
+--  self: Input(w.bayerpat, {id = "bayer", align = "left"}, layout:col(W, 20))
+  self: Dropdown(w.bayer_opt, {id = "bayer"}, layout:col(W, 30))
 
 end
   

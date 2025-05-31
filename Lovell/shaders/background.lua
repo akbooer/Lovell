@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.05",
+    VERSION = "2025.05.28",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -20,6 +20,8 @@ local _M = {
 -- 2025.03.16  use external parameter for strength of gradient in remove()
 -- 2025.05.04  add alpha channel stats for RGBL, use stats.calc()
 -- 2025.05.05  rename calculate() to gradients() and add offset()
+-- 2025.05.19  fix nil return in offset()
+-- 2025.05.28  fix vec4 Offset, Xslope, Yslope in vertex shader
 
 
 local _log = require "logger" (_M)
@@ -38,15 +40,14 @@ local flattener = love.graphics.newShader(
     
     // calculate the vertex background values which are interpolated for the pixel shader
     
-    uniform vec3    Offset, Xslope, Yslope;
+    uniform vec4    Offset, Xslope, Yslope;
     uniform float   strength;
     varying vec4    background;
 
     vec4 position( mat4 transform_projection, vec4 texture_pos ) {
-      background = vec4(Offset
+      background = Offset
                       + Xslope*strength * (VertexTexCoord.x - 0.5)         // put origin at image centre
-                      + Yslope*strength * (VertexTexCoord.y - 0.5),
-                      Offset);
+                      + Yslope*strength * (VertexTexCoord.y - 0.5);
       return transform_projection * texture_pos;
     }
 ]],[[
@@ -167,6 +168,7 @@ end
 -- just return background offset correction
 function _M.offset(input)
   local g = _M.gradients(input)
+  if not g then return end
   local zeros = {0, 0, 0, 0}
   g.Xslope = zeros
   g.Yslope = zeros

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.05.15",
+  VERSION = "2025.05.22",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
@@ -111,7 +111,7 @@ function _M.read(folder, filename, mountpoint, skip_data)
     keywords = keywords,          -- extracted from headers
     
     subtype = subtype,                   -- bias, dark, light, flat, etc...
-    filter = bayer and "RGB" or filter,  -- L, R, G, B, ...
+    filter = filter: upper(),  -- L, R, G, B, ...
 
     exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) * 1e-6,    -- convert to seconds
     bayer = bayer, 
