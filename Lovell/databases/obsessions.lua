@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.23",
+    VERSION = "2025.06.07",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -14,6 +14,7 @@ local _M = {
 -- 2025.02.24  add tally of unique object names
 -- 2025.03.27  add LOAD button, using pager channel to switch display
 -- 2025.05.23  added reducer parameter to observation
+-- 2025.06.07  add file names rejected from stack
 
 
 local _log, _err = require "logger" (_M)
@@ -27,6 +28,8 @@ local formatSeconds = utils.formatSeconds
 
 local love = _G.love
 local lf = love.filesystem
+
+local empty = _G.READONLY {}
 
 local reloadFolder = love.thread.getChannel "reloadFolder"
 local pager = love.thread.getChannel "pager"   -- another way to change display page
@@ -133,7 +136,7 @@ end
 local function getInfo(stack)
   local sesID = sessionID(stack.epoch)            -- use observation date as session ID
   local obsID = stack.folder                      -- use observation folder as observation ID
-  local path = "sessions/%s.json" % sesID                  -- create path for meta file
+  local path = "sessions/%s.json" % sesID         -- create path for meta file
   return sesID, obsID, path
 end
 
@@ -145,6 +148,7 @@ end
 function _M.saveSession(stack, controls)
   
   if not stack then return end
+  
   local sesID, obsID, path = getInfo(stack)
    _log("saving metadata for session", sesID)
  
@@ -163,9 +167,16 @@ function _M.saveSession(stack, controls)
   obs.rotate = controls.rotate.value ~= 0 and tonumber("%.3f" % controls.rotate.value) or nil
   obs.telescope = non_blank(controls.telescope.text)
   obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
-  info.observations[obsID] = obs
+  
+  local reject
+  for name, yes in pairs(controls.reject or empty) do
+    reject = reject or {}
+    reject[#reject+1] = yes and name or nil
+  end
+  obs.reject = reject
   
   -- write file
+  info.observations[obsID] = obs
   json.write(path,  info)
   info = nil
 end
@@ -208,6 +219,13 @@ function _M.loadSession(stack, controls)
   controls.flipLR.checked = thisObs.flipLR or false
   controls.rotate.value   = thisObs.rotate or 0
   controls.X, controls.Y = 0, 0
+  
+  local reject = {}
+  for _, name in ipairs(thisObs.reject or empty) do
+    reject[name] = true
+  end
+  controls.reject = reject
+    
   return info
 end
 

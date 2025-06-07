@@ -11,7 +11,7 @@ local _M = {
 
 -- 2025.02.19  Version 0
 -- 2025.04.08  start adding image attributes from file data
--- 2025.05.21  changed name to masters, deleted top-level module of that name, merged funcntionality
+-- 2025.05.21  changed name to masters, deleted top-level module of that name, merged functionality
 
 
 local _log = require "logger" (_M)

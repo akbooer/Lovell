@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.22",
+    VERSION = "2025.06.04",
     AUTHOR = "AK Booer",
     DESCRIPTION = "coordinates observation workflow",
   }
@@ -39,27 +39,6 @@ function _M.new()
   _log "------------------------"
   _log "new observation"
 end
-
-
--------------------------------
---
--- SUBS
---
-
-local subs = {}
-
-function subs: reject_list()
-  local x = {}
-  for _, s in ipairs(self) do
-    x[#x+1] = s.rejected and s.name or nil
-  end
-  return #x > 0 and x or nil
-end
-
-function subs.new()
-  return setmetatable({}, subs)
-end
-
 
 -------------------------------
 --
@@ -98,7 +77,7 @@ function _M.newSub(frame, controls)
     stack.image = workflow.stack
     stack.Nstack = 0
     stack.exposure = 0
-    stack.subs = subs.new ()
+    stack.subs = {}
     stack.workflow = workflow
     local keystars = workflow: starfinder(starspan)   -- EXTRACT keystars
     frame.stars = keystars
@@ -130,7 +109,7 @@ function _M.newSub(frame, controls)
   -- STACK, if valid alignment
   --
 
-  if align and not frame.rejected then
+  if align and not controls.reject[frame.name] then
     stack.Nstack = stack.Nstack + 1
     local exposure = frame.exposure or 0
     stack.exposure = stack.exposure + exposure

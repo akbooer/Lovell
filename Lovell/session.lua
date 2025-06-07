@@ -74,6 +74,7 @@ local controls = {    -- most of these are SUIT widgets
     sharpen = {default = 0},
     
     stackOptions = stackOptions,
+    reject = {},
     
     -- screen appearance
     X = 0,    -- these offsets are in the image coordinate system (not the screen)

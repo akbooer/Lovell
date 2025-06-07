@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.05.31",
+  VERSION = "2025.06.07",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
   LICENCE = [[  
@@ -37,8 +37,9 @@ local _log = logger(_M)
 
 -- 2025.03.28  Add new thread for reloads
 
-
+local jit  = _G.jit
 local love = _G.love
+
 local lt = love.thread
 local lf = love.filesystem
 local lg = love.graphics
@@ -48,7 +49,7 @@ do -- log system info before other modules loaded
   local OS = ls.getOS()
   local processorCount = ls.getProcessorCount( )
   local renderer = tostring(lg.getRendererInfo())
-  _log ("%s, %d processors, %s" % {OS, processorCount, renderer})
+  _log ("%s, %s, %d processors, %s" % {OS, jit.arch, processorCount, renderer})
 end
 
 local session = require "session"

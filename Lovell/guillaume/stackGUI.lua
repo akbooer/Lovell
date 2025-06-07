@@ -5,12 +5,13 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.04.02"
+  _M.VERSION = "2025.06.07"
   _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
 -- 2025.04.01  add RGBL exposure values for post-processing
 -- 2025.05.14  remove subtraction of stack gradients (adds false colour)
+-- 2025.06.07  add file names rejected from stack
 
 
 local _log = require "logger" (_M)
@@ -69,7 +70,7 @@ local Woptions = {align = "left"}
 
 
 local frame = {
-    image  = nil,     -- image  
+    image    = nil,     -- image  
     workflow = workflow,
   }
 
@@ -142,7 +143,7 @@ end
 -- control panel
 local xy = "(%0.1f, %0.1f)"
 local theta = "%0.3fº"
-local stack = {checked = false, text = "stacked"}
+local rejected = {checked = false, text = "omit from stack"}
 
 local function panel(subframe)
   layout:reset(50,150, 10,10)                       -- leaving space for CLOSE button
@@ -181,15 +182,22 @@ local function panel(subframe)
   row(w, 40)
   
 --  self: Label("filter: " .. (frame.filter or '?'), row(w, 20))
-  if self: Checkbox(stack, row(w, 20)) .hit then
---    stack.checked = not stack.checked
+
+  local reject, name = controls.reject, subframe.name
+  rejected.checked = reject[name]
+  if self: Checkbox(rejected, row(w, 20)) .hit then
+    reject[name] = rejected.checked
   end
   
-  self: Label("alignment", Loptions, row())
   local align = subframe.align
   if align then
+    self: Label("alignment", Loptions, row())
     self: Label(xy: format(align[2], align[3]), Woptions, row())
     self: Label(theta % (align[1] * deg), Woptions, row())
+  else
+    self: Label("not aligned", Aoptions, row())
+    self: Label('', row())    -- maintain spacing of epoch label below
+    self: Label('', row())
   end
   self: Label(epoch, Loptions, row(300,20))
 end

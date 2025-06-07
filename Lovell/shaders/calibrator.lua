@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.28",
+    VERSION = "2025.06.07",
     AUTHOR = "AK Booer",
     DESCRIPTION = "apply darks and flats",
   }
@@ -78,6 +78,8 @@ function _M.calibrate(workflow, frame)
     if do_flat and f ~= current_flat then
       flat, midpoint = masters.read(f)
       current_flat = f
+    else 
+      midpoint = 1
     end
   end
 

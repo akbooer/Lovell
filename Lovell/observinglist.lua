@@ -8,7 +8,7 @@ local _M = {
     NAME = ...,
     VERSION = "2025.02.15",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "translated directly from Jocular's observinglist.py",
+    DESCRIPTION = "DSO table and observing list manager",
 
   }
 
@@ -71,7 +71,7 @@ _M.local_sidereal_time = 0
 
 _M.sun_altitude = sun_altitude    -- function()
 
-local REFRESH = 5   -- 5 second update inteval for Alt/Az/Loc
+local REFRESH = 5   -- 5 second update interval for Alt/Az/Loc
 
 local Name, Obs, Added = 1, 14, 15
 local RA, Dec = 2, 3
