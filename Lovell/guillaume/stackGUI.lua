@@ -5,13 +5,14 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.06.07"
+  _M.VERSION = "2025.11.21"
   _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
 -- 2025.04.01  add RGBL exposure values for post-processing
 -- 2025.05.14  remove subtraction of stack gradients (adds false colour)
 -- 2025.06.07  add file names rejected from stack
+-- 2025.11.21  add "dark/nodark flat/noflat" display (thanks SanjeevJoshi@CloudyNights)
 
 
 local _log = require "logger" (_M)
@@ -155,7 +156,13 @@ local function panel(subframe)
     PLAY = 0
     BLINK = 0
   end
-  row(w,50)
+  
+  row(w,10)
+  local dark, flat = subframe.dark_calibration, subframe.flat_calibration
+  local masters = (dark and "  dark   " or "nodark   ") .. (flat and "  flat" or "noflat")
+  suit: Label(masters, Loptions, row(w, 30))
+  row(w,10)
+
   if suit: Button("Show stars", row(w,30)) .hit then
     showstars = not showstars
   end
