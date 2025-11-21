@@ -130,7 +130,7 @@ repeat
     
     local retries = 0
     for _, file in ipairs(dir) do
-      if file: match "%.fits?$" and not files[file] then
+      if file: match "%.fi?ts?$" and not files[file] then
         files[file] = true
         local frame = iframe.read(folder, file, mountpoint)
         if not frame then

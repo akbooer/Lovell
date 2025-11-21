@@ -5,149 +5,106 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2024.12.23"
+  _M.VERSION = "2025.06.12"
   _M.DESCRIPTION = "workflow GUI"
 
 local _log = require "logger" (_M)
 
 -- 2024.12.18  Version 0
+-- 2025.06.12  improve layout handling
 
 
 local session = require "session"
+local suit    = require "suit" .new()     -- make a new SUIT instance for ourselves
 
-local suit = require "suit"
-
-local self = suit.new()     -- make a new SUIT instance for ourselves
+local love = _G.love
+local lg = love.graphics
 
 local controls = session.controls
 local w = controls.workflow           -- export
 
-local M = 60    -- margin
-local W = 120
-local Wcol
-
-local layout = self.layout
-
 local lalign = {align = "left"}
 local ralign = {align = "right"}
-local valign = {valign = "top"}
 
-local floor = math.floor
-
-local function reset(margin)
-  M = margin or M
-  local x, y = layout:down(20, 20)
-  layout: reset(M, y, 10, 10)
-end
-
-local function down(w, h)
-   layout: down(w or 5, h or 5) 
-end
-
-local function row(...)
-  return layout: row(...)
-end
-
-local function col(...)
-  return layout: col(...)
-end
+local layout = suit.layout
+local row, col = _M.rowcol(layout)
 
 -------------------------------
 --
 -- PRESTACK
 --
 
-local function prestack()
-  M = 50
-  layout: reset(M,100, 10, 10)
+local function prestack(xywh)
+  local X, Y, W = unpack(xywh)
+  layout: reset(X, Y, 10, 10)
   
-  reset(60)
-  self: Button("Prestack", row(Wcol - 100, 30))
-  down()
+  suit: Button("Prestack", row(W - 100, 30))
    
-  self: Checkbox(w.do_dark, row(200, 20))
-  self: Checkbox(w.do_flat, row(200, 20))
-  self: Checkbox(w.badpixel, row(200, 20))
-  down()
-  self: Label("ratio", ralign, col(W, 10))
-  self: Slider(w.badratio, col(W, 10))
-  self: Label("%.1f" % w.badratio.value, col(W/3, 10))
+  suit: Checkbox(w.do_dark, row(200, 20))
+  suit: Checkbox(w.do_flat, row())
+  suit: Checkbox(w.badpixel, row())
   
-  reset()
-  self: Checkbox(w.debayer, layout: row(W, 20))
-  down()
-  self: Label("pattern", ralign, layout:col(W, 20))
---  self: Input(w.bayerpat, {id = "bayer", align = "left"}, layout:col(W, 20))
-  self: Dropdown(w.bayer_opt, {id = "bayer"}, layout:col(W, 30))
+  suit: Label("ratio", ralign, row(W/4, 10))
+  layout: push(layout: nextCol())
+    suit: Slider(w.badratio, col(W/4, 10))
+    suit: Label("%.1f" % w.badratio.value, lalign, col())
+  layout: pop()
+  
+  suit: Checkbox(w.debayer, row(W, 20))
+  suit: Label("pattern", ralign, row(W/4, 20))
+  suit: Dropdown(w.bayer_opt, {id = "bayer"}, col(120, 30))
 
 end
-  
-
 
 -------------------------------
 --
 -- STACKING
 --
-  
-local function stack()
-  M = Wcol
-  layout: reset(M, 100, 10, 10)
-  
-  reset()
-  self: Button("Stack", row(Wcol - 100, 30))
-  down()
-  reset()
-  self: Label("star finder", lalign, row(W, 20))
-  down()
-  self: Label("max #stars", ralign, col(W, 10))
-  self: Slider(w.maxstar, col())
-  self: Label("%.0f" % w.maxstar.value, col(W/3, 10))
-  reset()
-  down()
-  self: Label("radius", ralign, col(W, 10))
-  self: Slider(w.keystar, col())
-  self: Label("%.1f" % w.keystar.value, col(W/3, 10))
-  
-  reset()
-  self: Label("alignment", lalign, row(W, 20))
-  down()
-  self: Label("max offset", ralign, col(W, 10))
-  self: Slider(w.offset, col())
-  self: Label("%.0f" % w.offset.value, col(W/3, 10))
-  
-  
-  reset(M)
-  self: Label("stacking mode", lalign, row(W, 20))
-  row(W/2, 30)
-  self: Dropdown(controls.stackOptions, col(W * 1.5, 30))
-end
 
+local function stack(xywh)
+  local X, Y, W = unpack(xywh)
+  layout: reset(X, Y, 10, 10)
+  
+  suit: Button("Stack", row(W - 100, 30))
+  
+  suit: Label("star finder", lalign, row(W, 20))
+  suit: Label("max #stars", ralign, row(W/4, 10))
+  layout: push(layout: nextCol())
+    suit: Slider(w.maxstar, col(W/4, 10))
+    suit: Label("%.0f" % w.maxstar.value, lalign, col(W/3, 10))
+  layout: pop()
+
+--  self: Label("radius", ralign, col(W, 10))
+--  self: Slider(w.keystar, col())
+--  self: Label("%.1f" % w.keystar.value, col(W/3, 10))
+  
+  suit: Label("alignment", lalign, row(W, 20))
+  suit: Label("max offset", ralign, row(W/4, 10))
+  layout: push(layout: nextCol())
+    suit: Slider(w.offset, row(W/4, 10))
+    suit: Label("%.0f" % w.offset.value, lalign, col(W/3, 10))
+  layout: pop()
+  
+  suit: Label("stacking", lalign, row(W, 20))
+  suit: Label("mode", ralign, row(W/4, 30))
+  suit: Dropdown(controls.stackOptions, col(W/3, 30))
+end
 
 -------------------------------
 --
 -- POSTSTACK
 --
   
-local function poststack()
-  M = 2 * Wcol
-  layout: reset(M,100, 10, 10)
+local function poststack(xywh)
+  local X, Y, W = unpack(xywh)
+  layout: reset(X, Y, 10, 10)
   
-  reset()
-  self: Button("Poststack", row(Wcol - 100, 30))
-  down()
+  suit: Button("Poststack", row(W - 100, 30))
   
-  reset()
---  reset()
---  self: Label("colour denoise", lalign, layout: row(W, 20))
-  
-  reset()
-  self: Label("denoise", lalign, row(W, 20))
-  
-  reset()
-  self: Label("sharpening", lalign, row(W, 20))
+  suit: Label("denoise", lalign, row(W, 20))
+  suit: Label("sharpening", lalign, row(W, 20))
 
 end
-
 
 -------------------------------
 --
@@ -157,69 +114,71 @@ end
 local Cr, Cg, Cb = {}, {}, {}   -- unique IDs
 local fmt = "%4.1f"
 
-local function colour()
-  M = 50
-  layout: reset(M, 400, 10, 10)
-  
+local function colour(xywh)
+  local X, Y, W = unpack(xywh)
+  layout: reset(X, Y, 10, 10)
     
-  reset()
-  down()
-  self: Button("Colour", row(Wcol - 100, 30))
-  self: Label("Channel weights", row(W, 20))
-  down()
+  suit: Button("Colour", row(W - 100, 30))
   
-  self: Label("R", ralign, col(40, 10))
-  self: Slider(w.Rweight, col(W, 10))
-  self: Label(fmt % (w.Rweight.value), Cr, col(40, 10))
-  reset()
-  down()
-  self: Label("G", ralign, col(40, 10))
-  self: Slider(w.Gweight, col(W, 10))
-  self: Label(fmt % (w.Gweight.value), Cg, col(40, 10))
-  reset()
-  down()
-  self: Label("B", ralign, col(40, 10))
-  self: Slider(w.Bweight, col(W, 10))
-  self: Label(fmt % (w.Bweight.value), Cb, col(40, 10))
+  suit: Label("Channel weights", lalign, row(W, 20))
+  
+  suit: Label("R", ralign, row(40, 10))
+  layout: push(layout: nextCol())
+    suit: Slider(w.Rweight, col(W/4, 10))
+    suit: Label(fmt % (w.Rweight.value), Cr, col(40, 10))
+  layout: pop()
+  
+  suit: Label("G", ralign, row())
+  layout: push(layout: nextCol())
+    suit: Slider(w.Gweight, col(W/4, 10))
+    suit: Label(fmt % (w.Gweight.value), Cg, col(40, 10))
+  layout: pop()
+  
+  suit: Label("B", ralign, row())
+  layout: push(layout: nextCol())
+    suit: Slider(w.Bweight, col(W/4, 10))
+    suit: Label(fmt % (w.Bweight.value), Cb, col(40, 10))
+  layout: pop()
   
 end
-
 
 -------------------------------
 --
 -- UPDATE / DRAW
 
-function _M.update(dt)
-  Wcol = love.graphics.getDimensions() / 3
+function _M.update()
+  local w, h = lg.getDimensions()
   layout: reset(200,20, 10, 10)
   
-  self: Button ("Processing Workflow", col(200, 30))
+  suit: Button ("Processing Workflow", col(200, 30))
 
-  prestack()
-  stack()
-  poststack()
+  local col = layout:cols {pos = {50, 100}, min_width = w, {"fill", 20}, "fill", "fill"}
   
-  colour()
+  for i, panel in ipairs {prestack, stack, poststack} do
+    panel(col[i])
+  end
+  
+  colour {50, 50 + h/2, w/3, h/2}
   
 end
 
 function _M.draw()
-  self: draw()
+  suit: draw()
 end
 
- 
 -------------------------
 --
 -- KEYBOARD
 --
 
 function _M.keypressed(key)
-  self:keypressed(key)
+  suit:keypressed(key)
 end
 
 function _M.textinput(...)      
-  self:textinput(...)
+  suit:textinput(...)
 end
+
 
 return _M
 

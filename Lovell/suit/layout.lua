@@ -234,7 +234,7 @@ local function layout_retained_mode(self, t, constructor, string_argument_to_tab
 	-- second pass: extend "fill" cells and shift others accordingly
 	local fill_w = fill_width(layout, t.min_width or 0, self._x + self._w - p[1])
 	local fill_h = fill_height(layout, t.min_height or 0, self._y + self._h - p[2])
-	local dx,dy = 0,0
+  local dx,dy = 0,0
 	for _,v in ipairs(layout) do
 		v[1], v[2] = v[1] + dx, v[2] + dy
 		if v[3] == "fill" then
@@ -343,8 +343,8 @@ for i,x,y,w,h in layout() do
 end
 print()
 
-L:push()
-L:row()
+--L:push()
+--L:row()
 
 end
 --]]

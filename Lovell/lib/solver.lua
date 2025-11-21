@@ -46,7 +46,7 @@ end
   y = x + mu * Ae;    % update
   %
 
---]]
+--
 
 -- TODO: refactor LMS without matrix module
 local function LMS_step(A, x, b, mu)
@@ -80,7 +80,7 @@ function _M.lmsXYZ(x, y, z, mu, N)
   return unpack((soln^T) [1])
  
 end
-
+--]]
 
 return _M
 

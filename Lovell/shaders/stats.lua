@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.02",
+    VERSION = "2025.11.21",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry statistical calculations in images using SHADERS",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.03.19  add shader to calculate min, max, mean, var... much, much faster than mapPixel() (100µs vs 50 ms)
 -- 2025.03.25  revert to non-Texel based stats (Issue #1, broken on PCs, thanks @Songwired)
 -- 2025.05.02  add calc(), add RGBA stats
+-- 2025.11.21  remove errant ',' in normaliseTexel shader code (thanks @Cey42 on CloudyNights)
 
 
 local _log = require "logger" (_M)
@@ -29,7 +30,7 @@ local li = require "love.image"
 --
 local oneD  = lg.newCanvas(2,2)    -- just a dummy to start with
 local twoD  = lg.newCanvas(2,2)
-  
+ 
 -------------------------------
 --
 -- STATISTICS
@@ -79,8 +80,6 @@ local collectRow = lg.newShader [[
     return vec4(min, max, mean, var);
   }
 ]]
-
---]=]
 
  
 function _M.statsTexel(image, channel)
@@ -151,9 +150,12 @@ end
 --
 -- NORMALISATION
 --
+ 
+--[=[
+TODO: fix this crashing LOVE2D on Apple Silicon
 
 local normaliseTexel = lg.newShader [[
-  uniform Image, red, green, blue;
+  uniform Image red, green, blue;
   const float eps = 1.0e-6;
   const vec2 xy = vec2(0);
   
@@ -179,6 +181,8 @@ local normaliseTexel = lg.newShader [[
 
   }
 ]]
+--]=]
+
 
 -- normalise range 0..1 
 function _M.normaliseTexel(workflow)
@@ -188,8 +192,10 @@ function _M.normaliseTexel(workflow)
   red   = _M.statsTexel(input, 0)
   green = _M.statsTexel(input, 1)
   blue  = _M.statsTexel(input, 2)
-
+  
+  error "SHADER NOT IMPLEMENTED"
   local shader = normaliseTexel
+  
   shader: send("red", red)
   shader: send("green", green)
   shader: send("blue", blue)

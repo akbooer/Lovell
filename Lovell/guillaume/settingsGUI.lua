@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.05.12"
+  _M.VERSION = "2025.06.15"
   _M.DESCRIPTION = "settings GUI, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -17,12 +17,13 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.05.12  add retain controls settings option (on observation reload)
 -- 2025.05.22  add reducer parameter
 -- 2025.05.31  show _G.VERSION
+-- 2025.06.15  tidy up formatting with pre-computed layouts
 
 
 local _log = require "logger" (_M)
 
 
-local suit = require "suit"
+local suit = require "suit" .new()
 
 local session   = require "session"
 
@@ -30,9 +31,8 @@ local love = _G.love
 local lg = love.graphics
 local lf = love.filesystem
 
-local self = suit.new()     -- make a new SUIT instance for ourselves
-
 local controls = session.controls
+local settings = controls.settings
 
 local ses = controls.ses_notes
 local obs = controls.obs_notes
@@ -40,125 +40,165 @@ local obs = controls.obs_notes
 local stack_default = {selected = 1, unpack(controls.stackOptions)}
 local showSliderValues, retainControls = {}, {}
 local Lalign = {align = "left"}
+ 
+-------------------------
+--
+-- UTILITIES
+--
+
+local layout = suit.layout
+local row, col = _M.rowcol(layout)
+
+local function widget(info, ...)
+  local sw
+  if type(info) == "string" then 
+    sw = suit.Label
+  elseif info.selected then
+    sw = suit.Dropdown
+  elseif info.cursor then
+    sw = suit.Input
+  else
+    sw = suit.Checkbox
+  end
+  return sw(suit, info, ...)
+end
+
+local widgets do
+  widgets = function (ws)
+    for i, x,y,w,h in ws.coords() do
+      local item, opt = unpack(ws[i])
+      if opt then
+        widget(item, opt, x,y, w,h)
+      else
+        widget(item, x,y, w,h)
+      end
+    end
+  end
+end
+
 
 -------------------------
 --
--- UPDATE / DRAW
+-- panels
 --
 
+local coords = {}
+local ditto = _G.READONLY {}
 
-function _M.update(dt)
-  dt = dt
   
-  local w,h = lg.getDimensions()
-  local layout = self.layout
-  layout: reset(20, 130)
-  layout: row(80,30)
+coords.stickies1 = layout: cols {pos = {120, 70}, padding = {20, 0}, {200, 20}, ditto, ditto}
+coords.stickies2 = layout: cols {pos = {120, 95}, padding = {20, 0}, {150, 30}, {80}, {200, 20}, ditto}
+
+local function stickies()  
+ 
+  stack_default.selected = settings.stacking or 1
+  showSliderValues.checked = settings.showSliderValues
+  retainControls.checked = settings.retainControls
+  
+  widgets {
+    coords = coords.stickies1,
+    {"default stacking mode", Lalign},
+    {"show slider values", Lalign},
+    {"retain controls", Lalign}}
+  
+  widgets {
+    coords = coords.stickies2,
+    {stack_default},
+    {''},
+    {showSliderValues},
+    {retainControls}}
+  
+  settings.stacking = stack_default.selected
+  settings.showSliderValues = showSliderValues.checked or nil
+  settings.retainControls = retainControls.checked or nil
+end
+
+
+coords.telescope1 = layout: cols {pos = {120, 135}, padding = {20, 0}, {200, 20}, ditto, ditto, ditto}
+coords.telescope2 = layout: cols {pos = {120, 160}, padding = {20, 0}, {200, 30}, ditto, ditto, ditto}
+
+local function telescope()
   
   local scope = controls.telescope
   local focal = controls.focal_len
   local reducer = controls.reducer
   local pixel = controls.pixelsize
   
-  if self: Button("Clear", {id = "clearScope"}, layout:row()) .hit then
+  widgets {
+    coords = coords.telescope1,
+    {"telescope", Lalign},
+    {"focal length (mm)", Lalign},
+    {"reducer (x)", Lalign},
+    {"pixel size (µm)", Lalign}}
+   
+  layout: reset(20, 160)
+  if suit: Button("Clear", {id = "clearScope"}, row(80, 30)) .hit then
     scope.text = ''
     focal.text = ''
     reducer.text = ''
     pixel.text = ''
   end
+
+  widgets {
+    coords = coords.telescope2,
+    {scope, {id = "scope", align = "left"}},
+    {focal, {id = "focal", align = "left"}},
+    {reducer, {id = "reducer", align = "left"}},
+    {pixel, {id = "pixel", align = "left"}}}
+
+end
+
+
+coords.notes1 = layout: rows {pos = {120, 200}, padding = {20, 5}, {200, 20}, {860, 30}}
+coords.notes2 = layout: rows {pos = {120, 265}, padding = {20, 5}, {200, 20}, {860, 30}}
+
+local function notes()
   
-  layout:row()
-  if self: Button("Clear", {id = "clearObs"},   layout:row()) .hit then
+  layout: reset(20, 225)  
+  if suit: Button("Clear", {id = "clearObs"}, row(80, 30)) .hit then
     controls.obs_notes.text = ''
   end
   
-  layout:row()
-  if self: Button("Clear", {id = "clearSes"},   layout:row()) .hit then
+  widgets {
+    coords = coords.notes1,
+    {"observing notes", Lalign},
+    {obs, {id = "obs_notes", align = "left"}}}
+  
+  layout: reset(20, 290)  
+  if suit: Button("Clear", {id = "clearSes"}, row(80, 30)) .hit then
     controls.ses_notes.text = ''
   end
-   
-   -- stacking default
-   
-  layout: reset(120, 70)  
-  self:Label("default stacking mode", Lalign, layout:col(150, 30))
-  layout: right(60,30)
-  self:Label("show slider values", Lalign, layout:col(150, 30))
-  layout: right(30,30)
-  self:Label("retain controls", Lalign, layout:col(150, 30))
-  
-  layout: reset(120, 100)  
-  local settings = controls.settings
-  
-  stack_default.selected = settings.stacking or 1
-  self: Dropdown(stack_default, layout:row(150, 30))
-  settings.stacking = stack_default.selected
-  
-  layout: col(110,10)
-  showSliderValues.checked = settings.showSliderValues
-  self: Checkbox(showSliderValues, layout:col(50, 20))
-  settings.showSliderValues = showSliderValues.checked or nil
-  
-  layout: col(120,10)
-  retainControls.checked = settings.retainControls
-  self: Checkbox(retainControls, layout:col(50, 20))
-  settings.retainControls = retainControls.checked or nil
-   
-  -- telescope
-  
-  layout: reset(120, 130)
-  
-  self:Label("telescope", Lalign, layout:col(150, 30))
-  layout: right(60,30)
-  self:Label("focal length (mm)", Lalign, layout:col(120, 30))
-  layout: right(60,30)
-  self:Label("reducer (x)", Lalign, layout:col(120, 30))
-  layout: right(60,30)
-  self:Label("pixel size (µm)", Lalign, layout:col(120, 30))
-  
-  layout: reset(120, 160)
-  self:Input(scope, {id = "scope", align = "left"}, layout:col(150, 30))
-  layout: right(60,30)
-  self:Input(focal, {id = "focal", align = "left"}, layout:col(120, 30))
-  layout: right(60,30)
-  self:Input(reducer, {id = "reducer", align = "left"}, layout:col(120, 30))
-  layout: right(60,30)
-  self:Input(pixel, {id = "pixel", align = "left"}, layout:col(120, 30))
 
-  -- obs notes
-  
-  layout: reset(120, 190)
-  
-  self:Label("observing notes", Lalign, layout:row(120, 30))
-  self:Input(obs, {id = "obs_notes", align = "left"}, layout:row(w - 250))
+  widgets {
+    coords = coords.notes2, 
+    {"session notes", Lalign},
+    {ses, {id = "ses_notes", align = "left"}}}
 
-  self:Label("session notes", Lalign, layout:row())
-  self:Input(ses, {id = "ses_notes", align = "left"}, layout:row(w - 250, 30))
+end
 
+
+local function buttons()
   
-  layout:push(layout: row(0,0))
-  layout:row(180, 40)
-  if self:Button("open log file", layout:row()) .hit then
+  layout: reset(120, 400, 20, 0)
+  if suit:Button("open log file", col(200, 40)) .hit then
     local url = "file://%s/Lövell.log"
     _log "open log file"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
   end
   
-  layout:right(40,40)
-  if self:Button("open snapshot folder", layout:col(180, 40)) .hit then
+  if suit:Button("open snapshot folder", col()) .hit then
     local url = "file://%s/snapshots"
     _log "open snapshot folder"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
   end  
   
-  layout:right(40,40)
-  if self:Button("open masters folder", layout:col(180, 40)) .hit then
+  if suit:Button("open masters folder", col()) .hit then
     local url = "file://%s/masters"
     _log "open Masters folder"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
   end  
   
-  layout:right(40,40)
-  if self:Button("open FITS header", layout:col(180, 40)) .hit then
+  if suit:Button("open FITS header", col()) .hit then
     local filename = "FITS headers.txt"
     lf.remove(filename)             -- remove the old one
     local file = lf.newFile(filename, 'w')
@@ -175,33 +215,50 @@ function _M.update(dt)
     end
   end
   
-  -- SETTINGS
+end
+
+
+local function lat_long_api()
+  layout: reset(120, 500, 20, 0)
+  suit:  Label("latitude", Lalign, layout: col(120, 30))
+  suit: Label("longitude", Lalign, layout: col())
+  suit: Label("Astrometry key", Lalign, layout: col())
   
-  local lat, long = settings.latitude, settings.longitude
+  layout: reset(120, 530, 20, 0)
+  suit: Input(settings.latitude, layout: row(120, 30))
+  suit: Input(settings.longitude, layout: col())
+  suit: Input(settings.apikey, layout: col())
+  
+end
+
+
+local function signature()
   local sig = settings.signature
-
-  layout: pop()
-  layout: row(10,100)
-  layout: push(layout: row(0,0))
-  self:  Label("latitude", Lalign, layout: row(120, 30))
-  layout: col(40,30)
-  self: Label("longitude", Lalign, layout: col(120, 30))
-  
-  layout: pop()
---  layout: row(10, 30)
-  self: Input(lat, layout: row(120, 30))
-  layout: col(40, 30)
-  self: Input(long, layout: col(120, 30))
-
+  local w,h = lg.getDimensions()
   layout: reset(w - 300, h - 150)
-  self:Label("signature (for images)", {align = "left"}, layout:row(250, 30))
-  self:Input(sig, {id = "signature", align = "left"}, layout:row())
+  suit:Label("signature (for images)", {align = "left"}, row(250, 30))
+  suit:Input(sig, {id = "signature", align = "left"}, row())
   layout: down()
-  self:Label("version " .. _G.VERSION, layout: row())
+  suit:Label("version " .. _G.VERSION, layout: row())
+end
+
+-------------------------
+--
+-- UPDATE / DRAW
+--
+
+function _M.update(dt)
+  dt = dt
+  stickies()
+  telescope()
+  notes()
+  buttons()
+  lat_long_api()
+  signature()
 end
 
 function _M.draw()
-  self: draw()
+  suit: draw()
 end
  
 -------------------------
@@ -210,11 +267,11 @@ end
 --
 
 function _M.keypressed(key)
-  self:keypressed(key)
+  suit:keypressed(key)
 end
 
 function _M.textinput(...)      
-  self:textinput(...)
+  suit:textinput(...)
 end
 
 -----

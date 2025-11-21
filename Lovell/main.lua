@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.06.07",
+  VERSION = "2025.11.21",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
   LICENCE = [[  
@@ -38,6 +38,8 @@ local _log = logger(_M)
 -- 2025.03.28  Add new thread for reloads
 
 local jit  = _G.jit
+--jit.off()
+
 local love = _G.love
 
 local lt = love.thread
@@ -49,13 +51,13 @@ do -- log system info before other modules loaded
   local OS = ls.getOS()
   local processorCount = ls.getProcessorCount( )
   local renderer = tostring(lg.getRendererInfo())
-  _log ("%s, %s, %d processors, %s" % {OS, jit.arch, processorCount, renderer})
+  local luajit = type(jit) == "table" and jit.version or"No LuaJIT"
+  _log ("%s, %d processors, %s, %s" % {OS, processorCount, renderer, luajit})
 end
 
 local session = require "session"
 local GUI     = require "guillaume"
 local masters = require "databases.masters"
-
 
 -------------------------
 --
@@ -114,6 +116,7 @@ function love.filedropped(file)
   _log("file dropped " .. name)
   masters.new(file)
 end
+--]]
 
 -------------------------
 --

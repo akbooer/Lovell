@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.08",
+    VERSION = "2025.07.13",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.02.18  add lat, long, sun_time
 -- 2025.02.21  initialise on load, remove load() function
 -- 2025.05.08  add default stacking option to settings
+-- 2025.07.13  add Astrometry API key for plate solving
 
 
 local _log = require "logger" (_M)
@@ -95,13 +96,13 @@ local controls = {    -- most of these are SUIT widgets
     
     -- settings page
     
-    telescope = {default = ''},      -- per observation (could have more than one scope in a session)
-    focal_len = {default = ''},
-    reducer   = {default = ''},
-    pixelsize = {default = ''},
+    telescope = {default = '', cursor = 1},      -- per observation (could have more than one scope in a session)
+    focal_len = {default = '', cursor = 1},
+    reducer   = {default = '', cursor = 1},
+    pixelsize = {default = '', cursor = 1},
     
-    ses_notes = {default = ''},
-    obs_notes = {default = ''},
+    ses_notes = {default = '', cursor = 1},
+    obs_notes = {default = '', cursor = 1},
     
     -- settings file
     
@@ -110,6 +111,7 @@ local controls = {    -- most of these are SUIT widgets
         stacking  = 1,                    -- default stacking option
         latitude  = {text = '51.5'},      -- defaults are approximation to Greenwich...
         longitude = {text = '0'},         -- it's actually on the O2 arena
+        apikey    = {text = ''},
       },
     
     -- workflow

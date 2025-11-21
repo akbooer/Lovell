@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.01",
+    VERSION = "2025.06.21",
     AUTHOR = "AK Booer",
     DESCRIPTION = "GUI objects",
   }
@@ -19,6 +19,7 @@ local _M = {
 -- 2025.01.17  add GUI object class methods: get() / set()
 -- 2025.02.24  add session to access controls.(sub)page
 -- 2025.03.01  add moveXY() (moved from mainGUI, and also used by snapshot)
+-- 2025.06.21  add rowcol() utility
 
 
 local session = require "session"
@@ -34,6 +35,12 @@ local controls = session.controls
 function _M.set(m, s) controls.page, controls.subpage = m, s end
 function _M.get() return controls.page, controls.subpage end
 
+function _M.rowcol(layout)
+  return 
+    function(...) return layout:row(...) end,
+    function(...) return layout:col(...) end
+end
+  
 
 function _M.GUIobject ()
 
@@ -41,6 +48,8 @@ function _M.GUIobject ()
   
   return {
   
+    rowcol = _M.rowcol,
+    
     -------------------------
     --
     -- MODE

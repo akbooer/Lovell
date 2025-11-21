@@ -111,6 +111,11 @@ local function build_adjustments(controls)
   slider ("Denoise", w, 10)
   slider "Sharpen"
 
+--  if self: Button("Plate Solve", layout:row(w,30)) .hit then
+    
+--  end
+--  slider ("Magnitude", w, 10)
+    
   -- orientation and snapshot
  
   layout: reset(10, h - 125, 10, 10)

@@ -17,7 +17,7 @@ local _M = require "guillaume.objects" .GUIobject()
 local _log = require "logger" (_M)
 
 
-local suit = require "suit"
+local suit = require "suit" .new()     -- make a new SUIT instance for ourselves
 
 local poststack   = require "poststack"
 local session     = require "session"
@@ -29,8 +29,6 @@ workflow.controls = controls
 local love = _G.love
 local lg = love.graphics
 local lt = love.timer
-
-local self = suit.new()     -- make a new SUIT instance for ourselves
 
 local empty = _G.READONLY {}
 local deg = 180 / math.pi
@@ -50,7 +48,6 @@ theme.color = {
 
 --]]
 
-local layout = self.layout
 local active = suit.theme.color.active.bg
 local hovered = suit.theme.color.hovered.bg
 local colour = suit.theme.color.text
@@ -77,6 +74,9 @@ local frame = {
 workflow.RGBL = {1,1,1,0, 0,0,0,0}       -- needed for poststack processing to handle this as RGB image
 
 local floor = math.floor
+
+local layout = suit.layout
+local row, col = _M.rowcol(layout)
 
 -------------------------
 --
@@ -132,14 +132,6 @@ local lasttime = 0
 local lastindex 
 local showstars             -- toggle star display
 
-local function row(...)
-  return layout: row(...)
-end
-
-local function col(...)
-  return layout: col(...)
-end
-
 -- control panel
 local xy = "(%0.1f, %0.1f)"
 local theta = "%0.3fº"
@@ -148,33 +140,33 @@ local rejected = {checked = false, text = "omit from stack"}
 local function panel(subframe)
   layout:reset(50,150, 10,10)                       -- leaving space for CLOSE button
   local w = 120
-  if self: Button("Blink", row(w, 30)) .hit then
+  if suit: Button("Blink", row(w, 30)) .hit then
     BLINK = (BLINK == 0) and 1 or 0                 -- toggle blink
     PLAY = 0
   end
-  if self: Button("Play", row()) .hit then          -- toggle play
+  if suit: Button("Play", row()) .hit then          -- toggle play
     PLAY = (PLAY == 0) and 1 or 0                
     BLINK = 0
   end
-  self: Label("rate", Loptions, row(w, 20))
-  self: Slider(rate, row(w, 10))
+  suit: Label("rate", Loptions, row(w, 20))
+  suit: Slider(rate, row(w, 10))
   row(w, 10)
-  if self: Button("Stop", row(w, 30)) .hit then      -- turn play (or blink) off
+  if suit: Button("Stop", row(w, 30)) .hit then      -- turn play (or blink) off
     PLAY = 0
     BLINK = 0
   end
   row(w,50)
-  if self: Button("Show stars", row(w,30)) .hit then
+  if suit: Button("Show stars", row(w,30)) .hit then
     showstars = not showstars
   end
   if showstars then
     local stars = #(subframe.stars or empty)
     local matched = #(subframe.matched_pairs or empty)
-    self: Label("matched", Aoptions, row(w / 2, 20))
-    self: Label(matched, Woptions, col(w / 2 , 20))
+    suit: Label("matched", Aoptions, row(w / 2, 20))
+    suit: Label(matched, Woptions, col(w / 2 , 20))
     layout: left()
-    self: Label("found", Loptions, row())
-    self: Label(stars, Woptions, col())
+    suit: Label("found", Loptions, row())
+    suit: Label(stars, Woptions, col())
     layout: left()
   else
     row(w, 50)
@@ -185,33 +177,33 @@ local function panel(subframe)
 
   local reject, name = controls.reject, subframe.name
   rejected.checked = reject[name]
-  if self: Checkbox(rejected, row(w, 20)) .hit then
+  if suit: Checkbox(rejected, row(w, 20)) .hit then
     reject[name] = rejected.checked
   end
   
   local align = subframe.align
   if align then
-    self: Label("alignment", Loptions, row())
-    self: Label(xy: format(align[2], align[3]), Woptions, row())
-    self: Label(theta % (align[1] * deg), Woptions, row())
+    suit: Label("alignment", Loptions, row())
+    suit: Label(xy: format(align[2], align[3]), Woptions, row())
+    suit: Label(theta % (align[1] * deg), Woptions, row())
   else
-    self: Label("not aligned", Aoptions, row())
-    self: Label('', row())    -- maintain spacing of epoch label below
-    self: Label('', row())
+    suit: Label("not aligned", Aoptions, row())
+    suit: Label('', row())    -- maintain spacing of epoch label below
+    suit: Label('', row())
   end
-  self: Label(epoch, Loptions, row(300,20))
+  suit: Label(epoch, Loptions, row(300,20))
 end
 
 -- vertical scroll
 local function scrollbar(n)
   local x = (W + w * scale) / 2 + 30                        -- location of scrollbar
   local y = (H - scale * h) / 2
-  if self: Slider(scroll, scrollOpt, x, y, 12, h * scale) .hovered then
+  if suit: Slider(scroll, scrollOpt, x, y, 12, h * scale) .hovered then
 --    local _, my = lm.getPosition()
 --    self: Label(my, Woptions, x + 20, my - 5, 50, 20)
   end
   index = floor((n - 0.01) * scroll.value) + 1
-  self: Label(index, Woptions, x + 20, y + (1 - scroll.value) * h * scale - 15, 50, 30)
+  suit: Label(index, Woptions, x + 20, y + (1 - scroll.value) * h * scale - 15, 50, 30)
   return index
 end
 
@@ -299,7 +291,7 @@ function _M.update()
   end
   lasttime = timenow
   
-  local layout = self.layout
+  local layout = suit.layout
   local stack = session.stack()
   
   if not stack then subs = nil return end
@@ -339,7 +331,7 @@ function _M.draw()
   if not subs then return end
   draw_stack ()
   draw_image ()
-  self: draw()            -- controls
+  suit: draw()            -- controls
   lg.setColor(1,1,1, 1)
 end
 
@@ -359,7 +351,7 @@ local keypressed =  {
   }
 
 function _M.keypressed(key)
-  self: keypressed(key)
+  suit: keypressed(key)
   local action = keypressed[key]
   if action then action() end
 end

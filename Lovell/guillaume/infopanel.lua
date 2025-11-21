@@ -62,6 +62,7 @@ function _M.update(self, screen)
   local eyepiece = controls.eyepiece.checked
   local pin_info = controls.pin_info
   local layout = self.layout
+  local row, col = GUIobjects.rowcol(layout)
   local stack = session.stack() or {}
   
   -- search DSO database for object name, if necessary
@@ -78,25 +79,25 @@ function _M.update(self, screen)
   layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
 
   layout: push (w - 30, 10)
-  self:Checkbox(pin_info, {id = "pin_info"}, layout:row(20, 20))
+  self:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
   layout: pop()
   
   controls.object.focus =   -- add attribute to allow inspection elsewhere
-    self:Input(controls.object, Ioptions, layout:row(margin - 20, 30)) .hovered
+    self:Input(controls.object, Ioptions, row(margin - 20, 30)) .hovered
 
-  self:Label("object", Loptions, layout:row(margin - 60, 10))
+  self:Label("object", Loptions, row(margin - 60, 10))
   
 --  local diam = obj.DIA and ", Ø" .. formatArcMinutes(obj.DIA) or ''
-  self:Label(obj.OBJ or '', Woptions, layout:row(margin, 15))
+  self:Label(obj.OBJ or '', Woptions, row(margin, 15))
   
-  self:Label("RA", Loptions, layout:row(Wcol, 10))
-  self:Label("DEC", Loptions, layout:col(Wcol, 10))
+  self:Label("RA", Loptions, row(Wcol, 10))
+  self:Label("DEC", Loptions, col(Wcol, 10))
   layout:left()
-  self:Label(formatRA(obj.RA or ''),   Woptions, layout:row())
-  self:Label(formatDEC(obj.DEC or ''), Woptions, layout:col())
+  self:Label(formatRA(obj.RA or ''),   Woptions, row())
+  self:Label(formatDEC(obj.DEC or ''), Woptions, col())
   layout:left()
   
-  layout:row()
+  row()
   
   local image = stack.image
   local temp = stack.temperature
@@ -112,17 +113,17 @@ function _M.update(self, screen)
   
   local telescope = controls.telescope.text
   
-  self:Label("date", Loptions, layout:row(margin, 15))
-  self:Label(stack.date or '?', Woptions, layout:row(margin, 10))
+  self:Label("date", Loptions, row(margin, 15))
+  self:Label(stack.date or '?', Woptions, row(margin, 10))
   
-  local scope1 = self:Label("telescope", Loptions, layout:row(margin, 15)) .hit
-  local scope2 = self:Label(telescope,   Woptions, layout:row(margin, 15)) .hit 
+  local scope1 = self:Label("telescope", Loptions, row(margin, 15)) .hit
+  local scope2 = self:Label(telescope,   Woptions, row(margin, 15)) .hit 
 --  if scope1 or scope2 then
 --    GUIobjects.set ("database", "telescopes")
 --  end
   
-  self:Label("camera" .. tcam, Loptions, layout:row(margin, 15))
-  self:Label(camera or '??', Woptions, layout:row(margin, 15))
+  self:Label("camera" .. tcam, Loptions, row(margin, 15))
+  self:Label(camera or '??', Woptions, row(margin, 15))
 
   -- FOV
   
@@ -134,8 +135,8 @@ function _M.update(self, screen)
     local arcsize = 36 * 18 / math.pi * pixel / (focal * reducer)    -- camera pixel size in arc seconds (assume square)
     arcsize = arcsize / controls.zoom.value                           -- screen pixel size
     local radius, w, h = Oculus.radius()
-    self: Label("fov", Loptions, layout:row(Wcol, 15))
-    self: Label("rotation", Loptions, layout:col(Wcol, 15))
+    self: Label("fov", Loptions, row(Wcol, 15))
+    self: Label("rotation", Loptions, col(Wcol, 15))
     layout: left()
     local fov
     if eyepiece then
@@ -143,40 +144,40 @@ function _M.update(self, screen)
     else
       fov = table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n")
     end
-    self: Label(fov, Woptions, layout:row(Wcol, 15))
-    self: Label(angle, Woptions, layout:col(Wcol, 15))
+    self: Label(fov, Woptions, row(Wcol, 15))
+    self: Label(angle, Woptions, col(Wcol, 15))
     layout: left()
   end
   
- layout:row()
+ row()
   
---  self:Label("stacked ", Loptions, layout:row(Wcol, 10))
+--  self:Label("stacked ", Loptions, row(Wcol, 10))
   local so = controls.stackOptions
-  self:Label(so.displayname[so.selected], Loptions, layout:row(Wcol, 10))
-  self:Label("mm:ss", Loptions, layout:col(Wcol, 10))
+  self:Label(so.displayname[so.selected], Loptions, row(Wcol, 10))
+  self:Label("mm:ss", Loptions, col(Wcol, 10))
   layout:left()
   local stacks = "%d/%d" % {stack.Nstack or 0, stack.subs and #stack.subs or 0}
-  self:Label(stacks, Woptions, layout:row(Wcol, 15))
+  self:Label(stacks, Woptions, row(Wcol, 15))
   local exp = stack.exposure or 0
   exp = [[%d:%02d]] % {math.floor(exp / 60), exp % 60}
-  self:Label(exp, Woptions, layout:col(Wcol, 15))
+  self:Label(exp, Woptions, col(Wcol, 15))
   layout:left()
   local RGBL = controls.workflow.RGBL 
   local dark, flat = stack.dark_calibration and "dark ", stack.flat_calibration and "flat "
   if dark or flat then
     local calib = "calibration: " .. (dark or '') .. (flat or'')
-    self: Label(calib, Loptions, layout:row(margin - 20, 15))
+    self: Label(calib, Loptions, row(margin - 20, 15))
   end
   local obs_notes = controls.obs_notes.text
   if #obs_notes > 0 then
-    self:Label("observing notes", Loptions, layout:row(margin, 15))
-    self:Label(obs_notes, Toptions, layout:row(margin - 20, 50))
+    self:Label("observing notes", Loptions, row(margin, 15))
+    self:Label(obs_notes, Toptions, row(margin - 20, 50))
   end
   
   local ses_notes = controls.ses_notes.text
   if #ses_notes > 0 then
-    self:Label("session notes", Loptions, layout:row(margin, 15))
-    self:Label(ses_notes, Toptions, layout:row(margin - 20, 50))
+    self:Label("session notes", Loptions, row(margin, 15))
+    self:Label(ses_notes, Toptions, row(margin - 20, 50))
   end
   
   -- load previous observation
@@ -195,7 +196,7 @@ function _M.update(self, screen)
   
   -- EXIT
   
-  if self:Button ("Exit", layout:col(80, 50)) .hit then
+  if self:Button ("Exit", col(80, 50)) .hit then
     love.event.push "quit"    
   end
  
