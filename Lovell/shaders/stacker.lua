@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.22",
+    VERSION = "2025.11.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "stacks individual subs",
   }
@@ -19,6 +19,7 @@ local _M = {
 -- 2025.04.01  add RGBL exposure (issue #6)
 -- 2025.05.01  add displayname to stack options
 -- 2025.05.09  refine minimum variance stack implementation (no free parameters)
+-- 2025.11.23  add HSO filters to stacker tables (issue #16)
 
 
 local _log = require "logger" (_M)
@@ -254,6 +255,9 @@ local rgb_filter = {
           R   = {t,f,f,f}, 
           G   = {f,t,f,f}, 
           B   = {f,f,t,f}, 
+          H   = {t,f,f,f}, 
+          S   = {f,t,f,f}, 
+          O   = {f,f,t,f}, 
           L   = {f,f,f,t},    -- Luminance is stored in alpha channel
           RGB = {t,t,t,f},
         }
@@ -262,6 +266,9 @@ local rgb_count = {
           R   = {1,0,0,0}, 
           G   = {0,1,0,0}, 
           B   = {0,0,1,0}, 
+          H   = {1,0,0,0}, 
+          S   = {0,1,0,0}, 
+          O   = {0,0,1,0}, 
           L   = {0,0,0,1}, 
           RGB = {1,1,1,0},
         }
@@ -278,8 +285,9 @@ function _M.stack(workflow, p)
   local filter = p.filter:upper()
 --  local filterChans = rgb_filter[filter] or rgb_filter.RGB
 --  local countChans  = rgb_count[filter]  or rgb_count.RGB
-  local filterChans = p.bayer and rgb_filter.RGB or rgb_filter[filter] 
-  local countChans  = p.bayer and rgb_count.RGB or rgb_count[filter]
+  _log("FILTER", filter)
+  local filterChans = p.bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
+  local countChans  = p.bayer and rgb_count.RGB or rgb_count[filter] or {0,0,0,0,  0,0,0,0}
   
   local theta, xshift, yshift = unpack(p)
   local w, h = workflow: getDimensions()

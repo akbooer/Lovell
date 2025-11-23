@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.11.21"
+  _M.VERSION = "2025.11.22"
   _M.DESCRIPTION = "stack GUI, view each stack frame"
 
 -- 2025.01.22  Version 0
@@ -13,6 +13,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.05.14  remove subtraction of stack gradients (adds false colour)
 -- 2025.06.07  add file names rejected from stack
 -- 2025.11.21  add "dark/nodark flat/noflat" display (thanks SanjeevJoshi@CloudyNights)
+-- 2025.11.22  add filter label
 
 
 local _log = require "logger" (_M)
@@ -158,8 +159,8 @@ local function panel(subframe)
   end
   
   row(w,10)
-  local dark, flat = subframe.dark_calibration, subframe.flat_calibration
-  local masters = (dark and "  dark   " or "nodark   ") .. (flat and "  flat" or "noflat")
+  local dark, flat, filter = subframe.dark_calibration, subframe.flat_calibration, subframe.filter
+  local masters = table.concat {dark and "  dark   " or "nodark   ", flat and "  flat   " or "noflat   ", filter}
   suit: Label(masters, Loptions, row(w, 30))
   row(w,10)
 
