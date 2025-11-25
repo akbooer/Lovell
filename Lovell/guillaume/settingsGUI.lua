@@ -215,6 +215,12 @@ local function buttons()
     end
   end
   
+--  if suit:Button("browser", col()) .hit then
+--    local url = "http://google.com"
+--    _log "open browser"
+--    love.system.openURL(url)
+--  end  
+  
 end
 
 

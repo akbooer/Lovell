@@ -285,7 +285,7 @@ function _M.stack(workflow, p)
   local filter = p.filter:upper()
 --  local filterChans = rgb_filter[filter] or rgb_filter.RGB
 --  local countChans  = rgb_count[filter]  or rgb_count.RGB
-  _log("FILTER", filter)
+  _log("filter type: ", filter)
   local filterChans = p.bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
   local countChans  = p.bayer and rgb_count.RGB or rgb_count[filter] or {0,0,0,0,  0,0,0,0}
   

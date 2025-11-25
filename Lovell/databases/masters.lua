@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.31",
+    VERSION = "2025.11.25",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -12,6 +12,7 @@ local _M = {
 -- 2025.02.19  Version 0
 -- 2025.04.08  start adding image attributes from file data
 -- 2025.05.21  changed name to masters, deleted top-level module of that name, merged functionality
+-- 2024.11.25  correct reading of master type field
 
 
 local _log = require "logger" (_M)
@@ -28,6 +29,8 @@ local lf = love.filesystem
 local lg = love.graphics
 
 local bias, dark, flat    -- current masters (used in update to display current values)
+local bias_dark_flat = "[bdf][ial][ar][skt]"    -- bias / dark / flat
+
 
 -------------------------------
 --
@@ -70,7 +73,7 @@ _M.cols = {
     {"Type", w = 60, align = "center", },
     {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
     {"ºC", w = 50, format = function(t) return t and t .. 'º' or '' end, align = "center", type = "number", },
-    {"Gain", w = 50, format = function(g) return g and 'x' .. g or '' end, align = "center", type = "number", },
+    {"Gain", w = 60, format = function(g) return g and "x%.3f" % g or '' end, align = "center", type = "number", },
     {"Offset", w = 60, format = function(o) return o and "%+d" % o or '' end, align = "center", type = "number", },
     {"Filter", w = 60, align = "center", },
     {"Date", w = 100, type = "number", format = function(t) return t and os.date("%Y%m%d", t) or '' end},
@@ -81,7 +84,7 @@ _M.cols = {
     {"Filename", },
   }
 
-_M.col_index = {1,2,3,4,5,6,7,8,9, 10,11, 12}
+_M.col_index = {2,3,4,5,6,7,8,9, 10,11, 12}
 
 local FILENAME = #_M.cols         -- full filename is last column
 local PATH = "masters/"
@@ -126,9 +129,15 @@ local function read_meta(fname)
   local skip_data = true
   local f = iframe.read(nil, fname, PATH, skip_data)
   
+  _log (table.concat (f.headers, '\r'))   -- * * * * *
+  
   local k = f.keywords
-  local subtype = (f.subtype or ''): match "[bdf][ial][ar][skt]"    -- bias / dark / flat
-  local filter = subtype == "flat" and f.filter: upper() or nil
+  local imagetype = (k.IMAGETYP or ''): lower() : match (bias_dark_flat)
+  local subtype = (f.subtype or ''): lower() : match (bias_dark_flat)
+  
+  _log(pretty({IMAGETYP = k.IMAGETYP, subtype = f.subtype})) -- * * * * *
+  
+  local filter = (imagetype or subtype) == "flat" and f.filter: upper() or nil
   local nsubs = k.STACKCNT or k.NSUBS or nil
   local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
 

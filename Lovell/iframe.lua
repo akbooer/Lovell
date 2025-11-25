@@ -100,6 +100,7 @@ function _M.read(folder, filename, mountpoint, skip_data)
   local datestring, epoch = parse_date(datetime or modtime)
   local bayer = k.BAYERPAT
   
+--  subtype = k.IMAGETYP or k.SUBTYPE or k.SUB_TYPE or subtype or nil
   subtype = k.SUBTYPE or k.SUB_TYPE or subtype or nil
   
   local iframe = {
