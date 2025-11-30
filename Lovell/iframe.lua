@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.05.22",
+  VERSION = "2025.11.26",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
@@ -14,6 +14,7 @@ local love = _G.love
 -- 2025.03.02  separate module from watcher (needed also for masters and observation reloads)
 -- 2025.03.27  improve error returns for Lua io library reads (when reloading observations)
 -- 2025.05.15  add keyword OFFSET to frame (for calibration)
+-- 2025.11.26  fold frame subtype to lower case
 
 
 local _log = require "logger" (_M)
@@ -100,7 +101,6 @@ function _M.read(folder, filename, mountpoint, skip_data)
   local datestring, epoch = parse_date(datetime or modtime)
   local bayer = k.BAYERPAT
   
---  subtype = k.IMAGETYP or k.SUBTYPE or k.SUB_TYPE or subtype or nil
   subtype = k.SUBTYPE or k.SUB_TYPE or subtype or nil
   
   local iframe = {
@@ -111,8 +111,8 @@ function _M.read(folder, filename, mountpoint, skip_data)
     headers = headers,            -- raw FITS file headers
     keywords = keywords,          -- extracted from headers
     
-    subtype = subtype,                   -- bias, dark, light, flat, etc...
-    filter = filter: upper(),  -- L, R, G, B, ...
+    subtype = subtype: lower(),   -- bias, dark, light, flat, etc...
+    filter = filter: upper(),     -- L, R, G, B, ...
 
     exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) * 1e-6,    -- convert to seconds
     bayer = bayer, 

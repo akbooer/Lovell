@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.11.25",
+    VERSION = "2025.11.30",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -73,7 +73,7 @@ _M.cols = {
     {"Type", w = 60, align = "center", },
     {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
     {"ºC", w = 50, format = function(t) return t and t .. 'º' or '' end, align = "center", type = "number", },
-    {"Gain", w = 60, format = function(g) return g and "x%.3f" % g or '' end, align = "center", type = "number", },
+    {"Gain", w = 60, format = function(g) return g and (g > 1 and "%.0f" or "%.3f") % g or '' end, align = "center", type = "number", },
     {"Offset", w = 60, format = function(o) return o and "%+d" % o or '' end, align = "center", type = "number", },
     {"Filter", w = 60, align = "center", },
     {"Date", w = 100, type = "number", format = function(t) return t and os.date("%Y%m%d", t) or '' end},
@@ -129,20 +129,26 @@ local function read_meta(fname)
   local skip_data = true
   local f = iframe.read(nil, fname, PATH, skip_data)
   
-  _log (table.concat (f.headers, '\r'))   -- * * * * *
-  
+--  _log (table.concat (f.headers, '\r'))   -- * * * * *
+--  _log("GAIN", f.gain, f.keywords.GAIN)
+
   local k = f.keywords
   local imagetype = (k.IMAGETYP or ''): lower() : match (bias_dark_flat)
   local subtype = (f.subtype or ''): lower() : match (bias_dark_flat)
+  local mtype = imagetype or subtype
   
-  _log(pretty({IMAGETYP = k.IMAGETYP, subtype = f.subtype})) -- * * * * *
+  if mtype == "flat" then
+    f.exposure = ''
+  end
   
-  local filter = (imagetype or subtype) == "flat" and f.filter: upper() or nil
+--  _log(pretty({IMAGETYP = k.IMAGETYP, subtype = f.subtype})) -- * * * * *
+  
+  local filter = mtype == "flat" and f.filter: upper() or nil
   local nsubs = k.STACKCNT or k.NSUBS or nil
   local bitpix, naxis1, naxis2 = k.BITPIX, k.NAXIS1, k.NAXIS2
 
   return {
-      f.name: match(file_pattern), subtype, f.exposure,
+      f.name: match(file_pattern), mtype, f.exposure,
       f.temperature, f.gain, f.offset,
       filter, f.epoch,
       imageSize % {naxis1, naxis2}, math.abs(bitpix),
@@ -170,31 +176,49 @@ function _M.search(frame)
   end
   
   _M.DB = _M.DB or _M.load() 
-  bias, dark, flat = nil, nil
+  bias, dark, flat = nil, nil, nil
   _M.highlight = {}
   
   local w,h = frame.imageData: getDimensions()
-  local size = imageSize % {w, h}
+  local size, filter, gain, expo
+  size = imageSize % {w, h}
+  filter = frame.filter
+  gain = frame.gain 
+  expo = frame.exposure
+  
+  _log("Searching for masters matching %s %s %s" % {size, filter, gain or '?'})
   
   -- find matching size, and most recent master pre-dating frame capture
   local btime, dtime, ftime = math.huge, math.huge, math.huge
   for i, master in ipairs(_M.DB) do
     local date = tonumber(master[tag.Date])
-    local ok = master[tag.Size] == size and epoch > date
-    if ok then 
+    local msize, mfilter, mgain, mexpo
+    msize = master[tag.Size]
+    mfilter = master[tag.Filter]
+    mgain = master[tag.Gain]
+    mexpo = master[tag.Exposure]
+--    _log(" Filter, size : %s %s" % {mfilter, msize})
+    local delta = math.abs(epoch - date)    -- time difference between master and light
+    if msize == size then 
       local typ = master[tag.Type]
-      if typ == "bias" and date < btime then
-        bias, btime = master, date
+      _log("Filter, gain", mfilter, mgain)
+      if typ == "bias" and gain == mgain and expo == mexpo and delta < btime then
+        bias, btime = master, delta
         _M.highlight[i] = true -- "flat"
-      elseif typ == "dark" and date < dtime then
-        dark, dtime = master, date
+      elseif typ == "dark" and gain == mgain and expo == mexpo and delta < dtime then
+        dark, dtime = master, delta
         _M.highlight[i] = true -- "dark"
-      elseif typ == "flat" and date < ftime then
-        flat, ftime = master, date
+      elseif typ == "flat" and filter == mfilter and delta < ftime then
+        flat, ftime = master, delta
         _M.highlight[i] = true -- "flat"
       end
     end
   end
+  local fname = tag.Filename
+  local none = " --- none ---"
+  _log("Bias: ", bias and bias[fname] or none)
+  _log("Dark: ", dark and dark[fname] or none)
+  _log("Flat: ", flat and flat[fname] or none)
   return bias, dark, flat
 end
 
@@ -307,11 +331,11 @@ function _M.update(self)
   row(0, 0)
   if dark then
     self: Label("current dark", Roptions, col(120, 20))
-    self: Label(dark[tag.Name], col(250, 20))
+    self: Label(dark[tag.Name], col(400, 20))
   end
   if flat then
     self: Label("current flat", Roptions, col(120, 20))
-    self: Label(flat[tag.Name], col(250, 20))
+    self: Label(flat[tag.Name], col(400, 20))
   end
   
  --[[ 
