@@ -12,7 +12,7 @@ local _M = {
 -- 2024.10.28  Version 0
 -- 2024.11.18  replace findPeaks() with findPeaksUsingShader()
 -- 2024.11.25  return only largest peak found in each column (thanks @Martin Meredith for test data)
--- 2024.11.26  add pixel margin to aoid finding peaks at the image edge
+-- 2024.11.26  add pixel margin to avoid finding peaks at the image edge
 
 -- 2025.01.28  add DoG (Difference of Gaussians)
 -- 2025.02.06  use workflow buffers rather than internal monochrome ones

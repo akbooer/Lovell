@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.11.30",
+    VERSION = "2025.12.13",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -12,7 +12,8 @@ local _M = {
 -- 2025.02.19  Version 0
 -- 2025.04.08  start adding image attributes from file data
 -- 2025.05.21  changed name to masters, deleted top-level module of that name, merged functionality
--- 2024.11.25  correct reading of master type field
+-- 2025.11.25  correct reading of master type field
+-- 2025.12.13  fold filename to lower case in new()
 
 
 local _log = require "logger" (_M)
@@ -201,7 +202,7 @@ function _M.search(frame)
     local delta = math.abs(epoch - date)    -- time difference between master and light
     if msize == size then 
       local typ = master[tag.Type]
-      _log("Filter, gain", mfilter, mgain)
+--      _log("Filter, gain", mfilter, mgain)
       if typ == "bias" and gain == mgain and expo == mexpo and delta < btime then
         bias, btime = master, delta
         _M.highlight[i] = true -- "flat"
@@ -284,7 +285,7 @@ end
 --
 
 function _M.new(file)
-  local pathname = file:getFilename()                 -- Beware!  on Windows, this comes with \ separators
+  local pathname = file:getFilename() :lower()                -- Beware!  on Windows, this comes with \ separators
   local filename = pathname: match "[^%/%\\]*master[^%/%\\]*%.fi?ts?"   -- matches fits, fit, and fts (also ft!)
   if not filename then
     _log "not a master calibration FITS file"

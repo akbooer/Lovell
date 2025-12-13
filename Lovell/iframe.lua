@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.11.26",
+  VERSION = "2025.12.02",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
@@ -31,7 +31,7 @@ local lf = require "love.filesystem"
 
 -- analyse file name for sub type and filter
 local scan_name do
-  local subtype = " dark bias flat dark light "
+  local subtype = " dark bias flat light "
   local filter  = " red green blue lum spec l ha oiii sii r g b h o s  "
   local FILTERMAP = {green='G', red='R', blue='B', ha='H', oiii='O', sii='S', lum='L'}
 
