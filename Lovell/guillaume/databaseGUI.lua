@@ -24,9 +24,12 @@ local lg = love.graphics
 local suit = require "suit"
 
 local obslist     = require "observinglist"
-local databases   = require "databases"
+--local databases   = require "databases"
 local spreadsheet = require "guillaume.spreadsheet"
 
+local observations =    require "databases.obsessions"
+local masters =    require "databases.masters"
+local telescopes =    require "databases.telescopes"
 
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
@@ -52,9 +55,9 @@ end
 local catalog = {   -- databases
   
     obslist,                  -- DSOs / observing list
-    databases.observations,   -- previous observations
-    databases.masters,        -- Masters
-    databases.telescopes,     -- Telescopes 
+    observations,   -- previous observations
+    masters,        -- Masters
+    telescopes,     -- Telescopes 
   }
 
 

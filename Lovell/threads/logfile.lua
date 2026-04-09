@@ -2,28 +2,24 @@
 --  logfile.lua
 --
 
---[[
-      NB: When a Thread is started, it only loads love.data, love.filesystem, and love.thread module. 
-      Every other module has to be loaded with require. 
-]]
-
 local _M = {
   NAME = ...,
-  VERSION = "2024.11.18",
+  VERSION = "2026.03.29",
   DESCRIPTION = "THREAD writes log files",
 }
 
 -- 2024.11.18  Version 0
 
-local _log = require "logger" (_M)
+-- 2026.03.29  tidy up
+
+local love = _G.love
 
 local logChannel = love.thread.getChannel "logChannel"
 
---  alternative using LÖVE filesystem, but can only write to SAVE directory
---
-  local logFile = love.filesystem.newFile "Lövell.log"
-  logFile: setBuffer "line"
-  logFile: open "w"
+local logFile = love.filesystem.newFile "Lövell.log"
+
+logFile: setBuffer "line"
+logFile: open "w"
   
 --------------------
 --
@@ -33,9 +29,8 @@ local logChannel = love.thread.getChannel "logChannel"
 repeat
   
   local textline = logChannel: demand()    -- wait for message
-  if textline == "EXIT" then 
-    break 
-  end
+  
+  if textline == "EXIT" then break end
   
   logFile: write(textline)
   logFile: write '\n'

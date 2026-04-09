@@ -20,7 +20,7 @@ local _log = require "logger" (_M)
 
 local session     = require "session"
 local controls    = session.controls
-local databases   = require "databases"
+local dsos        = require "databases.dso"
 local GUIobjects  = require "guillaume.objects"
 local utils       = require "utils"
 
@@ -70,8 +70,7 @@ function _M.update(self, screen)
   obj.previous = obj.previous or ''
   if obj.previous ~= obj.text then
     obj.previous = obj.text
-    local _ = databases.dsos.DB        -- ensure database is loaded
-    obj.OBJ, obj.RA, obj.DEC, obj.DIA = databases.dsos.search(obj.text)  
+    obj.OBJ, obj.RA, obj.DEC, obj.DIA = dsos.search(obj.text)  
   end
 
   local w, h = getDimensions(screen)

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.27",
+    VERSION = "2026.03.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry utilities",
   }
@@ -13,6 +13,8 @@ local _M = {
 
 -- 2025.01.28  separate workflow into its own module
 -- 2025.02.27  add extra format functions
+
+-- 2026.03.29  tidy up getDimensions()
 
 
 local _log = require "logger" (_M)
@@ -47,11 +49,7 @@ end
 
 -- get dimensions of screen or canvas
 function _M.getDimensions(screen)
-  if screen then 
-    return screen:getDimensions()
-  else
-    return lg.getDimensions()
-  end
+    return (screen or lg):getDimensions()
 end
 
 -- calculate vertical and horizontal ratios of image and screen dimensions

@@ -34,7 +34,7 @@ local obsessions  = require "databases.obsessions"
 local saveSession = obsessions.saveSession
 local loadSession = obsessions.loadSession
 
-local telescopes  = require "databases" .telescopes
+local telescopes  = require "databases.telescopes"
 
 local love = _G.love
 

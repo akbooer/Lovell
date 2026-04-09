@@ -2,13 +2,13 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.12.13",
+  VERSION = "2026.04.09",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
-  COPYRIGHT = "Copyright (c) 2024-2025 AK Booer",
+  COPYRIGHT = "Copyright (c) 2024-2026 AK Booer",
   LICENCE = [[  
   MIT License
 
-  Copyright (c) 2024-2025 AK Booer
+  Copyright (c) 2024-2026 AK Booer
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -125,7 +125,7 @@ end
 
 function love.load(arg)
   
-  if arg[#arg] == "-debug" then require "mobdebug" .start() end   -- enable debugging in ZeroBrane Studio
+--  if arg[#arg] == "-debug" then require "mobdebug" .start() end   -- enable debugging in ZeroBrane Studio
 
   io.stdout:setvbuf "line"   -- let print work immediately (for debugging, etc.)
   

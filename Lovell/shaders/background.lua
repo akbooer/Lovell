@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.28",
+    VERSION = "2026.03.31",
     DESCRIPTION = "background gradient estimation and removal",
   }
 
@@ -22,6 +22,8 @@ local _M = {
 -- 2025.05.05  rename calculate() to gradients() and add offset()
 -- 2025.05.19  fix nil return in offset()
 -- 2025.05.28  fix vec4 Offset, Xslope, Yslope in vertex shader
+
+-- 2026.03.31  make mini canvas rgba21f (was 16)
 
 
 local _log = require "logger" (_M)
@@ -105,7 +107,7 @@ end
 local minPoints = 10
 local Nsamples = 512
 
-local mini = lg.newCanvas(100, 100, {format = "rgba16f", dpiscale = 1})  -- tiny canvas to sample the much bigger image
+local mini = lg.newCanvas(100, 100, {format = "rgba32f", dpiscale = 1})  -- tiny canvas to sample the much bigger image
 
 --[[
      fitXYZ ( x_values, y_values, z_values )

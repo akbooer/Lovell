@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.30",
+  VERSION = "2026.04.07",
   AUTHOR = "AK Booer",
   DESCRIPTION = "star detection",
 }
@@ -19,6 +19,8 @@ local _M = {
 -- 2025.03.09  abandon DoG, use mean-relative threshold
 -- 2025.04.18  Issue #13, use FWHM-related metric to discriminate against hot pixels
 -- 2025.05.02  remove Texelstats and simplify finder shader
+
+-- 2026.04.07  replace star intensity with a proxy for flux (using adjacent pixels, may help matching)
 
 
 local _log = require "logger" (_M)
@@ -78,7 +80,10 @@ local matchPixels = lg.newShader [[
     bool near = abs(c - d) < eps;
     bool fwhm_ok = e + e < t;     // Issue #13, use FWHM-related metric to discriminate against hot pixels
     
-    float r = near && fwhm_ok ? e : 0.0;
+    // float r = near && fwhm_ok ? e : 0.0;             // star intensity...
+    
+    float r = near && fwhm_ok ? (t + e) / 5.0 : 0.0;   // ...prefer proxy for flux
+    
     return vec4(r,r,r, 1.0);
   }]]
 
@@ -171,7 +176,7 @@ local function findPeaksUsingShader(peaks, maxstar)
   return xyzn
 end
 
--- detects stars , returning array 'xyl' of {x, y, luminosity} tuples
+-- detects stars , returning array 'xyl' of {x, y, luminosity/flux} tuples
 -- note that this doesn't disrupt the workflow, 
 -- as it restores original workflow output before returning
 local function starfinder(workflow, span)
@@ -183,7 +188,8 @@ local function starfinder(workflow, span)
   local w,h = workflow: getDimensions()
 
   if w ~= oneD: getWidth() then
-    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
+--    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
+    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba16f"})      -- coordinates and intensity of peaks
   end
   
   lg.setBlendMode("replace", "premultiplied")

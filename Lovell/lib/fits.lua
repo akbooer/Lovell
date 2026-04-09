@@ -1,11 +1,9 @@
 --
 -- FITS reader
 
---jit.off(true, true)
-
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.15",
+    VERSION = "2026.01.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -21,6 +19,8 @@ local _M = {
 -- 2025.03.27  change check for full file read (for lua.io and love.filesystem library compatibility)
 -- 2025.04.08  add 32-bit handling
 -- 2025.05.15  add readImageInfo() for calibration files
+
+-- 2026.01.23  log invalid headers and abandon read (Issue #21)
 
 
 local _log = require "logger" (_M)
@@ -104,6 +104,7 @@ function _M.readHeaderUnit(file)
   local done
   local keywords = {}
   local headers = {}
+--  _log "reading header unit"
   -- there may be multiple blocks 
   repeat
     for _ = 1, 36 do
@@ -112,6 +113,8 @@ function _M.readHeaderUnit(file)
         headers[#headers+1] = record
 --        local name, equals, value, slash, comment = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)(/?)(.*)"
         local name, equals, value = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)"
+        
+        if not name then _log "INVALID HEADER" return end  -- invalid header
         
         done = name == "END"
         

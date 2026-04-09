@@ -440,6 +440,7 @@ function suit.new(theme)
   instance.Popup    = Popup
   instance.Dropdown = Dropdown
   instance.Table    = Table
+  instance.Hover    = Hover
   return instance
 end
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.03.10",
+    VERSION = "2026.03.30",
     AUTHOR = "AK Booer",
     DESCRIPTION = "hot pixel removal",
   }
@@ -25,6 +25,8 @@ local newTimer = require "utils" .newTimer
 
 -- 2025.01.29  integrate into workflow
 -- 2025.02.10  use given Bayer pattern to determine whether to use mono or RGB bad pixel 
+
+-- 2026.03.30  tidy up
 
 
 local love = _G.love
@@ -108,12 +110,7 @@ local function badPixelRemoval(workflow, bayerpat)
   local elapsed = newTimer()
 
   local hasBayer = (bayerpat or ''): match "[RGB][RGB][RGB][RGB]"
-  local shader, step
-  if hasBayer then
-    shader = rgb
-   else 
-    shader = mono
-  end
+  local shader = hasBayer and rgb or mono
   
   local w, h = input: getDimensions()
   shader: send("dx", {1 / w, 0})

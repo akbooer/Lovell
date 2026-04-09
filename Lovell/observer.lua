@@ -55,7 +55,7 @@ function _M.newSub(frame, controls)
  
   -------------------------------
   --
-  -- FIRST NEW FRAME in an observation sets up new STACK frame (RGB and and Luminance)
+  -- FIRST NEW FRAME in an observation sets up new STACK frame
   --
   
   workflow: prestack(frame)      -- PRESTACK processing
@@ -65,7 +65,7 @@ function _M.newSub(frame, controls)
     -- create/clear new multi-spectral and mono stacks
     workflow: save "stack_variance"
     workflow: clear ("stack_variance", 1e5,1e5,1e5,1e5)   -- start with huge variance
-    workflow: save "stack"
+    workflow: save ("stack", {format = "rgba32f", dpiscale = 1})
     workflow: clear "stack"
     workflow. RGBL = nil                      -- clear count of separate R,G,B,L subs and exposures
     

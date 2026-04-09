@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.11.21",
+    VERSION = "2026.04.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry statistical calculations in images using SHADERS",
   }
@@ -19,6 +19,8 @@ local _M = {
 -- 2025.05.02  add calc(), add RGBA stats
 -- 2025.11.21  remove errant ',' in normaliseTexel shader code (thanks @Cey42 on CloudyNights)
 
+-- 2026.04.09  use IMPLEMENTATION to chooose version of calculation
+
 
 local _log = require "logger" (_M)
 
@@ -30,7 +32,9 @@ local li = require "love.image"
 --
 local oneD  = lg.newCanvas(2,2)    -- just a dummy to start with
 local twoD  = lg.newCanvas(2,2)
- 
+
+local IMPLEMENTATION = "statsWithoutTexels" -- "statsWithoutTexels" or "statsUsingTexels"
+
 -------------------------------
 --
 -- STATISTICS
@@ -120,7 +124,7 @@ end
 
 
 -- returns min, max, mean, standard deviation of RGB in input image
-function _M.statsXXX(image, log_results)
+function _M.statsUsingTexels(image, log_results)
   local elapsed = newTimer()
   
   local red, green, blue
@@ -249,7 +253,7 @@ end
  
 
 -- returns min, max, mean, standard deviation of RGB in input image
-function _M.stats(image, log_results)
+function _M.statsWithoutTexels(image, log_results)
   local elapsed = newTimer()
   
   local red, green, blue, alpha
@@ -407,6 +411,10 @@ function _M.TEST(N)
   local s = _M.stats(itest)
   _log(pretty(s))
 end
+
+
+_M.stats = _M[IMPLEMENTATION]   -- select which implementation to use (defined near top of file)
+
 
 --_M.TEST()
 

@@ -123,9 +123,9 @@ local function mystats(self, ...)
 end
  
 -- stats()
-local function statsTexel(self, ...)
-  return stats.statsTexel(self.output, ...)
-end
+--local function statsTexel(self, ...)
+--  return stats.statsTexel(self.output, ...)
+--end
 
 -- dump an image to Lovell folder
 local function dump(self, name)

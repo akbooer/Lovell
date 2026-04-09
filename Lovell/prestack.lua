@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.25",
+    VERSION = "2026.03.29",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -18,6 +18,8 @@ local _M = {
 -- 2025.03.10  pass Bayer pattern (possibly overridden) to badpixel()
 -- 2025.05.05  move background offet subtraction to here from observer module
 -- 2025.05.25  don't remove background offset if image is already calbrated
+
+-- 2026.03.29  change canvas precision from rgba16f to rgba16
 
 
 local _log = require "logger" (_M)
@@ -50,7 +52,9 @@ local function prestack(workflow, frame)
   -- PRESTACK
   --
   
-  workflow: newInput(rawImage, {format = "rgba16f", dpiscale = 1})
+--  workflow: newInput(rawImage, {format = "rgba16f", dpiscale = 1})
+--  workflow: newInput(rawImage, {format = "rgba32f", dpiscale = 1})
+  workflow: newInput(rawImage, {format = "rgba16", dpiscale = 1})
   workflow: calibrate(frame)
   workflow: badpixel(bayerpat)            -- hot pixel removal is different if there's a Bayer matrix  
   workflow: debayer(bayerpat)             -- debayer or or replicate to R,G,B, and A channels
