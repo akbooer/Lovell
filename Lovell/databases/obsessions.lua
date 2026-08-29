@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.06.07",
+    VERSION = "2026.06.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -16,15 +16,19 @@ local _M = {
 -- 2025.05.23  added reducer parameter to observation
 -- 2025.06.07  add file names rejected from stack
 
+-- 2026.06.10  require controls module directly (rather than loadSession/saveSession parameter list
+
 
 local _log, _err = require "logger" (_M)
 
---local iframe = require "iframe"
-local json = require "lib.json"
+local controls = require "controls"
+local stacking = require "stacking"
+local telescopes = require "databases.telescopes"     -- for focal length info
+
+local json  = require "lib.json"
 local utils = require "utils"
 
 local newTimer = utils.newTimer
-local formatSeconds = utils.formatSeconds
 
 local love = _G.love
 local lf = love.filesystem
@@ -41,19 +45,18 @@ local Nsess = 0
 local tally = {}          -- {name = count, name2 = count2, ...},   used by observing list
 
 local observations = {
-      titles = {"Object", "Session", "Telescope", "Notes"} ,  -- , "Path"}
-      tally = tally, 
+--      titles = {"Object", "Session", "Telescope", "Notes"} ,  -- , "Path"}
     }
 
 
-_M.cols = {
-        {"Name",      w = 200, },
+local cols = {
+        {"Name",      w = 200, sort = utils.alphanumeric_sort, },   -- to get things like Messier 51 into correct order
         {"OT",        w =  40, },
         {"Con",       w =  50, },
         {"Session",   w =  90, align = "center", },
         {'Time',      w =  50, align = "center", },
         {"Frames",    w =  40, align = "center", type = "number", label = '#'},
-        {"Expo",      w =  70, align = "center", type = "number", format = formatSeconds, },
+        {"Expo",      w =  70, align = "center", type = "number", format = utils.formatSeconds, },
         {"Filts",     w =  60, },
         {"Size",      w = 100, align = "center", },
         {"Telescope", w = 200, },
@@ -61,16 +64,19 @@ _M.cols = {
         {"Path",      w = 300, },   -- not shown on screen
       }
       
-_M.col_index = {1, --[[2,3,]] 4,5,6,7, --[[8,]] 9, 10, 11}
+local col_index = {1, --[[2,3,]] 4,5,6,7, --[[8,]] 9, 10, 11}
+
+local widget = {cols = cols, col_index = col_index, tally = tally}    -- SUIT-able Table widget
+
 
 -------------------------
 --
--- LOADER
+-- LOADER - sessions and observations
 --
 
 function _M.load()
   
-  if #observations > 0 then return observations end
+  if widget.data then return widget end     -- data already loaded 
   
   local sess_path = "sessions/"
   local tally = tally
@@ -116,7 +122,8 @@ function _M.load()
   tally.n = Nobs
     
   _log(elapsed("%.3f ms, loaded %d observations from %d sessions", Nobs, Nsess))
-  return observations
+  widget = {cols = cols, col_index = col_index, tally = tally, data = observations}
+  return widget
 end
 
 
@@ -144,9 +151,11 @@ local function non_blank(text)
   return #text > 0 and text or nil
 end
 
+-- TODO: save Bayer setting if not AUTO
 
-function _M.saveSession(stack, controls)
+function _M.saveSession()
   
+  local stack = stacking: get()
   if not stack then return end
   
   local sesID, obsID, path = getInfo(stack)
@@ -181,9 +190,9 @@ function _M.saveSession(stack, controls)
   info = nil
 end
 
-
-function _M.loadSession(stack, controls)
+function _M.loadSession()
   
+  local stack = stacking: get()  
   if not stack then return end
 
   local sesID, obsID, path = getInfo(stack)
@@ -208,6 +217,7 @@ function _M.loadSession(stack, controls)
   end
   
   local scope = stack.telescope or thisObs.telescope or ''
+  local zoom = math.max(utils.calcScreenRatios(stack.image))     -- max size of full screen image
   
   controls.object.text    = stack.object or thisObs.object or ''
   controls.telescope.text = scope
@@ -219,6 +229,8 @@ function _M.loadSession(stack, controls)
   controls.flipLR.checked = thisObs.flipLR or false
   controls.rotate.value   = thisObs.rotate or 0
   controls.X, controls.Y = 0, 0
+  controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
+  controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
   
   local reject = {}
   for _, name in ipairs(thisObs.reject or empty) do
@@ -234,20 +246,22 @@ end
 -- UPDATE GUI
 --
 
+local DOUBLE    -- double click
 local Loptions = {align = "left"}
 
 function _M.update(self)
-local layout = self.layout
-  local ridx = _M.row_index 
-  local sel = _M.highlight or {}
-  _M.highlight = sel
-  local current = (_M.DB[ridx[sel.anchor]] or {})    -- currently selected observation
+  local layout = self.layout
+  local ridx = widget.row_index 
+  local sel = widget.highlight or {}
+  widget.highlight = sel
+  local current = (ridx and widget.data[ridx[sel.anchor]] or empty)    -- currently selected observation
   local name, folder = current[1] or '', current[12] or ''
   
   layout: reset(550,20, 10,10)
-  if self: Button("Load Observation", layout: col(150, 30)) .hit then
+  if self: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
     reloadFolder: push(current)       -- send the whole metadata
     pager: push "main"                -- switch to main display
+    DOUBLE = false
   end
   
   local h = love.graphics.getHeight()
@@ -255,6 +269,17 @@ local layout = self.layout
   self: Label(folder, Loptions, 20, h - 40, 550, 30)
 
 end
+
+
+-------------------------------
+--
+-- MOUSE
+--
+
+function _M.mousereleased(_,_,_,_, presses) -- x, y, button, istouch, presses )
+  DOUBLE = presses == 2
+end
+
 
 return _M
 

@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.15",
+    VERSION = "2026.06.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "DSO table and observing list manager",
 
@@ -17,19 +17,27 @@ local _log = require "logger" (_M)
 
 -- 2025.02.15  translated directly from Jocular's observinglist.py
 
+-- 2026.05.25  change time slider format to hh:mm
+-- 2026.06.10  allow right-click to reset time offset slider
+
 -- Handles DSO table and observing list management, including alt-az/transit computations.
 
 local dsos  = require "databases.dso"
-local obs   = require "databases.obsessions"
+local obsess   = require "databases.obsessions"
 
-local session = require "session"
-local util    = require "utils"
-local json    = require "lib.json"
+local controls = require "controls"
+
+local utils  = require "utils"
+local json  = require "lib.json"
 
 local newTimer = require "utils" .newTimer
 local calcs     = require "lib.calcs"
 local local_sidereal_time = calcs.local_sidereal_time
 local utc_offset = calcs.utc_offset
+
+local filter = require "guillaume.spreadsheet" .filter    -- for special RA filter
+
+local rightClick = require "guillaume.suitable" .rightClick   -- for resetting time offset slider
 
 local love = _G.love
 local lt = love.timer
@@ -45,19 +53,18 @@ local math = math
 local int  = math.floor
 local rads = math.pi / 180
 
-local np = math
+local np = math                     -- for source compatibility with Python
       np.arcsin = math.asin
       np.arctan2 = math.atan2
 
-local controls = session.controls
 local settings = controls.settings
 
 local Loptions = {align = "left"}
 
-local formatHM          = util.formatHM
-local formatRA          = util.formatRA
-local formatDEC         = util.formatDEC
-local formatArcMinutes  = util.formatArcMinutes
+local formatHM          = utils.formatHM
+local formatRA          = utils.formatRA
+local formatDEC         = utils.formatDEC
+local formatArcMinutes  = utils.formatArcMinutes
 
 local formatMag = function(x) return x == 0 and '' or x end
 
@@ -72,21 +79,69 @@ _M.local_sidereal_time = 0
 _M.sun_altitude = sun_altitude    -- function()
 
 local REFRESH = 5   -- 5 second update interval for Alt/Az/Loc
+local last_time_changed
+
+local alt_az_quad       -- forward reference
+
+local function formatAltAzQuad(v, r)
+  alt_az_quad(_M.objects[r])          -- update the three columns on this row
+  return v                            -- return this one
+end
+
+-- stored in degrees, but formatted in HH:MM for display, so scale inequality test accordingly
+local function filterRA(x, inequality, reference)  -- scale, HH to DEG
+  reference = 15 * (reference or 0)
+  return filter.number(x, inequality, reference)
+end
+
+-------------------------
+--
+-- DATA
+--
+ 
+local cols = {  -- reflects the actual order of the source database
+        {"Name", w = 210, sort = utils.alphanumeric_sort, },   -- to get things like Messier 51 into correct order
+        {"RA",   w = 75, format = formatRA, align = "right",  type = "number", filter = filterRA},  -- scale, HH to DEG
+        {"DEC",  w = 85, format = formatDEC, align = "right", type = "number", },
+        {"Con",  w = 40, },
+        {"OT ",  w = 40, },
+        {"Mag",  w = 50, format = formatMag, type = "number", align = "center", },
+        {"Diam", w = 50, format = formatArcMinutes, type = "number", align = "center", },
+        {"Other",w = 240, },
+        
+        -- the following columns computed dynamically in update()
+        {"Loc",     w = 40, align = "center", format = formatAltAzQuad, },
+        {"Az",      w = 40, align = "right",  type = "number", },
+        {"Alt",     w = 40, align = "right",  type = "number", },
+        
+        -- these values are static and computed once after loading
+        {"Max",     w = 40, align = "center", label = "Max"},    -- max altitude
+        {"Transit", w = 60, align = "center", format = formatHM, type = "number"},
+        
+        -- the following added from the observing watch list
+        {"#Obs", w = 50, align = "center", type = "number", },
+        {"List", w = 55, },
+        }
+
+local col_index = {1,5,4,2,3, 9,10,11, 12,13, 6,7, 14,15, 8}    -- displayed order of columns
+
 
 local Name, Obs, Added = 1, 14, 15
 local RA, Dec = 2, 3
 local Quadrant, Az, Alt = 9, 10 ,11
 
+local widget = {cols = cols, col_index = col_index, data = {}}    -- SUIT-able Table widget
+
 local function select_all()
-  local ridx = _M.row_index 
-  local sel = _M.highlight or {}
+  local ridx = widget.row_index 
+  local sel = widget.highlight or {}
   for i = 1, ridx.n do sel[ridx[i]] = true end
   sel.anchor = 1
 end
 
 local function deselect_all()
-  local sel = _M.highlight or {}
-  for i = 1, #_M.DB do sel[i] = nil end
+  local sel = widget.highlight or {}
+  for i = 1, #widget.data do sel[i] = nil end
   sel.anchor = 1
 end
 
@@ -123,8 +178,8 @@ local function update_list()
 end
 
 local function add_to_observing_list()
-  local sel = _M.highlight
-  local data = _M.DB
+  local sel = widget.highlight
+  local data = widget.data
   local date = os.date "%d %b"  -- day month
   local n = 0
   for i in pairs(sel) do
@@ -140,8 +195,8 @@ local function add_to_observing_list()
 end
 
 local function remove_from_observing_list()
-  local sel = _M.highlight
-  local data = _M.DB
+  local sel = widget.highlight
+  local data = widget.data
   local n = 0
   for i in pairs(sel) do
     local object = data[i]
@@ -214,7 +269,7 @@ local function quadrant(x)
 end
 
 -- update Alt, Az, Loc for a single object
-local function alt_az_quad(v)
+function alt_az_quad(v)
     local ra, dec = v[RA], v[Dec] * rads
     local sinlat, coslat = _M.sinlat, _M.coslat
     
@@ -229,22 +284,17 @@ local function alt_az_quad(v)
     v[Quadrant] = math.isnan(az) and '' or quadrant(az)
 end
 
-local function formatAltAzQuad(v, r)
-  alt_az_quad(_M.objects[r])       -- update the three columns on this row
-  return v                         -- return this one
-end
-
 -- periodic update (every REFRESH seconds) of object locations
 local function compute_altaz()
-  _M.filter = false
+  widget.filter = false         -- don't force a new filtering pass
   local t = lt.getTime()
-  if _M.last_time_changed then
-    if t - _M.last_time_changed < REFRESH then
+  if  last_time_changed then
+    if t -  last_time_changed < REFRESH then
       return
     end
   end
-  _M.last_time_changed = t
-  _M.filter = true        -- force re-application of all filters
+   last_time_changed = t
+  widget.filter = true          -- force re-application of all filters
   
   local objs = _M.objects
   for i = 1, #objs do
@@ -266,6 +316,7 @@ local function compute_transits()
   gst_0 = local_sidereal_time(datetime, 0)
     
   local objs = _M.objects
+  local lat, long = _M.latitude, _M.longitude
   for i = 1, #objs do
     local v = objs[i]
     local ra, dec
@@ -273,13 +324,13 @@ local function compute_transits()
     dec = v[Dec]
 
     local max_alt
-    max_alt = 90 - _M.latitude + dec
+    max_alt = 90 - lat + dec
     max_alt = max_alt > 90 and 180 - max_alt or max_alt
 
     -- transit time: slight diff from Meeus since longitude negative from W here
     local transiting, m0
-    transiting = np.abs(dec) < (90 - _M.latitude)
-    m0 = (ra - _M.longitude - gst_0 + utc_offset  * 15) / 15
+    transiting = np.abs(dec) < (90 - lat)
+    m0 = (ra - long - gst_0 + utc_offset  * 15) / 15
     m0 = m0 % 24
 
     -- 10 ms or so
@@ -295,11 +346,13 @@ end
 --
 
 function _M.load()
-  local db = dsos.load()       -- get the basic DSOs
-  _M.DB = db 
-  _M.objects = db
+  
+  if #widget.data > 0 then return widget end     -- only load data once
+  
+  local data = dsos.load()       -- get the basic DSOs
+  _M.objects = data     -- TODO: WHO USES _M.objects?
 
-  -- initialise Lat and Long
+  -- initialise Lat and Long NOTE: that these don't get update during a session if changed on settings page
   _M.longitude = tonumber(settings.longitude.text) or 0
   _M.latitude  = tonumber(settings.latitude.text) or 51.5      -- defaults are approximation to Greenwich
         
@@ -323,14 +376,14 @@ function _M.load()
 
   -- load previous observations if necc and count previous
       
-  local obs = obs.load()
-  local previous = obs.tally
+  local prevobs = obsess.load()
+  local previous = prevobs.tally
   _log ("%d unique previous observations found" % previous.n)
 
 
   -- augment/combine DSO info
-  for i = 1, #db do
-    local v = db[i]
+  for i = 1, #data do
+    local v = data[i]
     local name = v[Name]
     v[Obs] = previous[name]
     v[Added] = observing_list[name] or ''
@@ -344,7 +397,8 @@ function _M.load()
   _log(elapsed "%0.3f ms, ALT / AZ calculations")
   compute_transits()
   
-  return db
+  widget = {cols = cols, col_index = col_index, data = data}
+  return widget
 end
 
 
@@ -353,42 +407,17 @@ end
 -- UPDATE GUI
 --
 
-_M.cols = {  -- reflects the actual order of the source database
-        {"Name", w = 210, },
-        {"RA",   w = 75, format = formatRA, align = "right",  scale = 15, type = "number", },  -- scale, HH to DEG
-        {"DEC",  w = 85, format = formatDEC, align = "right", type = "number", },
-        {"Con",  w = 40, },
-        {"OT ",  w = 40, },
-        {"Mag",  w = 50, format = formatMag, type = "number", align = "center", },
-        {"Diam", w = 50, format = formatArcMinutes, type = "number", align = "center", },
-        {"Other",w = 240, },
-        
-        -- the following columns computed dynamically in update()
-        {"Loc",     w = 40, align = "center", format = formatAltAzQuad, },
-        {"Az",      w = 40, align = "right",  type = "number", },
-        {"Alt",     w = 40, align = "right",  type = "number", },
-        
-        -- these values are static and computed once after loading
-        {"Max",     w = 40, align = "center", label = "Max"},    -- max altitude
-        {"Transit", w = 60, align = "center", format = formatHM, type = "number"},
-        
-        -- the following added from the observing watch list
-        {"#Obs", w = 50, align = "center", type = "number", },
-        {"List", w = 55, },
-        }
-
-_M.col_index = {1,5,4,2,3, 9,10,11, 12,13, 6,7, 14,15, 8}    -- displayed order of columns
-
-
 function _M: update()
+  
+  if #widget.data == 0 then return end
   
   local layout = self.layout
   local function row(...) return layout: row(...) end
   local function col(...) return layout: col(...) end
    
-  local ridx = _M.row_index 
-  local sel = _M.highlight or {}
-  _M.highlight = sel
+  local ridx = widget.row_index 
+  local sel = widget.highlight or {}
+  widget.highlight = sel
 
   compute_altaz(_M)    
 
@@ -427,18 +456,24 @@ function _M: update()
   -- user moves time slider
   local time_slider = self: Slider(sun_time, x,y+10, w,14) 
   local t = lt.getTime()
+  
+  if rightClick(time_slider) then  
+    sun_time.value = 0
+  end
+  
   if time_slider.hovered then
-    self: Label(math.floor(hour_offset), Loptions, x - 5 + w * hour_offset /24, y - 13, h)
-    _M.last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
+    self: Label('+' .. utils.formatHM(hour_offset), Loptions, x - 17 + w * hour_offset /24, y - 15, 50, h)
+     last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
+  
   end
   if time_slider.hit then
-    _M.last_time_changed = 0  -- update immediately
+     last_time_changed = 0  -- update immediately
   end
   
   local current = controls.object
   layout: reset(550,20, 10,10)     -- go back to top and insert button to set current object
   if self: Button("Set Current Object", col(150, 30)) .hit then
-    current.text = (_M.DB[ridx[sel.anchor]] or {})[1] or ''
+    current.text = (widget.data[widget.row_index[sel.anchor]] or {})[1] or ''
   end
   self: Label(current.text, Loptions, col(250, 30))
 

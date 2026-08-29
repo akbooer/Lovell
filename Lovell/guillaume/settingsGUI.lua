@@ -5,8 +5,8 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.06.15"
-  _M.DESCRIPTION = "settings GUI, session and observation info"
+  _M.VERSION = "2026.08.26"
+  _M.DESCRIPTION = "GUI - settings, session and observation info"
 
 -- 2024.11.28  Version 0
 -- 2024.12.18  add button to show FITS headers
@@ -19,28 +19,31 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.05.31  show _G.VERSION
 -- 2025.06.15  tidy up formatting with pre-computed layouts
 
+-- 2026.06.05  use database page for viewing FITS headers
+-- 2026.08.26  add button to go to plugins page
+
 
 local _log = require "logger" (_M)
 
 
 local suit = require "suit" .new()
 
-local session   = require "session"
+local controls  = require "controls"
 
 local love = _G.love
 local lg = love.graphics
-local lf = love.filesystem
 
-local controls = session.controls
 local settings = controls.settings
 
 local ses = controls.ses_notes
 local obs = controls.obs_notes
 
-local stack_default = {selected = 1, unpack(controls.stackOptions)}
-local showSliderValues, retainControls = {}, {}
+local stack_default = {selected = 1, id = "Default: ", unpack(controls.stackOptions)}   -- clone actual stack options menu items
+local retainControls = {}
 local Lalign = {align = "left"}
- 
+
+local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
+
 -------------------------
 --
 -- UTILITIES
@@ -54,7 +57,7 @@ local function widget(info, ...)
   if type(info) == "string" then 
     sw = suit.Label
   elseif info.selected then
-    sw = suit.Dropdown
+    sw = suit.Choosable
   elseif info.cursor then
     sw = suit.Input
   else
@@ -86,30 +89,26 @@ local coords = {}
 local ditto = _G.READONLY {}
 
   
-coords.stickies1 = layout: cols {pos = {120, 70}, padding = {20, 0}, {200, 20}, ditto, ditto}
-coords.stickies2 = layout: cols {pos = {120, 95}, padding = {20, 0}, {150, 30}, {80}, {200, 20}, ditto}
+coords.stickies1 = layout: cols {pos = {120, 70}, padding = {20, 0}, {200, 20}, ditto}
+coords.stickies2 = layout: cols {pos = {120, 95}, padding = {20, 0}, {150, 30}, {80}, {200, 20}}
 
 local function stickies()  
  
   stack_default.selected = settings.stacking or 1
-  showSliderValues.checked = settings.showSliderValues
   retainControls.checked = settings.retainControls
   
   widgets {
     coords = coords.stickies1,
     {"default stacking mode", Lalign},
-    {"show slider values", Lalign},
     {"retain controls", Lalign}}
   
   widgets {
     coords = coords.stickies2,
     {stack_default},
     {''},
-    {showSliderValues},
     {retainControls}}
   
   settings.stacking = stack_default.selected
-  settings.showSliderValues = showSliderValues.checked or nil
   settings.retainControls = retainControls.checked or nil
 end
 
@@ -196,25 +195,13 @@ local function buttons()
     local url = "file://%s/masters"
     _log "open Masters folder"
     love.system.openURL(url % love.filesystem.getSaveDirectory())
-  end  
-  
-  if suit:Button("open FITS header", col()) .hit then
-    local filename = "FITS headers.txt"
-    lf.remove(filename)             -- remove the old one
-    local file = lf.newFile(filename, 'w')
-    local stack = session.stack()
-    if stack then
-      for _, header in ipairs(stack.headers) do
-        file: write(header)
-        file: write '\n'
-      end
-      file: close()
-      local url = "file://%s/".. filename
-      _log "open FITS header"
-      love.system.openURL(url % love.filesystem.getSaveDirectory())
-    end
   end
   
+  if suit:Button("configure plugins", col()) .hit then
+    pager: push "process"
+  end  
+  
+-- future functionality for web-based DSO info
 --  if suit:Button("browser", col()) .hit then
 --    local url = "http://google.com"
 --    _log "open browser"

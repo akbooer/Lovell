@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.03.30",
+    VERSION = "2026.07.04",
     AUTHOR = "AK Booer",
     DESCRIPTION = "hot pixel removal",
   }
@@ -18,7 +18,6 @@ local _M = {
 
 local _log = require "logger" (_M)
 
-local newTimer = require "utils" .newTimer
 
 -- 2024.10.17  Version 0, @akbooer
 -- 2024.12.23  use controls.workflow.badratio.value, add mono shader
@@ -27,6 +26,7 @@ local newTimer = require "utils" .newTimer
 -- 2025.02.10  use given Bayer pattern to determine whether to use mono or RGB bad pixel 
 
 -- 2026.03.30  tidy up
+-- 2026.07.04  use texelSize in shader
 
 
 local love = _G.love
@@ -41,10 +41,15 @@ local lg = love.graphics
 --   Kernel:  {{1,2,1},{2,4,2}, [1,2,1}} / 16
 
 local mono = lg.newShader [[
-  uniform float ratio;
-  uniform vec2 dx, dy;
+  #pragma language glsl3
   
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
+  uniform float ratio;
+  
+  vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
+    vec2 texelSize = 1.0 / vec2(textureSize(tex, 0));     // 0 is mipmap level
+      
+      vec2 dx = vec2(texelSize.x, 0.0);
+      vec2 dy = vec2(0.0, texelSize.y);
   
       vec2 y;
       float c;                  // central pixel value
@@ -55,19 +60,19 @@ local mono = lg.newShader [[
       float r = ratio / 2;
       
       y = tc;
-      p = Texel(texture, tc) .r;        g = 4.0 * p; a = 0.0; c = p;
-      p = Texel(texture, y + dx) .r;    g += p + p ; a += p;
-      p = Texel(texture, y - dx) .r;    g += p + p ; a += p;
+      p = Texel(tex, tc) .r;        g = 4.0 * p; a = 0.0; c = p;
+      p = Texel(tex, y + dx) .r;    g += p + p ; a += p;
+      p = Texel(tex, y - dx) .r;    g += p + p ; a += p;
       
       y = tc + dy;
-      p = Texel(texture, y     ) .r;    g += p + p ; a += p;
-      p = Texel(texture, y + dx) .r;    g += p ;     a += p;
-      p = Texel(texture, y - dx) .r;    g += p ;     a += p;
+      p = Texel(tex, y     ) .r;    g += p + p ; a += p;
+      p = Texel(tex, y + dx) .r;    g += p ;     a += p;
+      p = Texel(tex, y - dx) .r;    g += p ;     a += p;
       
       y = tc - dy;
-      p = Texel(texture, y     ) .r;    g += p + p ; a += p;
-      p = Texel(texture, y + dx) .r;    g += p ;     a += p;
-      p = Texel(texture, y - dx) .r;    g += p ;     a += p;
+      p = Texel(tex, y     ) .r;    g += p + p ; a += p;
+      p = Texel(tex, y + dx) .r;    g += p ;     a += p;
+      p = Texel(tex, y - dx) .r;    g += p ;     a += p;
       
       g = g / 16.0;         // filtered pixels
       a = a / 8.0;          // average value
@@ -83,20 +88,22 @@ local mono = lg.newShader [[
 --
 
 local rgb = lg.newShader [[
-  uniform float ratio;
-  uniform vec2 dx, dy;
+  #pragma language glsl3
   
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
+  uniform float ratio;
+  
+  vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
+      vec2 texelSize = 2.0 / vec2(textureSize(tex, 0));    // step over two pixels (Bayer pattern repeat)
       
-      vec2 Dx = dx + dx;
-      vec2 Dy = dy + dy;
+      vec2 Dx = vec2(texelSize.x, 0.0);
+      vec2 Dy = vec2(0.0, texelSize.y);
       
-      float c = Texel(texture, tc) .r;
+      float c = Texel(tex, tc) .r;
       float d = 0.0;
-      d += Texel(texture, tc + Dx) .r;
-      d += Texel(texture, tc - Dx) .r;
-      d += Texel(texture, tc + Dy) .r;
-      d += Texel(texture, tc - Dy) .r;
+      d += Texel(tex, tc + Dx) .r;
+      d += Texel(tex, tc - Dx) .r;
+      d += Texel(tex, tc + Dy) .r;
+      d += Texel(tex, tc - Dy) .r;
       d = d / 4.0;
       
       return vec4(c > ratio * d ? d : c, 0.0, 0.0, 1.0);
@@ -104,30 +111,15 @@ local rgb = lg.newShader [[
 ]]
 
 
-local function badPixelRemoval(workflow, bayerpat)
-  local input, output = workflow()
-  local controls = workflow.controls
-  local elapsed = newTimer()
+local function badPixelRemoval(workflow, bayerpat, ratio)
 
   local hasBayer = (bayerpat or ''): match "[RGB][RGB][RGB][RGB]"
-  local shader = hasBayer and rgb or mono
   
-  local w, h = input: getDimensions()
-  shader: send("dx", {1 / w, 0})
-  shader: send("dy", {0, 1 / h})
-  
-  local wk = controls.workflow
-  local ratio = wk.badpixel.checked and wk.badratio.value or 1e6   -- turn it on/off
-  shader: send("ratio", ratio);
-  
-  lg.setShader(shader) 
-  output:renderTo(lg.draw, input)
-  lg.setShader()
+  workflow: shadeWith(hasBayer and rgb or mono, {ratio =  ratio});
       
-  _log(elapsed ("%.3f ms, hot pixel removal [%s]", hasBayer and bayerpat or "MONO"))
+  _log("hot pixel removal [%s]"  % (hasBayer and bayerpat or "MONO"))
   
 end
-
 
 
 return badPixelRemoval

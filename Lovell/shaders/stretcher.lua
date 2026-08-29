@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.11",
+    VERSION = "2026.07.04",
     AUTHOR = "Martin Meredith / AK Booer",
     DESCRIPTION = "stretches of various sorts on final stack",
   }
@@ -17,18 +17,24 @@ local _log = require "logger" (_M)
 -- 2025.01.29  integrate into workflow chain
 -- 2025.05.11  add bw_points() adjustment (separated from stretch)
 
+-- 2026.04.14  add midtone() and black/white parameters to stretch()
+-- 2026.07.04  use workflow:shadeWith()
+
+
+local vector = require "lib.vector"
 
 local love = _G.love
 local lg = require "love.graphics"
 
 
-_M.gammaOptions = {"Linear", "Log", "Gamma", "ModGamma", "Asinh", "Hyper", selected = 5}
+_M.gammaOptions = {"MidTone", "Asinh", "Hyper", "Gamma", "ModGamma", "Log", "Linear", 
+                      id = "Stretch: ", selected = 1, default = 1}
 
 
 -------------------------
 
 local asinh = love.graphics.newShader[[
-    uniform float black, white, c;
+    uniform float c;
     
   // arsinh(x) = ln(x + sqrt(x^2 + 1))     
   #define ARSINH(type)  type arsinh (type x) {return log(x + sqrt(x*x + 1.0));}
@@ -40,8 +46,7 @@ local asinh = love.graphics.newShader[[
     const vec3 zero = vec3(0.0, 0.0, 0.0);
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords);
-      vec3 x = (pixel.rgb - black) * white ;
+      vec3 x = Texel(texture, texture_coords) .rgb;
       vec3 y = arsinh(x * c) / arsinh(c + eps);
       return vec4(clamp(y, 0.0, 1.0) , 1.0);
     }
@@ -59,17 +64,13 @@ end
 -------------------------
 
 local modgamma = lg.newShader [[
-    uniform float black, white;
     uniform float a0, g, s, d;
     
     #define gamma(x) x >= a0 ? (1 + d) * pow(x, g) - d : x * s
     
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
-    
+      vec3 x = Texel(texture, texture_coords) .rgb;    
      return vec4(gamma(x.r), gamma(x.g), gamma(x.b), 1.0);
-      
     }
   ]]
 
@@ -94,13 +95,43 @@ end
 
 -------------------------
 
+local midtone = lg.newShader [[
+    uniform vec3 m;
+
+    const float eps = 1.0e-10;
+  
+    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
+      vec3 x = Texel(texture, texture_coords ) .rgb;
+      vec3 mtf = (m - 1.0) * x / ((2.0 * m - 1.0) * x - m);
+      return vec4(mtf, 1.0);      
+    }
+  ]]
+
+--[[
+  Mn = normalised median = median - bp
+  B  = target background brightness (say 0.25)
+  m  = Mn (B - 1) / ( (2B - 1) Mn - B )
+--]]
+
+function _M.midtone(c, MEDIAN)
+  local Mn = MEDIAN or 0.01
+  local shader = midtone
+  local B = 0.12   -- target median
+  local m = ( Mn * (B - 1) ) / ( Mn * (2 * B - 1) - B)
+  m = type(m) ~= "table" and vector{m,m,m,m} or m
+  shader: send("m", m / c)
+  return shader
+end
+
+
+-------------------------
+
 local gamma = lg.newShader [[
-    uniform float black, white;
+  
     uniform vec3 c;
 
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec3 x = Texel(tex, tc) .rgb;
       return vec4(pow(x, c), 1.0);      
     }
   ]]
@@ -116,13 +147,11 @@ end
 -------------------------
 
 local log = lg.newShader [[
-    uniform float black, white;
     uniform float c;
 
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
-      return vec4(log(c*x + 1) / log(c + 1), 1.0);      
+      vec3 x = Texel(texture, texture_coords) .rgb;
+      return vec4(log(c*x + 1.0) / log(c + 1.0), 1.0);      
     }
   ]]
 
@@ -137,20 +166,18 @@ end
 -------------------------
 
 local hyper = lg.newShader [[
-    uniform float black, white;
     uniform float c;
         
     vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords );
-      vec3 x = clamp((pixel.rgb - black) * white, 0.0, 1.0);
+      vec3 x = Texel(texture, texture_coords) .rgb;
       return vec4(clamp((1 + c) * (x / (x + c)), 0.0, 1.0), 1.0);      
     }
   ]]
 
 function _M.hyper(stretch)
   local d = 0.02
-  local c = d * (1 + d - stretch)
-  c = c > 0 and c or 0
+  local c = d * (1 + d - stretch*0.7)
+  c = math.max(c, 0)
   local shader = hyper
   shader: send("c",  c)
   return shader
@@ -159,39 +186,36 @@ end
 
 -------------------------
 
-function _M.linear()
-  local shader = gamma      -- use gamma shader
-  shader: send("c", {1, 1, 1})
+local linear = lg.newShader [[
+    uniform vec3 c;
+
+    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
+      vec3 x = Texel(texture, tc) .rgb;
+      return vec4(x * c, 1.0);      
+    }
+  ]]
+
+function _M.linear(c)
+  local shader = linear
+  shader: send("c", {c, c, c})    -- stretch just controls brightness
   return shader
 end
 
 
 -------------------------
 --
--- apply scale inputs to stretches with black/white points
+-- STRETCH
 --
 
-function _M.stretch(workflow, selected, stretch)
-  local input, output = workflow()
+function _M.stretch(workflow, selected, stretch, MEDIAN)
   local controls = workflow.controls
   
   local opt = _M.gammaOptions
-  selected = (selected or opt[opt.selected]): lower()
+  selected = selected: lower()
   local setup = _M[selected]
+  local shader = setup (stretch, MEDIAN) 
 
-  local black = 0.01 * (0.5 - controls.background.value)
-  local white = 1 - controls.brightness.value
---  local black = 0
---  local white = 1 
-  stretch = stretch or controls.stretch.value
-    
-  local shader = setup (stretch) 
-  shader: send("black", black)
-  shader: send("white", math.min(50, 1 / (3 * white + 1e-3)))
-
-  lg.setShader(shader) 
-  output:renderTo(lg.draw, input)
-  lg.setShader()
+  workflow: shadeWith(shader)
   
   return output
 end
@@ -201,30 +225,24 @@ end
 -- adjustment of black/white points
 --
 
-
 local bw_points = lg.newShader [[
-    uniform float black, white;
+    uniform vec3 black, white;
         
     vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
       vec3 pixel = Texel(texture, tc) .rgb;
-      return vec4(clamp((pixel - black) * white, 0.0, 1.0), 1.0);
+    return vec4(clamp((pixel - black) / max(white - black, 1.0e-5), 0.0, 1.0), 1.0) ;
     }
   ]]
 
 
-function _M.bw_points(workflow)
-  local input, output = workflow()
-  local controls = workflow.controls
-
-  local black = 0.01 * (0.5 - controls.background.value)
-  local white = 1 - controls.brightness.value
-    
-  bw_points: send("black", black)
-  bw_points: send("white", math.min(50, 1 / (3 * white + 5e-4)))
-
-  lg.setShader(bw_points) 
-  output:renderTo(lg.draw, input)
-  lg.setShader()
+function _M.bw_points(workflow, black, white)
+  lg.setBlendMode("replace", "premultiplied")
+  black = type(black) == "table" and black or {black, black, black}
+  white = type(white) == "table" and white or {white, white, white}
+  workflow: shadeWith(bw_points, {
+              black = black,
+              white = white})
+  lg.reset()
 end
 
 

@@ -4,20 +4,23 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.04",
+    VERSION = "2026.07.31",
     AUTHOR = "Morgan McGuire / Rasmus Raag / AK Booer",
     DESCRIPTION = "Malvar-He-Cutler Bayer demosaic",
   }
 
 local _log = require "logger" (_M)
 
-local newTimer = require "utils" .newTimer
 
 -- 2024.09.25  @akbooer
 -- 2024.11.11  fix issue with unknown Bayer patterns
 
 -- 2025.01.29  integrate into workflow
 -- 2025.05.04  put non-debayered image into all RGBA channels
+
+-- 2026.06.30  put BayerOptions here, and export
+-- 2026.07.04  use workflow: shadeWith() 
+-- 2026.07.31  swap BGGR / GBRG !
 
 
 -- see: https://casual-effects.com/research/McGuire2009Bayer/
@@ -221,43 +224,40 @@ local nodebayer = lg.newShader [[
 
 vec4 effect( vec4 color, Image source, vec2 tp, vec2 _ ){
     float pixel = Texel(source, tp).r;   // input is from monochrome source
-    return vec4(pixel);
+    return vec4(pixel);                 // yes, all four channels, because A is used for luminance filters
 }
 
 ]]
 
+_M.BayerOptions = {"Auto", "RGGB", "GRBG", "BGGR", "GBRG", id = "Bayer pattern: ", width = 50}
+
 local pattern = {
     RGGB = {0, 0},
     GRBG = {1, 0},
-    BGGR = {0, 1},
-    GBRG = {1, 1},
+    GBRG = {0, 1},
+    BGGR = {1, 1},
   }
 
--- either debayer, or replicate to R,G, and B channels
-local function demosaic(workflow, bayer)
-  local input, output = workflow()
-  
-  local shader
-  local elapsed = newTimer()
+-- either debayer, or replicate to R,G,B and A channels
+
+function _M.demosaic(workflow, bayer)
   local bayerPattern = pattern[bayer]
+  lg.setBlendMode("replace", "premultiplied")
   
   if bayerPattern then
-    local w, h = input: getDimensions()
-    shader = debayer
-    shader: send("firstRed", bayerPattern)
-    shader: send("sourceSize", {w, h, 1.0/w, 1.0/h})
+    local w, h = workflow: getDimensions()
+    workflow: shadeWith(debayer, {
+                firstRed = bayerPattern,
+                sourceSize = {w, h, 1.0/w, 1.0/h}})
   else
-    shader = nodebayer
+    workflow: shadeWith(nodebayer)
   end
-  
-  lg.setShader(shader) 
-  lg.setBlendMode("replace", "premultiplied")
-  output: renderTo(lg.draw, input)
-  lg.reset()
+ 
+ lg.reset()
 
-  _log(elapsed("%.3f ms, %s", bayerPattern and bayer .. " demosaic" or "no Bayer pattern"))
+  _log(bayerPattern and (bayer .. " demosaic") or "no Bayer pattern")
 end
 
-return demosaic
+return _M
 
 -----

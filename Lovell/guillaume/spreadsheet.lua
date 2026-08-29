@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.19",
+    VERSION = "2026.06.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
 
@@ -14,6 +14,8 @@ local _M = {
 -- 2025.02.11  move sorters and filters into here
 -- 2025.03.19  set scroll to top when clearing sorting and filters
 -- 2025.05.18  change Table widget parameters to align with those of spreadsheet
+
+-- 2026.06.09  refactor sorting and filtering, allowing user-defined function for any column
 
 
 local _log = require "logger" (_M)
@@ -64,7 +66,7 @@ end
 local function reset_sort_index(cat) 
   local sidx = cat.sort_index or {}
   cat.sort_index = sidx
-  local data = cat.DB 
+  local data = cat.data 
   for i = 1, #data do
     sidx[i] = i         -- original ordering
   end
@@ -79,93 +81,70 @@ end
 --
 
 local sorter = {
-
-  text = function(dir, data, ridx, col)
-    local function compare(a,b)
-      if dir then a,b = b,a end
-      return (data[a][col] or '') < (data[b][col] or '')
-    end
+  
+    text    = function(a,b) return a < b  end,
     
-    mergesort(ridx, compare)
-  end,
-
-  number = function(dir, data, ridx, col)
-    local function compare(a,b)
-      if dir then a,b = b,a end
-      a, b = tonumber(data[a][col]) or 0, tonumber(data[b][col]) or 0
-      return a < b
-    end
-    
-    mergesort(ridx, compare)
-  end,
-
-  new = function(self, stype)
-    local sorter = type(stype) == "function" and stype or self[stype]   -- allow user-defined function
-    return {sorter = sorter, reverse = false}
-  end,
-
-}
-
-setmetatable(sorter, {__call = sorter.new})
-
-_M.sorter = sorter      -- make available externally
+    number  = function(a,b) 
+                a = tonumber(a) or 0
+                b = tonumber(b) or 0 
+                return a < b 
+              end,
+  }
 
 -------------------------
 --
 -- FILTERS
 --
+ -- col.filter, data, cat.row_index
+ 
+local filter = {
 
-local function apply_filter(ok, data, ridx, col)
+  text = function(x, text)
+    return (x or ''): lower(): find(text) 
+  end,
+
+  number = function(x, inequality, reference)
+    x = tonumber(x) or 0
+    if not x then return false end
+    if inequality == '<' then
+      return x < reference 
+    elseif inequality == '>' then
+      return x > reference 
+    else
+      return x == reference 
+    end
+  end,
+
+}
+
+_M.filter = filter    -- make available externally (for user-defined filters)
+
+local pattern = {
+  
+  text = function(text) 
+    return '^' .. text:lower() : gsub('*','.*')       -- change wildcard to Lua  syntax, start from beginning
+  end,
+  
+  number = function(text)
+    local inequality, reference = text: match "([<>])%s*([%+%-]?%d+%.?%d*)"
+    reference = tonumber(reference)
+    return inequality, reference                -- search template can be '>n' or '<n' or just 'n' (for equality) 
+  end,
+   
+}
+
+local function apply_filter(cat, col, ...)
+    local ok, data, ridx = cat.cols[col].filter, cat.data, cat.row_index
     local n = 0
     for i = 1, ridx.n or #ridx do
       local row = ridx[i]
-      if ok(data[row][col]) then
+      if ok(data[row][col], ...) then
         n = n + 1
         ridx[n] = row
       end
     end
     ridx.n = n
 end
-
-local filter = {
-
-  text = function(text, _, ...)                     -- scale parameter unused
-    if #text == 0 then return end                   -- nothing to do
-    text = '^' .. text:lower() : gsub('*','.*')     -- change wildcard to Lua string version, start from beginning
-    local function ok(x) return (tostring(x) or ''): lower(): match(text) end
-    
-    apply_filter(ok, ...)
-  end,
-
-  -- search text can be >n <n 
-  number = function(text, scale, ...)
-    local inequality, value = text: match "([<>])%s*([%+%-]?%d+%.?%d*)"
-    value = tonumber(value) 
-    if not value then return end            -- nothing to do
-    value = value * (scale or 1)
-    
-    local ok
-    if inequality == '<' then
-      ok = function(x) return (tonumber(x) or 0) < value end
-    elseif inequality == '>' then
-      ok = function(x) return (tonumber(x) or 0) > value end
-    else
-      ok = function(x) return (tonumber(x) or 0) == value end
-    end
-    
-    apply_filter(ok, ...)
-  end,
-
-  new = function(self, ftype)
-    local filter = type(ftype) == "function" and ftype or self[ftype]   -- allow user-defined function
-    return {filter = filter, text = ''}
-  end
-
-}
-
-setmetatable(filter, {__call = filter.new})
-
-_M.filter = filter      -- make available externally
 
 -------------------------
 --
@@ -198,38 +177,33 @@ local padding = 2
 -- create new spreadsheet
 function _M.new(self, cat, x,y, w,h)
   local layout = self.layout
-  local data = cat.DB
+  local data = cat.data
   layout: reset(x, y, padding, 0)
-
-  --
-  -- init sorters, filters and sort index
-  --
-  
-  for _, col in nextCol(cat) do
-    col.type = col.type or "text"
-    col.sort = col.sort or sorter(col.type) or sorter "text"
-    col.filter = col.filter or filter(col.type, col.scale)
-  end
-
-  if not cat.sort_index then
-    reset_sort_index(cat)
-  end
-  
+    
   --
   -- sorting... sorts the original database
   --
   
   local sorted = false
+  if not cat.sort_index then reset_sort_index(cat) end
+  
   for i, col in nextCol(cat) do
-    local sort = col.sort
-    local x,y, w,h = layout:col(col.w or Wdefault, 25)
-    if self: Button(col.label or col[1], x,y, w,h) .hit and sort then
-        sort.sorter(sort.reverse, data, cat.sort_index, i) 
-        sort.reverse = not sort.reverse   -- swap direction for next time
+       
+  local x,y, w,h = layout:col(col.w or Wdefault, 25)
+    if self: Button(col.label or col[1], x,y, w,h) .hit then
+      
+       local sort = col.sort or sorter[col.type] or sorter.text   -- can be user-defined function
+   
+       mergesort(cat.sort_index, function (a,b)
+                                    if col.reverse then a,b = b,a end
+                                    return sort (data[a][i] or '', data[b][i] or '')
+                                 end)
+          
+        col.reverse = not col.reverse   -- swap direction for next time
         sorted = true
     end
   end
-  
+    
   --
   -- add Clear button for filters and sorting order
   --
@@ -239,16 +213,12 @@ function _M.new(self, cat, x,y, w,h)
       reset_sort_index(cat)
       cat.grid.scroll.value = 1   -- set scroll bar back to top
       sorted = true
+      
       for _, col in nextCol(cat) do
-        local filt = col.filter
-        if filt then 
-          filt.text = '' 
-          filt.previous = '' 
-        end
-        local sort = col.sort
-        if sort then
-          sort.reverse = false    -- revert to forward sort
-        end
+        local input = col.input
+        input.text = '' 
+        input.previous = '' 
+        col.reverse = false    -- revert to forward sort
       end
     end
   end
@@ -263,16 +233,16 @@ function _M.new(self, cat, x,y, w,h)
   -- have to apply ALL the filters if ANY changes...
   -- ... just a backspace will do it, and there's no filter 'undo' !
   for _, col in nextCol(cat) do
-    local filt = col.filter
+    col.filter = col.filter or filter[col.type]  or filter.text     -- can be user-defined function
+    col.input = col.input or {text = ''}                    -- Input widget for filter text
+    local input = col.input
     local x,y, w,h = layout:col(col.w or Wdefault, 25)
-    if filt then
-      self: Input(filt, x,y, w,h)
-      local text = filt.text: gsub("[%%%[%]%-%+]", '')    -- remove invalid Lua search string items
-      filt.text = text
-      if text ~= filt.previous or sorted then
-        filtered = true
-        filt.previous = text
-      end
+    self: Input(input, x,y, w,h)
+    local text = input.text: gsub("[%%%[%]]", '')    -- remove invalid Lua search string items: %  [ ]
+    input.text = text
+    if text ~= input.previous or sorted then
+      filtered = true
+      input.previous = text
     end
   end
    
@@ -283,12 +253,13 @@ function _M.new(self, cat, x,y, w,h)
 --  if sorted or filtered or not cat.grid then
   if filtered or sorted or cat.filter or not cat.grid then
     reset_row_index(cat)
-    cat.grid = cat.grid or {data = data, scroll = {value = 1}}
+    cat.grid = cat.grid or {data = data, scroll = {value = 1}}    -- set grid to complete dataset
     -- TODO: clear selection?
     for i, col in nextCol(cat) do
-      local filt = col.filter
-      if filt then
-        filt.filter(filt.text, col.scale, cat.grid.data, cat.row_index, i)
+      local input = col.input.text
+      if #input > 0 then 
+        local template = pattern[col.type] or pattern.text
+        apply_filter(cat, i, template(input))
       end
     end
   end
@@ -298,11 +269,13 @@ function _M.new(self, cat, x,y, w,h)
   
   if self: Table(grid, cat, layout:row(w - 30, h * 0.75)) .hit then
   
+    --
     -- row selection
     -- see: https://stackoverflow.com/a/62670884/22498830
-    local row = grid.row
-    local ridx, cidx = cat.row_index, cat.col_index
+    --
+    
     local isDown = lk.isDown
+    local row, ridx = grid.row, cat.row_index
     local sel = cat.highlight or {anchor = row}
     cat.highlight = sel
     if isDown "lshift" or isDown "rshift" then 
@@ -331,7 +304,6 @@ function _M.new(self, cat, x,y, w,h)
   tween(cat.row_index.n, grid.scroll)
   
 end
-
 
 return setmetatable(_M, {__call = function(self, ...) return _M.new(...) end})
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.02.27",
+    VERSION = "2026.06.07",
     AUTHOR = "AK Booer",
     DESCRIPTION = "DSO database manager",
   }
@@ -19,16 +19,20 @@ local _M = {
 -- 2025.02.15  ensure Mag and Diam are numeric
 -- 2025.02.27  add diameter to search returned values
 
+-- 2026.06.07  make dsos{} local, add timer
+
 
 local _log = require "logger" (_M)
 
 local csv  = require "lib.csv"
 
+local newTimer = require "utils" .newTimer
+
 local love = _G.love
 local lf = love.filesystem
 
 
-_M.dsos = {}
+local dsos = {}
 
 local function isNan(x)
   return x ~= x
@@ -48,9 +52,8 @@ end
 
 -- search for exact match with object name, returning object info and RA,DEC (or blanks)
 function _M.search(text)
-  if #_M.dsos == 0 then _M.load() end
+  if #dsos == 0 then _M.load() end
   if #text > 0 then 
-    local dsos = _M.dsos
     local text = text: lower()            -- case insensitive search
     for i = 1, #dsos do
       local dso = dsos[i]                 -- { Name, RA, Dec, Con, OT, Mag, Diam, Other } 
@@ -74,8 +77,9 @@ end
 --
 
 function _M.load (dir)
+  local elapsed = newTimer()
   dir = dir or "dsos/"
-  local dsos = {}
+  dsos = {}
   dsos.titles = {"Name", "RA", "DEC", "Con", "OT", "Mag", "Diam", "Other"}
   local names = lf.getDirectoryItems(dir)
   for _, filename in ipairs(names or {}) do
@@ -124,8 +128,7 @@ function _M.load (dir)
       end
     end
   end
-  _log ("# DSOs %d" % #dsos)
-  _M.dsos = dsos
+  _log (elapsed ("%.3f ms, loaded %d DSOs", #dsos))
   return dsos
 end
 

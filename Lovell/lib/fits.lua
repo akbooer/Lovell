@@ -111,7 +111,7 @@ function _M.readHeaderUnit(file)
       local record = file: read (80)
       if not done then
         headers[#headers+1] = record
---        local name, equals, value, slash, comment = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)(/?)(.*)"
+--        local name, equals, value, slash, comment = record: match "([A-Z0-9-_]+)%s*(=?)%s*([^/]+)(/?)%s*(.*)"
         local name, equals, value = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)"
         
         if not name then _log "INVALID HEADER" return end  -- invalid header

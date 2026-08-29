@@ -5,7 +5,7 @@
 local _M = {
   NAME = ...,
   VERSION = "2025.04.02",
-  DESCRIPTION = "image alignment using Fast Global Registration",
+  DESCRIPTION = "image alignment using Fast Global Registration [Qian-Yi Zhou 2016]",
 }
 
 -- 2024.10.30  Version 0
@@ -22,7 +22,7 @@ local _M = {
   FAST GLOBAL REGISTRATION
 
   see: 
-        Zhou, Qian-Yi, Jaesik Park, and Vladlen Koltun. 
+        Qian-Yi Zhou, Jaesik Park, and Vladlen Koltun, 
         "Fast global registration." 
         Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, 
         Proceedings, Part II 14. Springer International Publishing, 2016.
@@ -81,9 +81,8 @@ local function oneWayMatch(stars, keystars, maxDist, maxLumDiff)
 end
 
 -- two-way match of star pairs
-local function matchPairs(stars, keystars, controls)
+local function matchPairs(stars, keystars, maxDist)
   local elapsed= newTimer()
-  local maxDist = controls and controls.workflow.offset.value or 50
   local maxLumDiff = 0.1 -- 0.05  
   local sIndex = oneWayMatch(stars, keystars, maxDist, maxLumDiff)     -- match one to the other...
   local kIndex = oneWayMatch(keystars, stars, maxDist, maxLumDiff)     -- ...and then the other way around
@@ -97,14 +96,14 @@ local function matchPairs(stars, keystars, controls)
     end
   end
 
-  _log(elapsed ("%.3f ms, matched %d stars", #starIndex))
+  _log(elapsed ("%.3f ms, matched  %d stars", #starIndex))
 
   return starIndex, keyIndex
 end
 
 
-local function NearestNeighbors(stars, keystars, controls)
-  local starIndex, keyIndex = matchPairs(stars, keystars, controls)
+local function NearestNeighbors(stars, keystars, maxDist)
+  local starIndex, keyIndex = matchPairs(stars, keystars, maxDist)
   
   local point_pairs = {}
   for i = 1, #starIndex do
@@ -194,10 +193,10 @@ end
 --
 -- ox, oy are x,y offset to center of rotation
 --
-function _M.transform(stars, keystars, controls, ox, oy)
+function _M.transform(stars, keystars, maxDist, ox, oy)
   local elapsed = newTimer()
 
-  local point_pairs = NearestNeighbors(stars, keystars, controls)
+  local point_pairs = NearestNeighbors(stars, keystars, maxDist)
   if #point_pairs == 0 then return end
 
   local theta, x,y = fast_global_registration(point_pairs, ox, oy)
@@ -226,7 +225,7 @@ function _M.TEST()
     Y[i] = {x2, y2}
   end
   print("actual:", theta, h, v)
-  print("found:", _M.transform(Y, X))
+  print("found:", pretty(_M.transform(Y, X, 50)))
 end
 
 --_M.TEST()

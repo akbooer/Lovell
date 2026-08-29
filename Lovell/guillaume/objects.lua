@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.06.21",
+    VERSION = "2026.06.18",
     AUTHOR = "AK Booer",
     DESCRIPTION = "GUI objects",
   }
@@ -21,19 +21,17 @@ local _M = {
 -- 2025.03.01  add moveXY() (moved from mainGUI, and also used by snapshot)
 -- 2025.06.21  add rowcol() utility
 
+-- 2026.05.14  correct nil image pointer in moveXY()
+-- 2026.06.18  remove set() and get() for page control, use pager channel instead
 
-local session = require "session"
+
+local controls = require "controls"
 
 local love = _G.love
 local lg = love.graphics
 local lm = love.mouse
 
 local function noop () end
-
-local controls = session.controls
-
-function _M.set(m, s) controls.page, controls.subpage = m, s end
-function _M.get() return controls.page, controls.subpage end
 
 function _M.rowcol(layout)
   return 
@@ -49,15 +47,7 @@ function _M.GUIobject ()
   return {
   
     rowcol = _M.rowcol,
-    
-    -------------------------
-    --
-    -- MODE
-    --
-
-    set = _M.set,
-    get = _M.get,
-  
+   
     -------------------------
     --
     -- UPDATE / DRAW
@@ -81,8 +71,8 @@ function _M.GUIobject ()
     -- MOUSE
     --
 
-    mousepressed  = noop,   -- (mx, my, btn)
-    mousereleased = noop,   -- (mx, my, btn)
+    mousepressed  = noop,   -- (mx, my, btn, touch, presses)
+    mousereleased = noop,   -- (mx, my, btn touch, presses)
     mousemoved    = noop,   -- (mx, my, dx, dy)
     wheelmoved    = noop,   -- (wx, wy)
     
@@ -150,6 +140,7 @@ end
 
 function _M.moveXY(image, dx, dy, ratio)
   ratio = ratio or 1                          -- screen scaling for snapshot to correct for screen size
+  if not image then return end
   local x, y = controls.X, controls.Y
   local w, h = image:getDimensions()          -- image size
   local scale = controls.zoom.value

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.06",
+    VERSION = "2026.08.28",
     AUTHOR = "AK Booer",
     DESCRIPTION = "proxy wrapper for Moonshine shaders",
   }
@@ -30,10 +30,10 @@ local _M = {
 
 -- 2025.05.06  use setBlendMode("replace", "premultiplied")
 
+-- 2026.06.28  update workflow calls to follow latest changes
+
 
 local _log = require "logger" (_M)
-
-local newTimer = require "utils" .newTimer
 
 local love = _G.love
 local lg = love.graphics
@@ -43,13 +43,12 @@ local lg = love.graphics
 
 local proxy = {
   
-    draw_shader = function(buffer, shader)
-      local front, back = buffer()
+    draw_shader = function(workflow, shader)
       lg.setShader(shader)
       local r,g,b,a = lg.getColorMask()
       lg.setColorMask(true, true, true, true)
       lg.setBlendMode("replace", "premultiplied")
-      front: renderTo(lg.draw, back)
+      workflow: renderTo()
       lg.setBlendMode "alpha"
       lg.setColorMask(r,g,b,a)
       lg.setShader()
@@ -62,19 +61,16 @@ local proxy = {
 
   
 local function moonbridge(shaderName)
---  _log("loading Moonshine shader " .. shaderName)
   local moonshader = require ("moonshine." .. shaderName) (proxy)
 
   local moondraw = moonshader.draw        -- the Moonshader's own draw() function
   moonshader.draw = nil
   
   moonshader.filter = function(workflow)    -- replacement method
-    local elapsed = newTimer()
     -- Moonshine buffer order is (output, input) rather than (input, output)
-    workflow()          -- swap buffers...
+    workflow: swap ("input", "output")         -- swap buffers...
     moondraw(workflow)  
---    _log (elapsed("%.3f ms" .. shaderName))
-    workflow()          -- ...and back again
+    workflow: swap ("input", "output")         -- ...and back again
   end      
   
   return moonshader

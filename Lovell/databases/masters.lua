@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.12.13",
+    VERSION = "2026.06.07",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -14,6 +14,8 @@ local _M = {
 -- 2025.05.21  changed name to masters, deleted top-level module of that name, merged functionality
 -- 2025.11.25  correct reading of master type field
 -- 2025.12.13  fold filename to lower case in new()
+
+-- 2026.06.07  update catalog structure return from load()
 
 
 local _log = require "logger" (_M)
@@ -69,7 +71,7 @@ local bias_dark_flat = "[bdf][ial][ar][skt]"    -- bias / dark / flat
 --]]
 
 
-_M.cols = {
+local cols = {
     {"Name",   w = 250, },
     {"Type", w = 60, align = "center", },
     {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
@@ -85,19 +87,24 @@ _M.cols = {
     {"Filename", },
   }
 
-_M.col_index = {2,3,4,5,6,7,8,9, 10,11, 12}
+local col_index = {2,3,4,5,6,7,8,9, 10,11, 12}
 
-local FILENAME = #_M.cols         -- full filename is last column
+local widget = {cols = cols, col_index = col_index}    -- SUIT-able Table widget
+
+local data
+
+local FILENAME = #cols         -- full filename is last column
 local PATH = "masters/"
 
 local file_pattern = "([^%.]+)%.fits?$"
 local imageSize = "%dx%d"
 
 local tag = {} do
-  for i, col in ipairs(_M.cols) do
+  for i, col in ipairs(cols) do
     tag[col[1]] = i
   end
 end
+
 
 -------------------------------
 --
@@ -176,9 +183,10 @@ function _M.search(frame)
     return
   end
   
-  _M.DB = _M.DB or _M.load() 
+  if not widget.data then _M.load() end
+  
   bias, dark, flat = nil, nil, nil
-  _M.highlight = {}
+  widget.highlight = {}
   
   local w,h = frame.imageData: getDimensions()
   local size, filter, gain, expo
@@ -191,7 +199,7 @@ function _M.search(frame)
   
   -- find matching size, and most recent master pre-dating frame capture
   local btime, dtime, ftime = math.huge, math.huge, math.huge
-  for i, master in ipairs(_M.DB) do
+  for i, master in ipairs(widget.data) do
     local date = tonumber(master[tag.Date])
     local msize, mfilter, mgain, mexpo
     msize = master[tag.Size]
@@ -205,13 +213,13 @@ function _M.search(frame)
 --      _log("Filter, gain", mfilter, mgain)
       if typ == "bias" and gain == mgain and expo == mexpo and delta < btime then
         bias, btime = master, delta
-        _M.highlight[i] = true -- "flat"
+        widget.highlight[i] = true -- "flat"
       elseif typ == "dark" and gain == mgain and expo == mexpo and delta < dtime then
         dark, dtime = master, delta
-        _M.highlight[i] = true -- "dark"
+        widget.highlight[i] = true -- "dark"
       elseif typ == "flat" and filter == mfilter and delta < ftime then
         flat, ftime = master, delta
-        _M.highlight[i] = true -- "flat"
+        widget.highlight[i] = true -- "flat"
       end
     end
   end
@@ -246,6 +254,8 @@ end
 
 function _M.load()
   
+  if widget.data then return widget end     -- only load data once
+  
   local elapsed = newTimer()
   
   -- read the index file and the directory of FITS files
@@ -275,8 +285,8 @@ function _M.load()
   
   _log(elapsed ("%.3f ms, loaded database, total: %d, added: %d, removed: %d", #newcat, added, removed))
   
-  _M.DB = newcat
-  return newcat
+  widget = {cols = cols, col_index = col_index, data = newcat}
+  return widget
 end
 
 -------------------------------
@@ -310,7 +320,7 @@ function _M.new(file)
   end
   
   -- now index the calibration file metadata
---  calibration.reload()
+--  _M.reload()
 
 end
 

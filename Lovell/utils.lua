@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.03.29",
+    VERSION = "2026.06.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry utilities",
   }
@@ -15,12 +15,13 @@ local _M = {
 -- 2025.02.27  add extra format functions
 
 -- 2026.03.29  tidy up getDimensions()
+-- 2026.06.09  add alphanumeric_sort()
 
 
-local _log = require "logger" (_M)
+require "logger" (_M)
 
-local lt = require "love.timer"
 local lg = require "love.graphics"
+local lt = require "love.timer"
 
 local floor = math.floor
 
@@ -60,6 +61,21 @@ function _M.calcScreenRatios(image, screen)
   return w / iw, h / ih
 end
 
+-------------------------
+--
+-- SORTING
+--
+
+-- to get things like "Messier 51" into correct order
+function _M.alphanumeric_sort(a,b)
+  local a1, a2 = a: match "(%D+)%s*(%d*)"
+  local b1, b2 = b: match "(%D+)%s*(%d*)"
+  if a1 < b1 then return true end
+  a2 = tonumber(a2) or 0 
+  b2 = tonumber(b2) or 0
+  if a1 == b1 then return a2 < b2 end
+  return false
+end
 
 -------------------------
 --

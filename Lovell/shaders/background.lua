@@ -4,8 +4,8 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.03.31",
-    DESCRIPTION = "background gradient estimation and removal",
+    VERSION = "2026.08.28",
+    DESCRIPTION = "background gradient and black/white point estimation",
   }
 
 -- 2024.10.18  Version 0
@@ -23,179 +23,166 @@ local _M = {
 -- 2025.05.19  fix nil return in offset()
 -- 2025.05.28  fix vec4 Offset, Xslope, Yslope in vertex shader
 
--- 2026.03.31  make mini canvas rgba21f (was 16)
+-- 2026.03.31  make mini canvas rgba32f (was 16)
+-- 2026.05.04  add vignetting to background correction, correct alpha channel gradient calculation
+-- 2026.05.07  background black point selection based on Jocular/Canisp's 20% - 80% filtering
+-- 2026.07.04  use workflow:shadeWith()
+
+-- 2026.07.18  Version 2, using shaders.sampler (instanced mesh sampling and FFI data retrieval)
+-- 2026.08.06  workflow.dummyMesh for full-screen rendering
+-- 2026.08.28  restructure, adding quartiles(), to remove redundant calculations
 
 
 local _log = require "logger" (_M)
 
-local solver    = require "lib.solver"
+--local ffi = require "ffi"
+
+local sample    = require "shaders.sampler"
+local solve     = require "lib.solver" .solve
+local matrix    = require "lib.matrix"
+local vector    = require "lib.vector"
 local newTimer  = require "utils".newTimer
-local stats     = require "shaders.stats"
 
-local love  = _G.love
-local lg    = love.graphics
 
-  
-local flattener = love.graphics.newShader(
-[[
-    //Vertex Shader
-    
-    // calculate the vertex background values which are interpolated for the pixel shader
-    
-    uniform vec4    Offset, Xslope, Yslope;
-    uniform float   strength;
-    varying vec4    background;
+local SAMPLE_SIZE = 100           -- number of samples in each row/column (so N * N total)
 
-    vec4 position( mat4 transform_projection, vec4 texture_pos ) {
-      background = Offset
-                      + Xslope*strength * (VertexTexCoord.x - 0.5)         // put origin at image centre
-                      + Yslope*strength * (VertexTexCoord.y - 0.5);
-      return transform_projection * texture_pos;
-    }
-]],[[
+-----
 
-    // Pixel Shader
-    
-    varying vec4 background;
-    
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec4 pixel = Texel(texture, texture_coords );
-      return pixel - background;
-    }
-]])
-
--- TODO: FFI version for speedup
-local function getImageSamples(data, N)
-  local x,y, r,g,b,a, I = {},{}, {},{},{},{}, {}
-  local _, mean, var, var2
-  local calc = stats.calc()         -- new stats calculator
-  do -- sample the image on a grid
-    local W,H = data:getDimensions()
-    local N = math.floor(math.sqrt(N))
-    local delta = 1 / N
-    local i = 0
-    
-    for X = delta, 1 - delta, delta do
-      for Y = delta, 1 - delta, delta do
-        i = i + 1
-        x[i], y[i] = X - 0.5, Y - 0.5                     -- put origin at image centre
-        local R, G, B, A = data:getPixel(W * X, H * Y)
-        r[i], g[i], b[i], a[i] = R, G, B, A
-        I[i] = R + G + B
-        _, _, mean, var = calc(I[i])
-      end
+-- factory method for index
+local Index do  
+  local index = {}    -- reuse index if right length...
+  function Index(n)
+    if #index ~= n then
+      index = table.new(n, 0)   -- ...else allocate new one
     end
-  end
-  local std = math.sqrt(var)
-  
-  -- remove outliers from background samples
-
-  local X,Y, R,G,B, A = {},{}, {},{},{}, {}
-  local j = 0
-  for i = 1, #r do
-    if math.abs(I[i] - mean) < std / 2 then
-      j = j + 1
-      X[j], Y[j] = x[i], y[i]
-      R[j], G[j], B[j], A[j] = r[i], g[i], b[i], a[j]
-      _, _, _, var2 = calc(R[j] + G[j] + B[j])
-    end
-  end
-  _log ("using %d of %d gradient samples (sdev = %.4f, %.4f)" % {#X, #x, std, math.sqrt(var2 or 0)})
-  return X,Y, R,G,B, A
+    return index
+  end  
 end
 
-local minPoints = 10
-local Nsamples = 512
+local function index_channel(channel)
+  local c = channel
+  local index = Index(#c)
+  for i = 1, #c do index[i] = i end                            -- build table of indices
+  table.sort(index, function(a,b) return c[a] < c[b] end)       -- sort by selected channel value
+  return index
+end
 
-local mini = lg.newCanvas(100, 100, {format = "rgba32f", dpiscale = 1})  -- tiny canvas to sample the much bigger image
-
---[[
-     fitXYZ ( x_values, y_values, z_values )
-     fit a plane
-     x_values = { x1,x2,x3,...,xn }
-     y_values = { y1,y2,y3,...,yn }
-     model (  z = a + b * x + c * y )
-     returns a, b, c
---]]
-
-local function fitXYZ( x, y, z )	
+-- fitXYZ ( x_values, y_values, z_values )
+--     fit a plane: z = a + b * x + c * y 
+--     returns {a, b, c}
+local function fitXYZ_indexed( coords, z, index )	
 	local A, b = {}, {}
-	for i = 1, #x do
-		A[i] = { 1, x[i], y[i] }
-		b[i] = { z[i] }
+  local N = #index
+  -- remove outliers from background samples (ignore top and bottom 20%)
+  local twenty, eighty = math.floor(0.2 * N), math.floor(0.8 * N)    -- 20% - 80% range
+  for j = twenty, eighty do
+    local i = index[j]
+		A[#A+1] = { 1, unpack(coords[i]) }
+    local v = z[i]
+		b[#b+1] = { v }
 	end
-  return solver.solve(A, b)
+  local linear = {solve(A, b)}
+  return linear
 end
 
--- calculate input image gradients
-function _M.gradients(input)
+ 
+-- quartiles, including min and max
+local function quartiles(z, index)
+  local N = #z
+  local I = {1, N/4, N/2, 3*N/4, N}
+  local q = {}
+  for i, j in ipairs(I) do
+    q[i] = z[index[math.floor(j)]]
+  end
+  return q
+end
+
+
+local function generate_mesh()
+  local margin = 0.2    -- 20% all the way around
+  local stride = (1 - 2 * margin) / SAMPLE_SIZE
+  
+  local coords = {} 
+  for u = margin, 1 - margin, stride do
+    for v = margin, 1 - margin, stride do
+      coords[#coords+1] = {u, v}
+    end
+  end
+  return coords
+end
+
+local coords = generate_mesh()    -- mesh size independent of image dimensions
+
+-- calculate input image gradients for RGB channels
+local function background_calc(self, input, quiet)             -- self is workflow
   local elapsed = newTimer()
   
-  local w,h = input: getDimensions()
-  
-  lg.setBlendMode("replace", "premultiplied")
---  input: setFilter "linear"
-  mini: renderTo(lg.draw, input, 0,0,0, 100/w, 100/h)   -- scale image to fit mini canvas
-  lg.setBlendMode "alpha"
---  input: setFilter "nearest"
+  local rgba = {sample(input, coords)}    -- returns R G B A channels separately
    
---  local data = mipBuffer:newImageData(nil, 7, 0,0, w/64,h/64)
-  local data = mini:newImageData()
-  local x,y, r,g,b, a = getImageSamples(data, Nsamples) 
+  local BP, WP, MEDIAN = vector{0,0,0,0}, vector{1,1,1,1}, vector{0,0,0,0}
+  local QUARTILES, MAD = {}, vector{0,0,0,0}
+  local LINEAR = {}
   
-  local rx, ry, rz = 0, 0, 0
-  local gx, gy, gz = 0, 0, 0
-  local bx, by, bz = 0, 0, 0
-  local ax, ay, az = 0, 0, 0
-  
-  local gradients
-  if #x > minPoints then           -- solve for planar background in RGB
-    rz, rx, ry = fitXYZ(x, y, r)   -- note transposition re. solution order
-    gz, gx, gy = fitXYZ(x, y, g)
-    bz, bx, by = fitXYZ(x, y, b)
-    az, az, ay = fitXYZ(x, y, a)
+  local channelCount = self: getChannelCount()
+  local Linear, Qs
+  local X = {'R','G','B','L'}
+  for i = 1, 4 do
+--  for i = 1, channelCount do
+    local channel = rgba[i]                 -- select one of {r,g,b,a}
+    local index = index_channel(channel)
     
-    gradients = {
-        Offset = {rz, gz, bz, az},
-        Xslope = {rx, gx, bx, ax},
-        Yslope = {ry, gy, by, ay},
-      }
+    -- linear gradients and quartiles
+     Linear = fitXYZ_indexed(coords, channel, index)
+     Qs = quartiles(channel, index)         -- {min, Q1, median, Q3, max} 
+     
+    -- calculate significant thresholds
+    local median = Qs[3]
+    local MADleft = median - Qs[2]        -- median value of MADleft
+    local max = Qs[5]
+    
+    -- save image processing info
+    BP[i] = math.max(0.0, median - 4 * MADleft)
+    WP[i] = max
+    MEDIAN[i] = median
+    LINEAR[i] = Linear 
+    MAD[i] = MADleft
+    QUARTILES[X[i]] = Qs
+    
   end
-  _log (elapsed "%.3f ms, gradient solved")
---  _log(pretty {gradients = gradients})
   
-  return gradients
+  -- inverse variance RGB weights (possibly for stack or colour mixing)
+  -- actually, sdev = 1.4826 * MADleft [constant holds for normal noise distribution]
+  --- ... but inVar values still correct because they're normalised to sum to unity
+  local Var  = MAD ^ 2                -- 
+  local inVar = Var: ones() / Var
+  for i = 1, 4 do 
+    inVar[i] = Var[i] > 0 and inVar[i] or 0 
+  end
+  
+  local background = {
+    BP = BP, WP = WP, 
+    MEDIAN = MEDIAN, MAD = MAD,
+    QUARTILES = QUARTILES,
+    Linear = matrix (LINEAR) ^ 'T',     -- transpose matrix
+    inVAR = inVar / inVar: sum()}       -- scale to unity sum
+  
+  for _, v in ipairs(background.Linear) do
+    vector(v)
+  end
+    
+  if not quiet then
+    _log("channelCount", channelCount)
+    _log("RGBL black points: %.4f, %.4f, %.4f, %.4f" % BP)
+    _log("RGBL white points: %.4f, %.4f, %.4f, %.4f" % WP)
+    _log(pretty(background))
+    _log (elapsed ("%.3f ms, gradient solved using %d image samples", #coords))
+  end
+
+  return background
 end
 
--- just return background offset correction
-function _M.offset(input)
-  local g = _M.gradients(input)
-  if not g then return end
-  local zeros = {0, 0, 0, 0}
-  g.Xslope = zeros
-  g.Yslope = zeros
-  return g
-end
-
--- use shader to apply background subtraction
-function _M.remove(workflow, gradients, strength)
-  if not gradients then return end
-  strength = strength or 1
-  local input, output = workflow()
-  local g = gradients
-  flattener: send ("Offset",  g.Offset);
-  flattener: send ("Xslope",  g.Xslope);
-  flattener: send ("Yslope",  g.Yslope);
-  flattener: send ("strength", strength)
   
-  lg.setShader(flattener) 
-  lg.setBlendMode("replace", "premultiplied")
-  output:renderTo(lg.draw, input)
-  lg.reset()
-end
-
-  
-return _M
+return background_calc
 
 -----
 

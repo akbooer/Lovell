@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.23",
+    VERSION = "2026.06.14",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -18,24 +18,25 @@ local _M = {
 -- 2025.05.01  add stacking type label "average / sigma / min var"
 -- 2025.05.23  added reducer to focal length calculation
 
+-- 2026.06.14  remove dependency on session module
+
 
 local _log = require "logger" (_M)
 
 
-local session   = require "session"
+local controls  = require "controls"
+local stacking  = require "stacking"
 local utils     = require "utils"
 
-local formatRA  = utils.formatRA
-local formatDEC = utils.formatDEC
-local formatDegrees = utils.formatDegrees
-local formatAngle = utils.formatAngle
-local formatArcMinutes = utils.formatArcMinutes
+local formatRA          = utils.formatRA
+local formatDEC         = utils.formatDEC
+local formatAngle       = utils.formatAngle
+local formatDegrees     = utils.formatDegrees
+local formatArcMinutes  = utils.formatArcMinutes
 
 local Objects = require "guillaume.objects"
 local Oculus = Objects.Oculus
 local moveXY = Objects.moveXY
-
-local controls = session.controls
 
 local love = _G.love
 local lg = love.graphics
@@ -82,10 +83,10 @@ local canvas    -- the snapshot image itself
 local image     -- the image to draw
 
 -- extract basic info from various places
-local function get_annotations()
+local function get_annotations(image)
 
   local eyepiece = controls.eyepiece.checked
-  local stack = session.stack() or {}
+  local stack = stacking.get() or {}
     
   local obj = controls.object
   Object = obj.text
@@ -95,7 +96,6 @@ local function get_annotations()
   Diam = formatArcMinutes(obj.DIA)
   Diam = Diam ~= '' and ("Ø: " .. Diam) or ''
   
-  local image = stack.image
   local temp = stack.temperature
   local caminfo
   if image then
@@ -137,7 +137,7 @@ local function get_annotations()
   Stacks = "%s: %d/%d x %ds" % {stackname, stack.Nstack or 0, stack.subs and #stack.subs or 0, Exposure}
   Total = "total exposure: %d:%02d" % {math.floor(T / 60), T % 60}
   
-  local RGBL = controls.workflow.RGBL 
+  local RGBL = stacking.RGBL 
   Filters = (RGBL and not stack.bayer) and "%dR %dG %dB %dL" % RGBL or nil
   
   -- session and observation notes
@@ -154,7 +154,7 @@ end
 -- PORTRAIT (Eyepiece)
 --
   
-local function portrait(W, H)
+local function portrait(image, W, H)
   local radius = H / 2 - 10
   local ratio = radius / Oculus.radius()    -- scale screen oculus to image
   W = H
@@ -224,7 +224,7 @@ end
 -- LANDSCAPE
 --
 
-local function landscape(W, H)
+local function landscape(image, W, H)
   local w,h = image:getDimensions()
   local footer = 150
   local ratio = W / w
@@ -271,6 +271,8 @@ end
 --
 -- FULL RESOLUTION, no annotation
 --
+-- TODO: FITS output
+--
 
 local function hiRes()
   local W, H = image: getDimensions()
@@ -284,34 +286,37 @@ end
 --
 -- SNAPSHOT
 --
+local click = love.audio.newSource ("resources/camera-shutter-click-01.wav", "static")
 
-function _M.snap()
-  image = session.image()
+function _M.snap(image)
   if not image then return end
   
   eyepiece = controls.eyepiece.checked
   local name = controls.object.text 
-  local sess = session.ID or ''
+--  local sess = session.ID or ''   -- TODO: get session ID from elsewhere
+  local sess = ''   -- TODO: get session ID from elsewhere
   local snap = path % {name, sess, os.time()}
   
   lg.setColor(1,1,1,1)
-  get_annotations()
+  get_annotations(image)
   
   if eyepiece then
-    portrait(W, H)
+    portrait(image, W, H)
 --  elseif controls.pin_info.checked then
   else
-    landscape(W, H) 
+    landscape(image, W, H) 
 --  else
---    hiRes()
+--    hiRes(image)
   end
   
   lg.setColor(1,1,1,1)
   canvas: newImageData() : encode ("png", snap)
   canvas: release()
   canvas = nil
- _log (snap)
-    
+  _log (snap)
+  SHUTTER = 1    -- start camera shutter animation
+  love.audio.play(click)
+  
 end
 
 

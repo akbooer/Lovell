@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.18",
+    VERSION = "2026.07.07",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -18,6 +18,14 @@ local _M = {
 -- 2025.02.15  refactor Table widget to handle row and column indices
 -- 2025.05.18  require Table info.cols with array of formatting information  (width, align, ...)
 
+-- 2026.05.11  new Dropdown & Menu widgets, with user-defined controls, and remove Popup
+-- 2026.05.20  add latency to Dropdown and Menu for better UX
+-- 2026.05.31  rename Rotary, Dropdown, Menu, ... --> Rotatable, Controllable, Choosable, ...
+-- 2026.06.15  add anyReset() to flag any control resets
+-- 2026.06.18  add 'title' option for Choosable title
+-- 2026.07.05  add pin to locked popup
+-- 2026.07.07  add Draggable and Targetable ("drag and drop")
+
 
 local _log = require "logger" (_M)
 
@@ -26,12 +34,21 @@ local theme = suit.theme
 
 local love = _G.love
 local lg = love.graphics
+local lk = love.keyboard
 local lm = love.mouse
+local lt = love.timer
 
 local sin, cos = math.sin, math.cos
 local max, min, floor = math.max, math.min, math.floor
 
 local empty = _G.READONLY {}
+
+-- add our own colour extensions
+local bluetext = {normal = {fg = suit.theme.color.hovered.bg }}
+local inactive = {normal = {fg = {0.5, 0.5, 0.5}}}
+
+suit.theme.color.bluetext = bluetext    -- make accessible externally
+suit.theme.color.inactive = inactive
 
 --[[
 
@@ -80,195 +97,482 @@ end
 
 --]]
 
+------------------------------
+--
+-- UTILITIES
+--
 
+local function rightClick(state)
+  local hit, hovered = state.hit, state.hovered
+  local rclick = hovered and lm.isDown(2) or hit and (lk.isDown "lshift" or lk.isDown "rshift") 
+  return rclick
+end
+
+_M.rightClick = rightClick
+
+function _M.anyReset()
+  local reset = _M.reset
+  _M.reset = false
+  return reset
+end
+  
+ 
 -------------------------------
 --
--- Rotary
+-- Rotatable - rotary control
 --
--- suit: Rotary(info, [options], x,y,w,h)
+-- suit: Rotatable(info, [options], x,y,w,h)
 --
 -- info = {value = 0}                   -- angle of control
 -- options = {size = 7, ring = false}   -- size of control button, whether to draw rotary ring
 --
-local function drawRotary(theta, opt, x,y,w,h)
-  -- draw it here using love.graphics...
-	local col = theme.getColorForState(opt)
-  local size = opt.size or 7
-  local color = col.bg
-  lg.setColor(color)
-  local r = h / 2
-  local state = opt.state
-  if state ~= "normal" or opt.ring then
-    lg.setLineWidth(1)
-    lg.circle("line", x + w/2, y + r, r)
+
+local Rotatable do
+  
+  local function draw (theta, opt, x,y,w,h)
+    -- draw it here using love.graphics...
+    local col = theme.getColorForState(opt)
+    local size = opt.size or 7
+    local color = col.bg
+    lg.setColor(color)
+    local r = h / 2
+    local state = opt.state
+    if state ~= "normal" or opt.ring then
+      lg.setLineWidth(1)
+      lg.circle("line", x + w/2, y + r, r)
+    end
+    local x0, y0 = x + w/2 + r * sin(theta), y + r - r * cos(theta)
+    if state ~= "normal" then
+      lg.setColor(col.fg)
+    end
+    lg.circle("fill", x0, y0, size)
+    
   end
-  local x0, y0 = x + w/2 + r * sin(theta), y + r - r * cos(theta)
-  if state ~= "normal" then
-    lg.setColor(col.fg)
+
+  Rotatable = function (core, info, ...)
+    local opt, x,y,w,h = core.getOptionsAndSize(...)
+    opt.id = opt.id or info
+    local theta = info.value or 0
+    local size = opt.size or 10
+    local value_changed = false
+    
+    local R = h / 2
+    local x0, y0 = x + w / 2, y + R
+    local mx, my = core:getMousePosition()
+    local sine = mx - x0
+    local cosine = my - y0
+    local radius2 = sine * sine + cosine * cosine
+    local r2, r2plus = (R - size)^2, (R + size)^2
+    local hit = radius2 <= r2plus and radius2 >= r2
+    
+    do -- need to hover for a while before highlighting rotator 
+      local delay = info.delay or 0
+      delay = hit and (delay + 0.03) or 0
+      info.delay = delay
+      hit = delay > 1 or core:isHit(opt.id)
+    end
+
+    opt.state = core:registerMouseHit(opt.id, x,y, function() return hit end)
+
+    if core:isActive(opt.id) then
+      -- mouse update
+      info.value = math.atan2(sine, -cosine)
+      value_changed = true
+    end
+
+    core:registerDraw(opt.draw or draw , theta, opt, x,y,w,h)
+
+    local state =  {
+        id = opt.id,
+        hit = core:mouseReleasedOn(opt.id),
+        changed = value_changed,
+        hovered = core:isHovered(opt.id),
+        entered = core:isHovered(opt.id) and not core:wasHovered(opt.id),
+        left = not core:isHovered(opt.id) and core:wasHovered(opt.id)
+      }
+    
+    if rightClick(state) then 
+      info.value = 0
+      state.changed = true
+    end
+    
+    return state
+
   end
-  lg.circle("fill", x0, y0, size)
   
 end
 
-local function Rotary(core, info, ...)
-	local opt, x,y,w,h = core.getOptionsAndSize(...)
-	opt.id = opt.id or info
-  local theta = info.value or 0
-  local size = opt.size or 10
-  local value_changed = false
-  
-  local R = h / 2
-  local x0, y0 = x + w / 2, y + R
-  local mx, my = core:getMousePosition()
-  local sine = mx - x0
-  local cosine = my - y0
-  local radius2 = sine * sine + cosine * cosine
-  local r2, r2plus = (R - size)^2, (R + size)^2
-  local hit = radius2 <= r2plus and radius2 >= r2
-  
-  do -- need to hover for a while before highlighting rotator 
-    local delay = info.delay or 0
-    delay = hit and (delay + 0.03) or 0
-    info.delay = delay
-    hit = delay > 1 or core:isHit(opt.id)
-  end
-
-  opt.state = core:registerMouseHit(opt.id, x,y, function() return hit end)
-
-	if core:isActive(opt.id) then
-		-- mouse update
-    info.value = math.atan2(sine, -cosine)
-    value_changed = true
-	end
-
-	core:registerDraw(opt.draw or drawRotary, theta, opt, x,y,w,h)
-
-	return {
-		id = opt.id,
-		hit = core:mouseReleasedOn(opt.id),
-		changed = value_changed,
-		hovered = core:isHovered(opt.id),
-		entered = core:isHovered(opt.id) and not core:wasHovered(opt.id),
-		left = not core:isHovered(opt.id) and core:wasHovered(opt.id)
-	}
-end
 
 -------------------------------
 --
--- DRAW Modal Menu
+-- SLIDEABLE - slider with labels
 --
 
-local function maxWidth(info, opt)
-	opt.font = opt.font or love.graphics.getFont()
-  local j, max = 0, 0
-  for i = 1, #info do
-    local nc = #info[i]
-    if nc > max then
-      max = nc
-      j = i
-    end
-  end
-  return opt.font:getWidth(info[j]) + 64
-end
-
-local options = {}    -- options cache (saves creating new tables every frame)
-
-local function drawMenu(core, info)
-  local n = #info
-  local x,y, w,h = unpack(info.active)
-  h = h / n
-  local hovered, hit = false, false
-  for i = 1, n do   -- create a button for each popup item
-    local hidden, item = info[i]: match "(%-?)(.*)"
-    local option = options[i] or {id = i, cornerRadius = 0}
-    options[i] = option
-    
-    local button
-    if hidden == '-' then
-      button = core: Label(item, option, x, y + (i - 1) * h, w, h)
-    else
-      button = core: Button(item, option, x, y + (i - 1) * h, w, h)
-    end
-    
-    hovered = hovered or button.hovered
-    hit = hit or button.hit
---    _log(pretty(button))
-    if button.hit then
-      info.selected = i
-      info.active = nil   -- we're done
-      break
-    end
-  end
-  return hovered, hit
-end
-
--------------------------------
---
--- POPUP
---
-
-local function Popup(core, info, ...)
-	local opt, x,y, w,h = core.getOptionsAndSize(...)
-	opt.id = opt.id or info
-  opt.itemHeight = opt.itemHeight or 30
-  info.selected = info.selected or 1
+local Slideable do
   
-  local entered, hovered, hit, left = false, false, false, false
-  if info.active then 
-    hovered, hit = drawMenu(core, info, opt)       -- draw the menu
-    left = not hovered
+  local en_space = lg.getFont(): getWidth 'n'
+  local Loptions = {align = "left", color = bluetext}     -- fixed labels
+  local Soptions = {align = "right"}                      -- dynamic labels
+
+  local function normal(core, control, name, value, x,y, w,h)
+    core: Label(name, Loptions, x,y, w,h)
+    core.layout: padding (10,7)
+    local state = core: Slider(control, core.layout: row(w, h))
+    if state.hovered then
+      core:Label(value, Soptions, x, y, w, h)
+    end
+    return state
   end
-  
-  if not hovered then 
-    info.active = nil 
+
+  local function inline(core, control, name, value, x,y, w,h)
+    core.layout: padding (20,5)
+    local left  = #name  * en_space + 10
+    local right = #value * en_space + 10
+    local state = core: Slider(control, x + left, y, w - left - right, 10)
+    core: Label(name, Loptions, x,y, w,10)
+    core: Label(value, Soptions, x,y, w,10)
+    return state
   end
+
+
+  Slideable = function (core, control, ...)
+    local opt, x,y, w,h = core.getOptionsAndSize(...)
+    local style = opt.style or control.style
+        
+    local fmt = control.format or opt.format or "%.2f"
+    local value = fmt % control.value
+    local name  = opt.id or control.id or "???"
+
+    local fct = style == "inline" and inline or normal
     
-  if lm.isDown(2) and core: mouseInRect(x,y, w,h) then   -- right click, so create popup
-    entered = true
-    local mx, my = core: getMousePosition()
-    local W, H = lg.getDimensions()
-    local w, h = maxWidth(info, opt), opt.itemHeight * #info
-    local x, y = min(max(0, mx - 20), W - w), min(max(0, my - 20), H - h)   -- keep popup within screen dimensions
-    info.active = {x,y, w,h}  -- position for popup menu
-  end
+    local px, py = core.layout: padding()
+    local state =  fct(core, control, name, value, x,y, w,h)
+    core.layout: padding(px, py)
+    
+    if rightClick(state) then
+       _M.reset = true
+      control.value = control.default or control.value    -- reset to default
+    end
    
-  opt.state = core:registerMouseHit(opt.id, x,y, function() return hit end)
-  
-  if info.active then 
-    info.active = core: mouseInRect(unpack(info.active)) and info.active or nil   -- still in the box?
-  end
+    return state
+   end 
+    
 
-	return {
-		id = opt.id,
-		hit = hit,
-		hovered = not not info.active,
-		entered = entered,
-		left = left
-	}
 end
+
 
 -------------------------------
 --
--- DROPDOWN
+-- CHOOSABLE - Menu
 --
--- returns {id, hit, hovered, entered, left}
 
-local function Dropdown(core, info, ...)
-	local opt = core.getOptionsAndSize(...)
-  local popup = core: Popup(info, ...)
+local function reset (self) 
+  self.selected = self.default or 1 
+end
+
+local Choosable do
   
-  local index = info.selected or info.default or 1
-  local name = info[index]
-  local button = core: Button(name .. (opt.suffix or "..."), ...)
-  if button .hit then
-    -- click on button advances list item
-    index = (index % #info) + 1
-    info.selected = index
-    popup.hit = true
+  local padding = {5, 3}
+  local background =  theme.color.normal.bg
+  local unchoosable = {color = inactive}
+ 
+ -- note that this draw() function has different parameters from the internal SUIT draw() functions
+ -- to match the external format used in SUITABLE widgets such as Controllable()
+  local function draw (self, core, opt) --, x,y, w,h)
+    local w, h
+    local layout = core.layout
+    if opt.size then w, h = unpack(opt.size) else w, h = 150, 25 end    -- TODO: make height dynamic
+    
+    self.hit = nil
+    for i, name in ipairs(self) do
+      local button
+      local hidden, item = name: match "(%-?)(.*)"
+      hidden = (hidden == '-')
+      if hidden then
+        button = core: Label (item, unchoosable, layout: row(w, h))
+      else
+        button = core: Button (item, layout: row(w, h))
+      end
+      if button.hit and not hidden then
+        self.selected = i
+        self.hit = true
+        if opt.exit then 
+          self.active = nil     -- deactivate on hit
+        end
+      end
+    end
   end
-  popup.hovered = popup.hovered or button.hovered
-  return popup
- end
+
+  Choosable = function (core, info, ...)
+    local opt, x,y, w,h = core.getOptionsAndSize(...)
+    local choice = info[info.selected or 1]
+    local id = opt.id or info.id
+    id = opt.title or ((id or "???: ")  .. (choice or ''))
+    local align = opt.align
+    
+    local newopt = {
+        id = id, 
+        draw = draw,                          -- generic menu drawing function
+        padding = padding,                    -- gaps around menu items
+        align = align,
+        background = opt.background or info.background or background,
+        size = opt.size or info.size,         -- width & height of menu items
+        click = opt.click or info.click,                    -- hit, not just hover, to activate
+        exit = opt.exit or info.exit,         -- exit on menu selection
+        latency = opt.latency or info.latency,
+        indent = opt.indent or info.indent,
+        reset = reset,
+      }
+    
+    local popup = core: Controllable(info, newopt, x,y,w,h)
+    popup.hit = info.hit 
+    info.hit = nil
+    return popup
+  end
+  
+end
+
+
+-------------------------------
+--
+-- CONTROLLABLE - user-defined controls
+--
+
+local Controllable do
+  local hi, lo = 0.35, 0.18
+  local border  = {hi, hi, hi}
+  local default = {lo, lo, lo}
+  local color = {bg = default}   -- background colour rather than theme.color.normal
+  local selected = {normal = theme.color.hovered}
+  
+  local function draw(core, info, opt, x,y,w,h)
+    local radius = opt.cornerRadius or info.cornerRadius or theme.cornerRadius
+    color.bg = opt.background or info.color or default
+    core.theme.drawBox(x,y+1, w,h, opt.color or info.color or color, radius)
+    lg.setColor(border)
+    lg.rectangle('line', x,y+1, w,h, radius)
+  end
+  
+  local function drawButton(text, opt, x,y,w,h)
+    if opt.shortcut or true then 
+      local r,g,b,a = lg.getColor()
+      lg.setColor(.5, .5, .5, 1)
+      lg.draw(_G.mac, x + w - 30, y + 5) -- x, y)
+      lg.setColor(r,g,b,a)
+    end
+    suit.theme.Button(text, opt, x,y,w,h)
+  end
+  
+  
+  Controllable = function (core, info, ...)
+    local opt, x,y, w,h = core.getOptionsAndSize(...)
+    local w0, h0 = w, h
+    local id = opt.id or info.id or tostring(opt)
+    if not info then error ("Missing widget in Controllable: " .. (id or '?')) end
+    local layout = core.layout
+    local lock   = info.lock
+    local active = info.active
+    local drawer = info.shortcut and drawButton or nil
+    local colour = lock and selected or nil
+    local button = core: Button(id, {draw = drawer, color = colour}, x,y, w,h)
+    
+    local latency = opt.latency or info.latency or 0.4   -- hover latency in seconds
+    local reset = opt.reset or info.reset
+     
+    if active then
+      x,y, w,h = unpack(active)
+    else
+      local _, H = lg.getDimensions()
+      x, y = x + (opt.indent or info.indent or 30) , min(max(0, y + h), H - h)   -- keep popup within screen dimensions
+    end
+  
+    if active or info.lock then   -- draw popup
+      layout: push(x, y)
+      local px, py = 20, 10
+      local padding = opt.padding
+      if padding then px, py = unpack(padding) end
+      layout: padding(px, py)
+      layout: row(0, py)                -- add top and left margins
+      layout: col(0, py)
+      local fct = opt.draw or info.draw 
+      fct (info, core, opt, x,y, w0,h0)                  -- draw the user control
+      
+      local xmax, ymax = layout: nextRow()    -- bottom margin
+      xmax = layout: col "max"
+      layout: pop()
+      h = ymax - y + py  -- add bottom margin
+      w = xmax - x
+    end
+    w = opt.width or id.width or  w
+    
+    local hovered = not opt.click and button.hovered   
+    do -- need to hover for a while before registering a hover
+      local delay = info.delay or 0
+      delay = hovered and (delay + lt.getDelta()) or 0
+      info.delay = delay
+      hovered = delay > latency
+    end
+
+     if rightClick (button) and reset then 
+       _M.reset = true
+       reset(info) 
+     end
+
+    if hovered then info.active = {x,y, w,h} end
+    if button.hit then info.lock = not info.lock end      
+ 
+      -- add pin to popup (needs to survive several frames, so store in info)
+      if lock then 
+        info.pin = info.pin or {}
+        info.pin.checked = true
+        if core: Checkbox(info.pin, x+w-25, y+5, 20,20) .hit then
+          info.active, info.lock = false, false
+        end
+      end
+    
+    if info.active or info.lock then 
+      info.active = info.active or {x,y, w,h}
+      core:registerDraw(draw, core, info, opt, x,y, w,h)
+      core:registerHitbox(id, x,y, w,h)                           -- to avoid anything beneath from activating
+      info.active = (core: mouseInRect(unpack(info.active)) or hovered) and info.active or nil   -- still in the box?
+    end
+
+    return button
+  end
+
+end
+
+
+-------------------------------
+--
+-- DRAG-AND-DROP
+--
+-- Usage:  DaD = suit:DragAndDrop()
+--
+--  DaD: Targetable(..same args as Button)    -- Targets shold be defined before Draggables.
+--  DaD: Draggable(...ditto)
+--  DaD: draw()
+--
+-- option parameters in Draggable() allow onClear(name) and onDrop(name) functions for those events
+--
+
+local function DragAndDrop()
+  local ui_targets = suit.new()
+  local ui_draggables = suit.new()
+  local ui_active = suit.new()
+
+  local is_dragging = false
+  local active_item_id = nil 
+  local offset_x, offset_y = 0, 0
+  local hovered_target = nil
+  local active_item_submitted = false
+
+  local registry = {}
+  local system = {}
+
+  -- TARGETABLE
+  function system:Targetable(target, ...)
+    local opt, x, y, w, h = suit.getOptionsAndSize(...)
+    local state = ui_targets:Button(target, opt, x, y, w, h)
+    if state.hovered then
+      hovered_target = {id = target, x = x, y = y, w = w, h = h}
+    end
+    return state
+  end
+
+  -- DRAGGABLE
+  function system:Draggable(item, ...)
+    local opt, x, y, w, h = suit.getOptionsAndSize(...)
+
+    -- Look up and assign internal state using the raw string ID 'item'
+    local state = registry[item]
+    if not state then
+      state = {
+        x = x,
+        y = y,
+        is_targeted = false
+      }
+      registry[item] = state 
+    end
+
+    -- Unconditionally update layout shapes every frame
+    state.home_x = x
+    state.home_y = y
+    state.w = w
+    state.h = h
+
+    local mouse_x, mouse_y = love.mouse.getPosition()
+    local button_pressed = love.mouse.isDown(1)
+    local button_state
+    
+    if active_item_id == item then
+      active_item_submitted = true
+
+      if button_pressed then
+        -- Dragging phase
+        state.x = mouse_x + offset_x
+        state.y = mouse_y + offset_y
+        button_state = ui_active:Button(item, opt, state.x, state.y, state.w, state.h)
+      else
+        -- Drop phase
+        if hovered_target then
+          state.is_targeted = true
+          if opt.onDrop then
+            opt.onDrop(hovered_target)
+            if opt.float then     -- leave it where you dropped it
+              state.x = hovered_target.x + (hovered_target.w - state.w) / 2
+              state.y = hovered_target.y + (hovered_target.h - state.h) / 2
+            else
+              state.x = hovered_target.x
+              state.y = hovered_target.y
+            end
+          end
+        else
+          state.is_targeted = false
+          if opt.onClear then opt.onClear() end
+          state.x = state.home_x
+          state.y = state.home_y
+        end
+
+        button_state = ui_active:Button(item, opt, state.x, state.y, state.w, state.h)
+        is_dragging = false
+        active_item_id = nil
+      end
+    else
+      -- Idle phase
+      if not state.is_targeted then
+        state.x = x
+        state.y = y
+      end
+
+      button_state = ui_draggables:Button(item, opt, state.x, state.y, state.w, state.h)
+      if button_state.hovered and button_pressed and not is_dragging then
+        is_dragging = true
+        active_item_id = item
+        active_item_submitted = true -- FIXED: Prevents draw() from wiping the click on frame 1
+        offset_x = state.x - mouse_x
+        offset_y = state.y - mouse_y
+      end
+    end
+    return button_state
+  end
+
+  function system:draw()
+    ui_targets:draw()
+    ui_draggables:draw()
+    ui_active:draw() 
+
+    if active_item_id and not active_item_submitted then
+      is_dragging = false
+      active_item_id = nil
+    end
+
+    hovered_target = nil
+    active_item_submitted = false
+  end
+ 
+  return system
+end
 
 
 -------------------------------
@@ -283,7 +587,7 @@ local function Dropdown(core, info, ...)
     data = row-wise table of data
     scroll = {value = nnn}      -- slider widget
     
-  Table opts contains: (axcept for cols, they are optional!)
+  Table opts contains: (except for cols, they are optional!)
   
     row_index  = {n,m, ...}       -- which rows to show from data
     col_index  = {n,m, ...}       -- which cols to show from data
@@ -351,7 +655,8 @@ local function drawTable(info, opt, idx, x,y,w,h)
   
   local maxscroll = max(0, nr - N)
   local start = floor(maxscroll * (1 - info.scroll.value)) + 1
-  local hirow, hicol = info.row, info.col
+--  local hirow, hicol = info.row, info.col
+  local hirow = info.row
   
   for row = start, min(nr, start + N - 1) do
     local x = x   - spacing         -- reset x coordinate
@@ -436,11 +741,15 @@ local new = suit.new      -- save parent's new()
 
 function suit.new(theme)
   local instance = new(theme)
-  instance.Rotary   = Rotary       -- insert new functionality
-  instance.Popup    = Popup
-  instance.Dropdown = Dropdown
-  instance.Table    = Table
-  instance.Hover    = Hover
+  
+  -- insert new functionality here...
+  instance.Choosable    = Choosable
+  instance.Controllable = Controllable
+  instance.DragAndDrop  = DragAndDrop
+  instance.Rotatable    = Rotatable 
+  instance.Slideable    = Slideable
+  instance.Table        = Table
+  
   return instance
 end
 

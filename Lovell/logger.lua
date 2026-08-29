@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.05.31",
+    VERSION = "2026.05.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -17,11 +17,15 @@ local _M = {
 -- 2025.03.29  add _err() for highlight error messages in log
 -- 2025.05.31  save _G.VERSION
 
+-- 2026.05.08  empty messages generate blank lines in log (for readability)
+-- 2026.07.20  require "table.new" (FFI extension to pre-allocate tables)
+
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
 
 _G.pretty = require "lib.pretty"            -- global access for debugging only
 
+require "table.new"       -- LuaJit extension
 
 local logChannel = love.thread.getChannel "logChannel"
 
@@ -64,9 +68,10 @@ local function formatted_time (date_format, now)
   return ('%s.%03d'):format (date, ms)
 end
 
-local function log(...)
+local function log(name, msg, ...)
   local t = formatted_time "%Y-%m-%d %H:%M:%S"      -- use space delimeter, rather than 'T'
-  logChannel: push (table.concat ({t, ...}, ' '))
+  msg = #msg > 0 and table.concat ({t, name, msg, ...}, ' ') or ''
+  logChannel: push (msg)
 end
 
 local function err(...)

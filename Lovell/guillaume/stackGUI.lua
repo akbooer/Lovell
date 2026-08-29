@@ -5,8 +5,8 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.11.22"
-  _M.DESCRIPTION = "stack GUI, view each stack frame"
+  _M.VERSION = "2026.07.24"
+  _M.DESCRIPTION = "GUI - stack, view each frame"
 
 -- 2025.01.22  Version 0
 -- 2025.04.01  add RGBL exposure values for post-processing
@@ -15,18 +15,23 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2025.11.21  add "dark/nodark flat/noflat" display (thanks SanjeevJoshi@CloudyNights)
 -- 2025.11.22  add filter label
 
+-- 2026.04.12  remove poststack module dependency
+-- 2026.04.29  add stretch slider
+-- 2026.06.11  access stack object directly
+-- 2026.07.24  lazy calculation of subframe gradients
 
-local _log = require "logger" (_M)
+
+require "logger" (_M)
 
 
 local suit = require "suit" .new()     -- make a new SUIT instance for ourselves
 
-local poststack   = require "poststack"
-local session     = require "session"
-local controls = session.controls
 
-local workflow    = require "workflow" .new "thumbnails"
-workflow.controls = controls
+local stack     = require "stacking"
+local controls  = require "controls"
+local vector    = require "lib.vector"
+
+local workflow  = require "workflow" .new {name = "thumbnails", format = "rgba16"}
 
 local love = _G.love
 local lg = love.graphics
@@ -52,7 +57,6 @@ theme.color = {
 
 local active = suit.theme.color.active.bg
 local hovered = suit.theme.color.hovered.bg
-local colour = suit.theme.color.text
 
 
 local subs
@@ -61,19 +65,13 @@ local epoch = ''
 local scroll = {value = 0}                -- stack scroller
 local scrollOpt = {vertical = true}
 
+local stretch =  {value = 0.5}            -- local image stretch control for individual subs
+
 local rate = {value = 0.5}                -- blink or play frame rate
 
 local Aoptions = {align = "left",  color = {normal = {fg = active}}}      -- fixed labels
 local Loptions = {align = "left",  color = {normal = {fg = hovered}}}     -- fixed labels
 local Woptions = {align = "left"}
-
-
-local frame = {
-    image    = nil,     -- image  
-    workflow = workflow,
-  }
-
-workflow.RGBL = {1,1,1,0, 0,0,0,0}       -- needed for poststack processing to handle this as RGB image
 
 local floor = math.floor
 
@@ -97,11 +95,10 @@ local sprites, matches do -- mark position of alignment stars, and matched pairs
             {1,1,1,1,1,1,1},
           }
 
---  local imageData = love.image.newImageData(5,5, "rgba8")
   local imageData = love.image.newImageData(7,7, "rgba8")
 
   imageData: mapPixel( 
-    function(x,y, r,g,b,a)
+    function(x,y)
       local i = idata[y+1][x+1]
       return i,i,i, i
     end)
@@ -140,8 +137,11 @@ local theta = "%0.3fº"
 local rejected = {checked = false, text = "omit from stack"}
 
 local function panel(subframe)
-  layout:reset(50,150, 10,10)                       -- leaving space for CLOSE button
+  layout:reset(50,100, 10,10)                       -- leaving space for CLOSE button
   local w = 120
+  suit: Label("stretch", Loptions, row(w, 20))
+  stretch.changed = suit: Slider (stretch, row(w, 10)) .changed
+  row()
   if suit: Button("Blink", row(w, 30)) .hit then
     BLINK = (BLINK == 0) and 1 or 0                 -- toggle blink
     PLAY = 0
@@ -300,7 +300,7 @@ function _M.update()
   lasttime = timenow
   
   local layout = suit.layout
-  local stack = session.stack()
+  local stack = stack: get()
   
   if not stack then subs = nil return end
   
@@ -309,7 +309,7 @@ function _M.update()
   
   subs = stack.subs
   w,h = subs[1].thumb: getDimensions()  
-  local ws = stack.image: getWidth()
+  local ws = stack.image: getDimensions()
   scale = 0.70 * H / h          -- image is X % of screen height
   local n = #subs
   index = 1
@@ -320,13 +320,17 @@ function _M.update()
   
   local subframe = subs[index]
   epoch = os.date("%c", subframe.epoch)
-  frame.image = subframe.thumb
   panel(subframe)
-  if index ~= lastindex then
---    frame.gradients = stack.gradients           -- use the offset and gradients from the whole stack
-    frame.bayer = stack.bayer
-    poststack(frame)                            -- run poststack processing chain
-    
+  if index ~= lastindex or stretch.changed then       -- something's changed
+    workflow: newInput(subframe.thumb) 
+    subframe.background = subframe.background                       -- lazy evaluation of...
+                or workflow: background(subframe.thumb, true)       -- ...bp, wp, and gradients
+    local background = subframe.background
+    workflow: bw_points(background.BP, 1)
+    workflow: scnr()
+    local mid = background.MEDIAN - background.BP
+    workflow: stretch("MidTone", 2 * stretch.value, mid)
+   
     markstars(sprites, subframe.stars, w / ws)                        -- mark found stars
     markstars(matches, subframe.matched_pairs or empty, w / ws)       -- mark matched stars
     

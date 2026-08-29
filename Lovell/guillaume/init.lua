@@ -4,12 +4,12 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.04.07",
+    VERSION = "2026.06.14",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
 
--- 2024.11.01
+-- 2024.11.01  Version 0
 -- 2024.11.05  use SUIT (Simple User Interface Toolkit)
 -- 2024.12.18  search in guillaume folder for loadable GUI modules
 
@@ -17,22 +17,26 @@ local _M = {
 -- 2025.01.17  add GUI-wide CLOSE button
 -- 2025.04.07  add app-wide ctrl-/cmd-keyboard actions to change page
 
+-- 2026.05.19  controls now in their own module
+-- 2026.06.14  add pager control to here (from session module)
+
 
 local _log = require "logger" (_M)
 
-local suit    = require "suit"
-local session = require "session"
+local suit      = require "suit"
+local controls  = require "controls"
 
 local love = _G.love
 local lg = love.graphics
 local lf = love.filesystem
 local lk = love.keyboard
 
-suit.theme.color.text = suit.theme.color.hovered.bg 
-
 require "guillaume.suitable"    -- add our own SUIT extensions
 
 local layout  = suit.layout
+
+local pager = love.thread.getChannel "pager"   -- a way for components to change display page
+
 
 -------------------------------
 --
@@ -53,28 +57,60 @@ for _, file in ipairs(dir) do
   end
 end
 
-local GUI = GUIs.main
-GUI.set "main"
+local GUI = GUIs.main   -- initialise to main display
 
+controls.page = "main"
+
+-------------------------------
+--
+-- UTILITIES
+--
+
+do
+  local imgData = love.image.newImageData "resources/mac-cmd.png"
+
+  imgData: mapPixel(function (x, y, r,g,b,a)
+                      return 1,1,1, a   -- for some reason, it's all in the alpha channel
+                    end)
+
+  _G.mac = lg.newImage (imgData)
+  _G.macFont = lg.newImageFont(imgData, '8')
+  imgData: release()
+end
+
+
+local function pageSet(page) 
+  local m, s = page: match "(%w+)%W*(.*)"   -- page, subpage 
+  controls.page = m 
+  if #s > 0 and m == "database" then
+    local DBnames = controls.DBnames
+    local lookup = DBnames.lookup
+    DBnames.selected = lookup[s] or 1
+  end
+end
 
 -------------
 --
 -- UPDATE
 --
 
-function _M.update(dt) 
-  local mode = GUI.get()
+function _M.update(dt, ...) 
   
-  if mode ~= "main" then   -- add close button for window
+  -- handle external (non-GUI) page change requests
+  local newpage = pager: pop()
+  if newpage then 
+    pageSet(newpage)   -- split into page and subpage parameters
+  end
+    
+  if controls.page ~= "main" then   -- add close button for window
     layout: reset(10,10, 10, 10)
     if suit.Button("Close", layout: row(80, 50)) .hit then
-      GUI.set "main"
-      mode = "main"
+      pageSet "main"
     end
   end
 
-  GUI = GUIs[mode]
-  GUI.update(dt)
+  GUI = GUIs[controls.page] or GUI.main
+  GUI.update(dt, ...)
 end
 
 -------------
@@ -82,11 +118,11 @@ end
 -- DRAW
 --
 
-function _M.draw() 
+function _M.draw(image) 
   local clear = 1/8
   lg.clear(clear,clear,clear,1)
-  GUI.draw()                      -- draw the mode-specific stuff
-  suit.draw()                     -- and the CLOSE button
+  GUI.draw(image)                 -- draw the mode-specific stuff...
+  suit.draw()                     -- ...and the CLOSE button
 end
   
 -------------------------
@@ -94,21 +130,24 @@ end
 -- KEYBOARD
 --
 
-local eyepiece = session.controls.eyepiece
+local eyepiece = controls.eyepiece
 
 local special = {
- ["escape"] = function() GUI.set "main" end, 
+ ["escape"] = function() pageSet "main"; eyepiece.checked = true end, 
 }
 
+
 local cmd = {
-  c = function() GUI.set ("database", "calibration") end,
-  d = function() GUI.set ("database", "dso") end,
-  e = function() GUI.set "main";  eyepiece.checked = true  end,
-  l = function() GUI.set "main";  eyepiece.checked = false end,
-  o = function() GUI.set ("database", "observations") end,                    -- open previous observation
-  p = function() GUI.set "workflow" end,                                      -- processing workflow
-  s = function() GUI.set "settings" end,
-  v = function() GUI.set "stack" end,                                         -- view stack
+  c = function() pageSet "database, calibration" end,
+  d = function() pageSet "database, dso" end,
+  e = function() pageSet "main";    eyepiece.checked = true end,
+  f = function() pageSet "database, fits headers" end,
+  l = function() pageSet "main";    eyepiece.checked = false end,
+  o = function() pageSet "database, observations" end,                -- open previous observation
+  p = function() pageSet "process" end,                               -- processing workflow
+  s = function() pageSet "settings" end,
+--  t = function() pageSet "database, telescopes" end,                -- clashes with eyepiece 'toggle'
+  v = function() pageSet "stack" end,                                 -- view stack of subs
 }
 
 function love.keypressed(key, ...)

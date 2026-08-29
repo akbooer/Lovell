@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.11.23",
+    VERSION = "2026.07.26",
     AUTHOR = "AK Booer",
     DESCRIPTION = "stacks individual subs",
   }
@@ -21,81 +21,67 @@ local _M = {
 -- 2025.05.09  refine minimum variance stack implementation (no free parameters)
 -- 2025.11.23  add HSO filters to stacker tables (issue #16)
 
+-- 2026.05.03  calculate enough_RGB and (corrected) Lratio here, rather than poststack
+-- 2026.06.03  use vector library, not matrix
+-- 2026.06.11  move RGBL calculations to stack module...
+-- 2026.07.15  ...but add RGBL parameter to revert to unity scaling for stack
+-- 2026.07.26  use mipmap canvas as temporary stack and average calculator
+-- 2026.08.07  use new internal stack workflow (wstack)
+
 
 local _log = require "logger" (_M)
-
-local matrix    = require "lib.matrix"
-local newTimer  = require "utils" .newTimer
 
 local love = _G.love
 local lg = love.graphics
 
 
-_M.stackOptions = {"Average", "Min Variance", selected = 1,
-                    displayname = {"average", "min var", "sigma"}}
+_M.stackOptions = {
+    "Average", "Min Variance", "-Sigma Clip", 
+    selected = 1,
+    default = 1,
+    id = "Mode: ",    -- for Menu widget
+    displayname = {"average", "min var", "sigma"}
+  }
 
+
+------------------------
+--
+-- ALIGN -= rotate and shift image prior to stacking
+--
+
+function _M.align(workflow, geometry)  
+  local theta, xshift, yshift = unpack(geometry)
+  local w, h = workflow: getDimensions()  
+  lg.setBlendMode ("replace", "premultiplied")        -- don't treat alpha channel as normal (it's separate Lum)
+  workflow: clear "input"                                                           -- actually, the next output buffer
+  workflow: renderTo(lg.draw, w/2 + xshift, h/2 + yshift, theta, 1, 1, w/2, h/2)    -- rotate and shift parameters
+end
 
 ------------------------
 --
 -- AVERAGE STACK
 --
 
---[=[
-
--- this is the straight-forward way with RGB and alpha used as expected
-
-local stacker = lg.newShader [[
-    
-    uniform float alpha;
-    
-    vec4 effect( vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords ){
-      vec3 pixel = Texel(texture, texture_coords) .rgb;
-      return vec4(pixel, alpha);
-    }
-    
-]]
-
-local function average(workflow, stack, depth, _, ...)
-  lg.setBlendMode "alpha"
-  lg.setShader(stacker)
-  stacker: send("alpha", 1 / depth)
-  stack: renderTo(lg.draw, workflow.output, ...)
-end
-
---]=]
-
-
 -- RGBA version, with separate luminance channel stored in A
--- requires read access to existing stack...
-
+-- MainTex is existing stack
 local stacker = lg.newShader [[
     
     uniform vec4 rgbl;
-    uniform Image stack;
+    uniform Image sub;
     
     const float eps = 1e-4;
     vec4 alpha = 1.0 / (rgbl + eps);
     
-    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec4 pixel  = Texel(texture, tc);
-      vec4 pstack = Texel(stack, tc);
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec4 pixel  = Texel(sub, tc);
+      vec4 pstack = Texel(tex, tc);
       return mix(pstack, pixel, alpha);
     }
     
 ]]
 
-local function average(workflow, rgbl, ...)
-  
-  -- (1) rotate and shift input...
-  --      ...image must be aligned BEFORE stacking!
-  workflow: clear "input"   -- actually, the next output buffer
-  workflow: renderTo(lg.draw, ...)
-  
-  -- (3) stack shifted image
-  lg.setShader(stacker)
-  stacker: send("rgbl", rgbl)
-  stacker: send("stack", workflow.stack)
-  workflow.stack: renderTo(lg.draw, workflow.output)
+local function average(wstack, workflow, rgbl, ...)
+  wstack: shadeWith(stacker, {sub = workflow.output, rgbl = rgbl})
 end
 
 ------------------------
@@ -104,88 +90,99 @@ end
 --
 
 -- standard deviation
+-- MainTex is new sub
 local sigma = lg.newShader [[
     
     uniform Image stack;
     
-    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec4 new = Texel(texture, tc);
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec4 new = Texel(tex, tc);
       vec4 ref = Texel(stack, tc);
-      vec4 var = 1000.0 * abs(new - ref);  // use innovation as proxy for sigma, scaled to retain precision for half float
-      return var;
+      
+      return abs(new - ref);  // use innovation as proxy for sigma
     }
-    
+ 
 ]]
 
--- calculate minimum variance weighted stack, input is new sub
+-- calculate minimum variance weighted stack, 
+-- MainTex is existing stack
 local minvar = lg.newShader [[
-    
+
     uniform vec4 rgbl;
-    uniform Image stack, stack_variance, sub_variance;
+    uniform Image sub, stack_sigma, sub_sigma;
     
-    const float eps = 1e-4;
+    const float eps = 1e-5;
     vec4 alphamax = 1.0 / (rgbl + eps);
    
-    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec4 pixel  = Texel(texture, tc);
-      vec4 pstack = Texel(stack, tc);
-      vec4 vsub   = Texel(sub_variance, tc) ;
-      vec4 vstack = Texel(stack_variance, tc);
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec4 pixel  = Texel(sub, tc);
+      vec4 pstack = Texel(tex, tc);
+      vec4 ssub = Texel(sub_sigma, tc);   
+      vec4 sstack = Texel(stack_sigma, tc);
+      
+      // convert sigma to variance
+      vec4 vsub = ssub;               // * ssub;   
+      vec4 vstack = sstack;           // * sstack;
       
       vec4 alpha = vstack / (vstack + vsub + eps);
- //     alpha = min(alpha, alphamax);
+      alpha = min(alpha, alphamax);
+      
       return mix(pstack, pixel, alpha);
 
     }
     
 ]]
 
--- calculate new stack variance, input is sub variance
-local newvar = lg.newShader [[
+-- calculate new stack sigma, 
+-- MainTex is sub sigma
+local newsigma = lg.newShader [[
     
-    uniform Image stack_variance;    
+    uniform Image stack_sigma;    
      
-    const float eps = 1e-4;
+    const float eps = 1e-5;
     
-    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec4 vsub = Texel(texture, tc);
-      vec4 vstack = Texel(stack_variance, tc); 
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec4 ssub = Texel(tex, tc);
+      vec4 sstack = Texel(stack_sigma, tc); 
+     
+      // convert sigma to variance
+      vec4 vsub = ssub;               // * ssub;   
+      vec4 vstack = sstack;           // * sstack;
       
-      return vsub * vstack / (vstack + vsub + eps);;
+      vstack = vsub * vstack / (vstack + vsub + eps);
+      
+ //     return sqrt(vstack);
+      return vstack;
     }
     
 ]]
 
-local function min_variance(workflow, rgbl, ...)
+-- sigma, not variance, is stored to retain dynamic range in fixed 16-bit format,
+-- at the cost of a little extra maths in the shaders.
+-- input star image has already been aligned (rotated and translated)
+local function min_variance(wstack, workflow, rgbl)
+  -- (0) allocate temporary buffer names
+  local stars = "temp"
+  local sstack = "stack_sigma"
   
-  -- (1) rotate and shift input, saving in temp...
-  --      ...image must be aligned BEFORE new variance estimate!
-  workflow: clear "input"   -- actually, the next output buffer
-  workflow: renderTo(lg.draw, ...)
-  workflow: save "temp"
+  -- (1) save pre-aligned star image...
+  workflow: save(stars)
 
-  -- (2) calculate sub variance, save in temp1
-  lg.setShader(sigma)
-  sigma: send("stack", workflow.stack)
-  workflow.temp1: renderTo(lg.draw, workflow.output)
+  -- (2) calculate sub sigma
+  workflow: shadeWith(sigma, {stack = wstack.output}) 
   
-  -- (3) variance weighted stack of rotated and shifted image in temp
-  lg.setShader(minvar)
-  minvar: send("rgbl", rgbl)
-  minvar: send("stack", workflow.stack)
-  minvar: send("stack_variance", workflow.stack_variance)
-  minvar: send("sub_variance", workflow.temp1)
-  workflow.stack: renderTo(lg.draw, workflow.temp)
+  -- (3) variance weighted stack
+  wstack: shadeWith(minvar, {
+      rgbl = rgbl,
+      sub = workflow[stars], 
+      stack_sigma = workflow[sstack],  
+      sub_sigma = workflow.output})
 
   -- (4) update stack variance
-  lg.setShader(newvar)
-  newvar: send("stack_variance", workflow.stack_variance)
-  workflow.output: renderTo(lg.draw, workflow.temp1)    -- temp1 is sub variance
-  workflow: gaussian(3)                                 -- spatial average as proxy for temporal average
-  workflow: save "stack_variance"
+  workflow: shadeWith(newsigma, {stack_sigma = workflow[sstack]})
+  workflow: gaussian(3)         -- spatial average as proxy for temporal average (or use bilteral?)
+  workflow: save "stack_sigma"
   
---  lg.reset()
---  workflow: stats(true)
 end
 
 ------------------------
@@ -193,118 +190,68 @@ end
 -- SIGMA CLIP STACKING
 --
 
+-- MainTex is existing stack
 local clip = lg.newShader [[
-    
+   #pragma language glsl3
+   
     uniform vec4 rgbl;
-    uniform Image stack, sub_variance, ref_variance;
+    uniform Image ref_sigma, sub_sigma, stars;
     
-    const float eps = 1e-4;
+    const float eps = 1e-5;
     vec4 alpha = 1.0 / (rgbl + eps);
    
-    vec4 effect( vec4 color, Image texture, vec2 tc, vec2 _ ){
-      vec4 pixel  = Texel(texture, tc);
-      vec4 pstack = Texel(stack, tc);
-      vec4 vsub   = Texel(sub_variance, tc) ;
-      vec4 vref   = Texel(ref_variance, tc);
-      vref = vec4(0.001);
+    vec4 effect( vec4 color, Image tex, vec2 tc, vec2 _ ){
+      vec4 pstack = Texel(tex, tc);
+      vec4 pixel  = Texel(stars, tc);
+      vec4 vsub   = Texel(sub_sigma, tc) ;
+      vec4 vref   = Texel(ref_sigma, tc);
       
       bvec4 ok = lessThan(vsub, 2.0 * vref);
-//      vec4 foo = mix(pstack, pixel, ok);   // not available in GLSL 1.1
-      pixel.r = ok.r ? pixel.r : 0.0; //pstack.r;
-      pixel.g = ok.g ? pixel.g : 0.0; //pstack.g;
-      pixel.b = ok.b ? pixel.b : 0.0; //pstack.b;
-      pixel.a = ok.a ? pixel.a : 1.0; //pstack.a;
-      
+      pixel = mix(pstack, pixel, vsub / vref);   // not available in GLSL 1.1
+
       return mix(pstack, pixel, alpha);
     }
     
 ]]
-local function sigma_clip(workflow, rgbl, ...)
-  
-  -- (1) rotate and shift input, saving in temp...
-  --      ...image must be aligned BEFORE new variance estimate!
-  workflow: clear "input"   -- actually, the next output buffer
-  workflow: renderTo(lg.draw, ...)
-  workflow: save "temp"
 
-  -- (2) calculate sub variance, save in temp1
-  lg.setShader(sigma)
-  sigma: send("stack", workflow.stack)
-  workflow: renderTo()
-  workflow: save "temp1"
---  workflow: gaussian(3)                                 -- spatial average as proxy for temporal average
+local function sigma_clip(wstack, workflow, rgbl)
+  -- (0) allocate temporary buffer names
+  local stars = "temp"
+  local ssub = "temp1"
   
-  -- (3) stack of rotated and shifted image in temp
-  lg.setShader(clip)
-  clip: send("rgbl", rgbl)
-  clip: send("stack", workflow.stack)
-  clip: send("ref_variance", workflow.output)
-  clip: send("sub_variance", workflow.temp1)
-  workflow.stack: renderTo(lg.draw, workflow.temp)
- 
+  -- (1) save pre-aligned star image...
+  workflow: save(stars)
+
+  -- (2) calculate sub variance  
+  workflow: shadeWith(sigma, {stack = wstack.output}) 
+  workflow: save(ssub)
+  workflow: gaussian(3)               -- spatial average as proxy for temporal average (or use bilteral?)
+  
+  -- (3) stack using sigma clip
+  wstack: shadeWith(clip, {
+      rgbl = rgbl,
+      ref_sigma = workflow.output,           -- smoothed local variance
+      sub_sigma = workflow[ssub],
+      stars = workflow[stars]})
 end
+
 
 ------------------------
 --
--- GENERIC STACKING
+-- GENERIC STACKING - input frame has already been aligned
 --
-
-local t, f = true, false
-
-local rgb_filter = {
-          R   = {t,f,f,f}, 
-          G   = {f,t,f,f}, 
-          B   = {f,f,t,f}, 
-          H   = {t,f,f,f}, 
-          S   = {f,t,f,f}, 
-          O   = {f,f,t,f}, 
-          L   = {f,f,f,t},    -- Luminance is stored in alpha channel
-          RGB = {t,t,t,f},
-        }
-
-local rgb_count = {
-          R   = {1,0,0,0}, 
-          G   = {0,1,0,0}, 
-          B   = {0,0,1,0}, 
-          H   = {1,0,0,0}, 
-          S   = {0,1,0,0}, 
-          O   = {0,0,1,0}, 
-          L   = {0,0,0,1}, 
-          RGB = {1,1,1,0},
-        }
 
 local process = {average, min_variance, sigma_clip}
 
-function _M.stack(workflow, p)
-  local elapsed = newTimer()
-  
-  local controls = workflow.controls
-  local sel = controls.stackOptions.selected
-  local fct = process[sel] or average
-  
-  local filter = p.filter:upper()
---  local filterChans = rgb_filter[filter] or rgb_filter.RGB
---  local countChans  = rgb_count[filter]  or rgb_count.RGB
-  _log("filter type: ", filter)
-  local filterChans = p.bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
-  local countChans  = p.bayer and rgb_count.RGB or rgb_count[filter] or {0,0,0,0,  0,0,0,0}
-  
-  local theta, xshift, yshift = unpack(p)
-  local w, h = workflow: getDimensions()
-  local geometry = {w/2 + xshift, h/2 + yshift, theta, 1, 1, w/2, h/2} -- rotate and shift parameters
-    
-  local RGBL = matrix {workflow.RGBL or {0,0,0,0,  0,0,0,0}}       -- initalise stack counts, and exposures
-  RGBL = (RGBL + (matrix {countChans} .. (matrix {countChans} * p.exposure))) [1]
-  workflow.RGBL = RGBL
-  _log("RGBL exposures (s):", unpack(RGBL))
+
+function _M.stack(wstack, workflow, filterChans, RGBL)
+  local sel = _M.stackOptions.selected
+  local stack = process[sel] or average
   
   lg.setBlendMode ("replace", "premultiplied")        -- don't treat alpha channel as normal (it's separate Lum)
   lg.setColorMask(unpack(filterChans))                -- only update relevant channel(s)
-  fct(workflow, RGBL, unpack(geometry))
+  stack(wstack, workflow, RGBL)
   lg.reset()
-  
-  local rgbl = "%dR %dG %dB %dL" % RGBL
-  _log(elapsed ("%.3f ms, %s %s stack", rgbl, controls.stackOptions[sel]))
 end
 
 

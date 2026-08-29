@@ -5,10 +5,10 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2025.04.07"
-  _M.DESCRIPTION = "main GUI"
+  _M.VERSION = "2026.05.16"
+  _M.DESCRIPTION = "GUI - main page"
 
-local _log = require "logger" (_M)
+_log = require "logger" (_M)
 
 -- 2024.11.01  Version 0
 -- 2024.11.27  added Flip LR/UD checkboxes
@@ -22,167 +22,86 @@ local _log = require "logger" (_M)
 -- 2025.02.28  correct zoom and rotate origin (centre of displayed image, rather than centre of frame)
 -- 2025.03.31  change keyboard shortcuts (Issue #2)
 
+-- 2026.05.16   redesign control layout using new Suitable widgets
+
+
 local suit      = require "suit"
-local session   = require "session"
-local snapshot  = require "snapshot"
+local suitable  = require "guillaume.suitable"     -- for access to reset flag
+local controls  = require "controls"
 local utils     = require "utils"
 
-local panels    = require "guillaume.infopanel"
 local Objects   = require "guillaume.objects"
 local Oculus    = Objects.Oculus
 local moveXY    = Objects.moveXY
 
+local infopanel    = require "guillaume.infopanel"
+local controlpanel = require "guillaume.controlpanel"
+
 local love = _G.love
 local lg = love.graphics
 local lk = love.keyboard
-local lm = love.mouse
 
-local controls  = session.controls
-
-
-
---lg.setDefaultFilter("nearest", "nearest")   -- smoothstars! ... but blocky if enlarged too much
---lg.setDefaultFilter("linear", "nearest")   -- smoothstars!
---lg.setDefaultFilter("nearest", "linear")   -- smoothstars!
-lg.setDefaultFilter("linear", "linear")   -- smoothstars!
 
 local self = suit.new()     -- make a new SUIT instance for ourselves
 
-local margin = 220          -- margin width for left- and right-hand panels
+local margin = 250          -- margin width for left- and right-hand panels
 
 local pin_controls = controls.pin_controls
 local pin_info = controls.pin_info
 
-_M.controls = controls
-
 local adjustments, info   -- show side panels
 local DRAGGING            -- drag the image
 
--- replace dummy function set in session
+
 function controls.anyChanges()
-  return suit.anyActive() and not DRAGGING
+  return (suit.anyActive() and not DRAGGING) or suitable.anyReset()
 end 
-
-local layout  = self.layout
  
-local Loptions = {align = "left",  color = {normal = {fg = suit.theme.color.hovered.bg }}}   -- fixed labels
-
-local toggle = {"Eyepiece", "Landscape"}
-
--------------
-
-local function slider(name, ...)
-  name = name:lower()
-  local control = controls[name] or {value = 0.5}
-  controls[name] = control
-  local x,y, w,h = layout:row(...)
-  self: Label(name, Loptions, x,y, w,h)
-  if self: Slider(control, layout:row()) .hovered 
-    and controls.settings.showSliderValues then
-      self:Label("%.2f" % control.value, x, y, w, h)
-  end
-end
-
-
-local function build_adjustments(controls)
-  
-  layout:reset(10,10)             -- position the layout origin...
-  layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
-  self:Checkbox(pin_controls, {id = "pin_controls"}, layout:row(20, 20))
-  
-  local w = margin - 20
-  local h = lg.getHeight()
-  
-  self: Dropdown(controls.channelOptions, layout:row(w,30))
-  slider ("Background", w, 10)
-  slider ("Brightness")
-  
-  self: Dropdown(controls.gammaOptions, layout:row(w,30))
-  slider ("Stretch", w, 10)
-  slider "Gradient"
-  
-  self: Dropdown(controls.colourOptions, layout:row(w,30))
-  slider ("Saturation", w, 10)
-  slider "Tint"
-  
-  if self: Button("Processing", layout:row(w,30)) .hit then
-    _M.set "workflow"
-  end
-  slider ("Denoise", w, 10)
-  slider "Sharpen"
-
---  if self: Button("Plate Solve", layout:row(w,30)) .hit then
-    
---  end
---  slider ("Magnitude", w, 10)
-    
-  -- orientation and snapshot
- 
-  layout: reset(10, h - 125, 10, 10)
-  layout: row(10, 10)
-  toggle.selected = controls.eyepiece.checked and 1 or 2
-  self: Dropdown(toggle, layout: row(w, 30))
-  controls.eyepiece.checked = toggle.selected == 1
- 
-  if self:Button ("Snapshot", layout:row(80, 50)) .hit then
-    snapshot.snap()
-  end
-  
-  layout:col(5, 20)
-  
-  self:Checkbox (controls.flipUD, layout:col(120, 20))
-  self:Checkbox (controls.flipLR, layout:row(120, 20))
- end
 
 -------------
 --
 -- UPDATE
 --
+ 
+local arrow = love.mouse.getSystemCursor "arrow"    -- TODO: does not seem to work...
 
-local popup = {"DSOs", "Observations", "Watchlist", "View stack"}
+local ALPHA = 1   -- tweened for visual feedback of snapshot
 
-local mode = {
-    {"database", "dso"}, 
-    {"database", "observations"}, 
-    {"database", "watchlist"},
-    {"stack"},
-  }
-
-function _M.update(dt) 
+function _M.update(dt, image) 
   dt = dt
+  love.mouse.setCursor(arrow)
   
   local w, h = lg.getDimensions()
   local eyepiece = controls.eyepiece.checked
+  
 
-  if self: Popup(popup, margin, 0, w - margin, h) .hit then
-    _M.set (unpack(mode[popup.selected] or {"database"}))
+  adjustments = suit.mouseInRect(1, 1, margin + 30, h - 5) or eyepiece or pin_controls.checked
+  if adjustments  then
+    controlpanel.update(self, controls, image)
+  end
+  
+  info = suit.mouseInRect(w - margin - 30, 1, margin + 28, h - 5) or eyepiece or pin_info.checked
+  if info then
+    infopanel.update(self)
   end
   
   local rotate = controls.rotate
   if eyepiece then
     local r = Oculus.radius() + 10
     -- rotate.changed is used to stop post-stack processing when being rotated, see session.update()
-    rotate.changed = self:Rotary (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
+    rotate.changed = self:Rotatable (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
   end
 
-  adjustments = suit.mouseInRect(1,1, margin + 30, h - 5) or eyepiece or pin_controls.checked
-  if adjustments  then
-    build_adjustments(controls)
+  -- shutter tween (animation)
+  local s = SHUTTER or 0
+  if s > 0 then
+    ALPHA = math.abs(2 * s  - 1)
+    SHUTTER = s - 2 * dt
+  else
+    ALPHA = 1
+    SHUTTER = 0
   end
-  
-  info = suit.mouseInRect(w - margin - 30, 1, margin + 28, h - 5) or eyepiece or pin_info.checked
-  if info then
-    panels.update(self)
-  end
-
-  if suit.isHit "landscape" then
-    controls.eyepiece.checked = false
-  elseif suit.isHit "eyepiece" then
-    controls.eyepiece.checked = true
-  end
-
 end
-
 
 -------------
 --
@@ -190,9 +109,14 @@ end
 --
 local final 
 
-function _M.draw()
+local gammaShader = love.graphics.newShader [[
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 linearColor = Texel(texture, texture_coords) * color;
+            return vec4(pow(linearColor.rgb, vec3(1.0 / 2.2)), linearColor.a);
+        }]]
+
+function _M.draw(screenImage)
   local W, H = lg.getDimensions()             -- screen size
-  local screenImage = session.image()
   local eyepiece = controls.eyepiece.checked  
   local clear = 0.12
   lg.clear(clear,clear,clear,1)
@@ -201,8 +125,12 @@ function _M.draw()
   
   if screenImage then
     final = screenImage
-    lg.setColor(1,1,1, 1)
+    lg.setColor(1,1,1, ALPHA)
+    
+--    lg.setShader(gammaShader)
     lg.draw(screenImage, W/2,  H/2, moveXY(final))   
+--    lg.setShader()
+    
     lg.setBlendMode "alpha"
   end
 
@@ -342,7 +270,7 @@ function _M.mousepressed(mx, my, btn, _, presses)
   DRAGGING = btn == 1 and on_image
   -- toggle normal/inverse image
   if presses == 2 and on_image then
-    local opt = controls.channelOptions
+    local opt = controls.channel        -- this is the 'channel' plugin (mandatory!)
     opt.selected, opt.revert = opt.selected == 3 and opt.revert or 3, opt.selected
   end
 end

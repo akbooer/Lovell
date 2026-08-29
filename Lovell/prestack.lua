@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.03.29",
+    VERSION = "2026.04.28",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -20,54 +20,66 @@ local _M = {
 -- 2025.05.25  don't remove background offset if image is already calbrated
 
 -- 2026.03.29  change canvas precision from rgba16f to rgba16
+-- 2026.04.10  make thumbnail creation and star detection part of prestack processing
+-- 2026.04.28  calculate thumbnail statistics as proxy for full image
 
 
 local _log = require "logger" (_M)
 
-local background = require "shaders.background"
-
-local utils = require "utils"
-local newTimer = utils.newTimer
+local controls  = require "controls"
+local newTimer  = require "utils" .newTimer
 
 local love = _G.love
 local lg = love.graphics
 
 
-local function prestack(workflow, frame)
-  local controls = workflow.controls
---  local input, output = workflow()
+local function prestack(workflows, frame)
+  _log ''
+  _log "PRESTACK"
+  local elapsed = newTimer()
+  local workflow = workflows.main
   
-  local imageData = frame.imageData     -- this is in R16 format
-  _log ("creating R16 format image [%sx%s]" % {imageData: getDimensions()})
+  local imageData = frame.imageData
+  _log ("creating image %s[%sx%s]" % {imageData:getFormat(), imageData: getDimensions()})
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
   
-  local w = controls.workflow
-  local forced = w.debayer.checked
-  local option = w.bayer_opt
-  local bayerpat = forced and (option[option.selected] or "RGGB") or frame.bayer
+  -- prestack control cluster
+  local p = controls.prestack
+  local do_dark, do_flat = p.do_dark.checked, p.do_flat.checked
+  local option = p.bayer_opt
+  local selected = option[option.selected]
+
+  -- stacking control cluster
+  local s = controls.stacking
+  local radius = s.radius.value   -- star peak search radius
+  local maxstar = s.maxstar.value
+  
+  local bayerpat = selected ~= "Auto" and selected or frame.bayer
   frame.bayer = bayerpat
   
+  local ratio = p.badpixel.checked and p.badratio.value or 1e6   -- turn it on/off
+
   -------------------------------
   --
   -- PRESTACK
   --
   
---  workflow: newInput(rawImage, {format = "rgba16f", dpiscale = 1})
---  workflow: newInput(rawImage, {format = "rgba32f", dpiscale = 1})
-  workflow: newInput(rawImage, {format = "rgba16", dpiscale = 1})
-  workflow: calibrate(frame)
-  workflow: badpixel(bayerpat)            -- hot pixel removal is different if there's a Bayer matrix  
-  workflow: debayer(bayerpat)             -- debayer or or replicate to R,G,B, and A channels
+  workflow: newInput(rawImage)
   
---  if not frame.dark_calibration then      -- calculate & remove background offset from sub
-    local elapsed = newTimer()
-    local offset = background.offset(workflow.output)
-    workflow: background(offset) 
-    _log(elapsed "%.3f ms, background")
---  end
-  
-  rawImage:  release()
+  workflow: calibrate(frame, do_dark, do_flat)
+  workflow: badpixel(bayerpat, ratio)           -- hot pixel removal is different if there's a Bayer matrix  
+  workflow: debayer(bayerpat)                   -- debayer or replicate to R,G,B, and A channels
+
+  frame.thumb = workflow: thumbnail()                         -- store thumbnail
+  frame.stars = workflow: starfinder(radius, maxstar)         -- extract star positions and flux
+   
+  rawImage: release()
   imageData: release()
+  frame.imageData = nil
+  
+  lg.reset()
+  
+  _log(elapsed "%.3f ms, PRESTACK total")
   
 end
 

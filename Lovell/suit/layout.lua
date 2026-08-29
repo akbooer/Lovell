@@ -52,12 +52,13 @@ function Layout:push(x,y)
 		self._heights,
 	}
 
-	return self:reset(x,y, padx or self._padx, pady or self._pady)
+--	return self:reset(x,y, padx or self._padx, pady or self._pady)    -- AKB  2026.05.17 unknown globals (param list??)
+	return self:reset(x,y, self._padx, self._pady)
 end
 
 function Layout:pop()
 	assert(#self._stack > 0, "Nothing to pop")
-	local w,h = self._w, self._h
+	local w,h = self._w or 0, self._h or 0        -- 2026.05.12  AKB add missing defaults
 	self._x, self._y,
 	self._padx,self._pady,
 	self._w, self._h,
@@ -114,7 +115,7 @@ local function calc_width_height(self, w, h)
 	elseif h == "median" then
 		h = self._heights[math.ceil(#self._heights/2)] or 0
 	elseif type(h) ~= "number" then
-		error("width: invalid value (" .. tostring(w) .. ")", 3)
+		error("height: invalid value (" .. tostring(h) .. ")", 3)   -- 2026.05.12 AKB fix reference to height
 	end
 
 	if not w or not h then

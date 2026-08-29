@@ -9,6 +9,9 @@
 -- 2016.02.26   use rawget to investigate array numeric indices, preload enc[_G] = _G only
 -- 2016.03.10   fix for {nil,nil, 3,nil,5}
 -- 2019.06.25   fix for out of order discontiguous numeric indices {nil,nil,3, [42]=42, nil,nil,nil,7,8,9}
+
+-- 2026.06.26   use "%0.3g" format for numerics
+
 -- TODO: smarter quotes
 
 ----------------------------
@@ -27,7 +30,8 @@ local function pretty (Lua)                     -- 2014 - 2019.06.25   @akbooer
     if name == "_G" or enc[x] then p(enc[x] or "_G") return end             -- previously encoded
     local t = type(x)
     if t == "string" then p(str_obj (x))  return end
-    if t ~= "table"  then p(tostring (x)) return end
+--    if t ~= "table"  then p(tostring (x)) return end
+    if t ~= "table"  then p(type(x) == "number" and string.format("%0.3g",x) or tostring (x)) return end
     if not next(x) then p "{}" return end
     local id_num, id_str = {}, {}
     for i in pairs(x) do 

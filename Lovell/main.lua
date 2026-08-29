@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.04.09",
+  VERSION = "2026.08.29",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2026 AK Booer",
   LICENCE = [[  
@@ -36,6 +36,10 @@ local _log = logger(_M)
 -- 2024.09.25  Version 0
 
 -- 2025.03.28  Add new thread for reloads
+-- 2025.04.27  New formatting for dropped folder message
+
+-- 2026.06.14  remove GUI dependency
+
 
 local jit  = _G.jit
 --jit.off()
@@ -55,8 +59,8 @@ do -- log system info before other modules loaded
   _log ("%s, %d processors, %s, %s" % {OS, processorCount, renderer, luajit})
 end
 
+-- these requires come AFTER initial info logged above...
 local session = require "session"
-local GUI     = require "guillaume"
 local masters = require "databases.masters"
 
 -------------------------
@@ -95,7 +99,7 @@ local folder      -- current watched folder
 -- start watching a new folder, the beginning of a new (or old) observation
 function love.directorydropped(path)
   _log "------------------------"
-  _log("folder dropped " .. path)
+  _log("folder dropped '%s'" % path)
   if folder then 
     lf.unmount(folder) 
     folder = nil
@@ -124,8 +128,6 @@ end
 --
 
 function love.load(arg)
-  
---  if arg[#arg] == "-debug" then require "mobdebug" .start() end   -- enable debugging in ZeroBrane Studio
 
   io.stdout:setvbuf "line"   -- let print work immediately (for debugging, etc.)
   
@@ -148,14 +150,9 @@ function love.load(arg)
 
 end
 
-function love.update(dt)
-  GUI.update(dt)                    -- update the GUI...
-  session.update()                  -- ...and any session processing
-end
+love.update = session.update
 
-function love.draw()
-  GUI.draw()                        -- draw the screen
-end
+love.draw = session.draw
 
 function love.quit()
   session.close()                   -- save current session

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2025.06.07",
+    VERSION = "2026.05.30",
     AUTHOR = "AK Booer",
     DESCRIPTION = "apply darks and flats",
   }
@@ -15,6 +15,8 @@ local _log = require "logger" (_M)
 -- 2025.04.14  Version 0
 -- 2025.05.27  load masters on demand
 -- 2025.05.28  add scaling factor for flats
+
+-- 2026.05.30  add do_dark and do_flat as parameters to calibrate()
 
 
 local masters   = require "databases.masters"
@@ -53,11 +55,9 @@ local midpoint                                      -- for scaling flats
 local bias, dark, flat                              -- master canvases
 local current_bias, current_dark, current_flat      -- master catalogue entries
 
-function _M.calibrate(workflow, frame)
+function _M.calibrate(workflow, frame, do_dark, do_flat)
   local elapsed = newTimer()
   local controls = workflow.controls
-  local w = controls.workflow
-  local do_dark, do_flat = w.do_dark.checked, w.do_flat.checked
   
   if frame.first then
     _log "clearing masters"
@@ -87,15 +87,13 @@ function _M.calibrate(workflow, frame)
   frame.flat_calibration = not not flat
     
   if dark or flat then
-    local input, output = workflow()
-    lg.setShader(calibrate)
     lg.setBlendMode("replace", "premultiplied")
-    calibrate: send("do_dark", frame.dark_calibration)
-    calibrate: send("do_flat", frame.flat_calibration)
-    calibrate: send("Idark", dark or input)
-    calibrate: send("Iflat", flat or input)
-    calibrate: send("scale", 0.5 / midpoint)    -- scaling factor for flat
-    output: renderTo(lg.draw, input)
+    workflow: shadeWith (calibrate, {
+                  do_dark = frame.dark_calibration,
+                  do_flat = frame.flat_calibration,
+                  Idark = dark,
+                  Iflat = flat,
+                  scale = 0.5 / midpoint})    -- scaling factor for flat
     lg.reset()
     _log(elapsed "%.3f ms,", dark and "DARK" or '', flat and "FLAT" or '')
   end

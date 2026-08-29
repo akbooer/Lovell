@@ -5,8 +5,8 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2025.05.21"
-  _M.DESCRIPTION = "database GUI"
+  _M.VERSION = "2026.06.06"
+  _M.DESCRIPTION = "GUI - databases"
 
 local _log = require "logger" (_M)
 
@@ -17,83 +17,81 @@ local _log = require "logger" (_M)
 -- 2025.02.10  refactor spreadsheet parameters
 -- 2025.05.21  rename calibration database to masters
 
+-- 2026.06.06  add FITS header database
+
 
 local love = _G.love
 local lg = love.graphics
 
-local suit = require "suit"
+local suit = require "suit" .new()     -- make a new SUIT instance for ourselves
 
-local obslist     = require "observinglist"
---local databases   = require "databases"
 local spreadsheet = require "guillaume.spreadsheet"
 
-local observations =    require "databases.obsessions"
-local masters =    require "databases.masters"
-local telescopes =    require "databases.telescopes"
+local dso_obslist   = require "databases.observinglist"
+local observations  = require "databases.obsessions"
+local masters       = require "databases.masters"
+local telescopes    = require "databases.telescopes"
+local headers       = require "databases.fitsheaders"
+local controls      = require "controls"
 
+local layout = suit.layout
 
-local self = suit.new()     -- make a new SUIT instance for ourselves
-local layout = self.layout
+--  local function row(...) return layout: row(...) end
+local function col(...) return layout: col(...) end
 
 local Loptions = {align = "left"}
     
 
 -------------------------
 --
--- UPDATE / DRAW
+-- INIT
 --
 
-local DBnames = {"DSO", "Observations", "Calibration", "Telescopes"}
+local DBnames = {"DSO", "Observations", "Calibration", "Telescopes", "FITS Headers", id = "DB: ", selected = 1}
 
-local function trim(x) return (x or '') : lower() : gsub(' ','') end
+controls.DBnames = DBnames      -- make external for database change commands
 
-local lookup = {}
+local lookup = {}             -- add index of names
 for i,n in ipairs(DBnames) do 
-  lookup[trim(n)] = i
+  lookup[n: lower()] = i
 end
+DBnames.lookup = lookup   -- save the index
 
 local catalog = {   -- databases
-  
-    obslist,                  -- DSOs / observing list
+    dso_obslist,    -- DSOs / observing list
     observations,   -- previous observations
     masters,        -- Masters
     telescopes,     -- Telescopes 
+    headers,        -- FITS headers
   }
 
+-------------------------
+--
+-- UPDATE / DRAW
+--
+
+local cat
 
 function _M.update()
-  local w, h = lg.getDimensions()
-  layout:reset(10, 20, 10,10)           -- position layout with padding
+  local W, H = lg.getDimensions()
+  layout:reset(10, 20, 10,10)
+  col(200, 30)                                    -- leave space for CLOSE button
   
---  local function row(...) return layout: row(...) end
-  local function col(...) return layout: col(...) end
+  suit: Choosable(DBnames, col(150, 30))          -- select database
+  cat = catalog[DBnames.selected or 1]
+  local db = cat.load()                           -- ensure database is loaded
   
-  -- select catalogue from specified subpage
-  local main, subpage = _M.get()
-  subpage = lookup[trim(subpage)]
-  if main == "database" and subpage then 
-    DBnames.selected = subpage 
-    _M.set "database"
-  end
-  col(200, 30)                            -- leave space for CLOSE button
-  self: Dropdown(DBnames, col(150, 30))
-  local i = DBnames.selected or 1
-  
-  local cat = catalog[i]
-  
-  cat.DB = cat.DB or cat.load()          -- ensure database is loaded
-
-  self: Label("%d of %d " % {cat.row_index and cat.row_index.n or 0, #cat.DB}, Loptions, col(155, 30))
+  suit: Label("%d of %d " % {db.row_index and db.row_index.n or 0, #db.data}, Loptions, col(155, 30))
  
-  spreadsheet(self, cat, 10, 70, w,h)  
+  spreadsheet(suit, db, 10, 70, W,H)  
  
-  if cat.update then cat.update(self) end
+  if cat.update then cat.update(suit) end         -- apply any database updates
   
 end
 
 
 function _M.draw()
-  self: draw()
+  suit: draw()
 end
 
  
@@ -106,17 +104,23 @@ function _M.wheelmoved(...)
   spreadsheet.wheelmoved(...)
 end
 
+function _M.mousereleased(...) -- x, y, button, istouch, presses )
+  if cat.mousereleased then
+    cat.mousereleased(...)    -- for double click to load data
+  end
+end
+  
 -------------------------
 --
 -- KEYBOARD
 --
 
 function _M.textinput(t)
-  self: textinput(t)
+  suit: textinput(t)
 end
 
 function _M.keypressed(key)
-  self: keypressed(key)
+  suit: keypressed(key)
 end
 
 return _M
