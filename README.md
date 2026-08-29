@@ -30,7 +30,7 @@ The main display shows a stacked image with controls for adjustments and an info
 
 * **Channel: LRGB** menu views LRGB / Mono / Inverted / Red / Green / Blue channels individually
 * **Hyper** is one of several stretch functions MidTone / Asinh / Hyper / Linear / Log / Gamma / ...
-* **Luminance** menu drops down to show additional gradient / vignette / shite point sliders
+* **Luminance** menu drops down to show additional gradient / vignette / white point sliders
 * **background / stretch** are the main luminance controls (right- or shift- click set to default)
 * **RGB*** menu also includes Hubble (SHO) and possibly other colour processing options
 * **Chroma** menu drops down to show additional tint / SCNR (green) sliders
@@ -73,6 +73,13 @@ Close button returns to main display.
 * **rate** control changes speed
 * **Blink** toggles between adjacent subs
 * **Show stars** indicates detected stars (in blue) and those matched for alignment (orange)
+
+## Plugin architecture
+
+Most processing steps have been implemented in a modular plugin architecture which allows for (relatively) easy extensions.  Each plugin is a classic MVC (model-view-control) structure containing its own controls, GUI, processing (probably implemented as a GLSL shader plus Lua code), and brief documentation.
+
+<img width="1275" height="735" alt="Screenshot 2026-08-29 at 17 35 21" src="https://github.com/user-attachments/assets/359025f3-f127-4486-98a1-707354c1308f" />
+
 
 ## Acknowledgements
 
