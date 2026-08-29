@@ -23,14 +23,21 @@ The novel thing about Lövell is that the image processing workflow is performed
 
 ### Main display
 
-The main display shows a stacked image with controls for adjustments and an information panel.
+The main display shows a stacked image with controls for adjustments and an information panel.  Most buttons are drop-down menus (which remain pinned if clicked rather than hovered.)
 
-<img width="1280" alt="Screenshot 2025-03-06 at 15 44 02" src="https://github.com/user-attachments/assets/c874ea0b-a3b9-4c5c-8432-f758259e3438" />
+<img width="1274" height="736" alt="Screenshot 2026-08-29 at 17 33 18" src="https://github.com/user-attachments/assets/20bda6ac-a61a-40e7-8b2d-c4b6a58ab4e8" />
 
 
-* clicking on the **LRGB...** button cycles through Mono / Red / Green / Blue and back
-* clicking on the **Asinh...** button cycles through Hyper / Linear / Log / Gamma / ...
-* right-clicking on either of the above shows drop down menu of the same options
+* **Channel: LRGB** menu views LRGB / Mono / Inverted / Red / Green / Blue channels individually
+* **Hyper** is one of several stretch functions MidTone / Asinh / Hyper / Linear / Log / Gamma / ...
+* **Luminance** menu drops down to show additional gradient / vignette / shite point sliders
+* **background / stretch** are the main luminance controls (right- or shift- click set to default)
+* **RGB*** menu also includes Hubble (SHO) and possibly other colour processing options
+* **Chroma** menu drops down to show additional tint / SCNR (green) sliders
+* **saturation / temperature** are the main chrominance controls for the RGB option
+* **SynthL / Balance / Bilateral / Sharpen / CLAHE / etc.**  are controls for optional processing plugins
+* **Prestack / Stack** menus give options for those stages of processing
+* **Databases** (shown dropped down) gives access to various catalogs, etc.
 * mouse wheel / trackpad scroll zooms the display
 * click and drag moves the display
 * click on **Eyepiece..** to switch to **Landscape..** display, and *vice versa*
@@ -41,6 +48,7 @@ The main display shows a stacked image with controls for adjustments and an info
 
 Some 40,000 objects of interest.
 Close button returns to main display.  
+
 
 <img width="1273" alt="Screenshot 2025-03-06 at 15 46 15" src="https://github.com/user-attachments/assets/96b90ada-c3d0-4e6a-8850-85f0bbff6f71" />
 
@@ -56,9 +64,11 @@ Close button returns to main display.
 View all the subs in sequence, show detected and matched stars.
 Close button returns to main display.  
 
-<img width="1210" alt="Screenshot 2025-03-24 at 12 02 15" src="https://github.com/user-attachments/assets/0c946a59-23eb-4e85-840f-844aabaff55e" />
+<img width="1272" height="735" alt="Screenshot 2026-08-29 at 17 34 34" src="https://github.com/user-attachments/assets/65dc9906-1d0b-4bb9-ac98-78b3d34c1db4" />
+
 
 * mouse wheel / trackpad to scroll through subs
+* **Stretch** applies a variable screen stretch to the display
 * **Play** button animates sequence of subs
 * **rate** control changes speed
 * **Blink** toggles between adjacent subs
