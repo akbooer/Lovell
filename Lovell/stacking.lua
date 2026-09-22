@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.07.15",
+    VERSION = "2026.09.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "The stack",
   }
@@ -12,6 +12,7 @@ local _M = {
 
 -- 2026.05.06  extracted from observer and stacker code
 -- 2026.07.15  include RGBL in stacker call for scaling
+-- 2026.09.09  retain FITS headers in each frame
 
 
 local _log = require "logger" (_M)
@@ -142,8 +143,8 @@ function _M.new(workflows, frame)
     frame.matched_pairs = paired
   end
   
-  -- remove keywords and headers from subframes
-  frame.headers = nil
+  -- remove keywords from subframes but retain headers for FITS header database
+--  frame.headers = nil
   frame.keywords = nil
    
   -- store alignment info

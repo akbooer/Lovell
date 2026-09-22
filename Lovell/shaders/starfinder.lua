@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.05.30",
+  VERSION = "2026.09.21",
   AUTHOR = "AK Booer",
   DESCRIPTION = "star detection",
 }
@@ -23,264 +23,315 @@ local _M = {
 -- 2026.04.07  replace star intensity with a proxy for flux (using adjacent pixels, may help matching)
 -- 2026.04.12  centroid calculation to refine star location, finder_CENTROID()
 -- 2026.05.30  add maxstar as a parameter to starfinder()
-
---TODO: update to use shader.reducer()
+-- 2026.09.01  5x5 patch to measure flux and FWHM more carefully
+--
+-- 2026.09.21  complete re-write with integrated detector / centroid and flux / candidate selection funnel
 
 
 local _log = require "logger" (_M)
+
+local ffi = require "ffi"
 
 local newTimer  = require "utils" .newTimer
 
 local love = _G.love
 local lg = love.graphics
 
-local oneD = lg.newCanvas(1,1)      -- just a dummy to start with
 
+local starExtract = lg.newShader [[
+#pragma language glsl3
 
--- calculates maximum pixel in a 1-D sliding window
--- applied once in each direction for 2-D solution
-local maxShader = lg.newShader [[
-  uniform vec2 direction;
-  uniform int radius;
-  uniform int channel;
-  
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
-    float c = 0.0;
-    for (float i = -radius; i <= radius; i += 1.0)
-    {
-      c = max (c, Texel(texture, tc + i * direction) [channel]);
+uniform int channel = 0;
+uniform int stride = 16;
+
+uniform Image smoothedImage;
+
+vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+    vec2 texSize = vec2(textureSize(tex, 0));
+    
+    // Each pixel on the twoD canvas corresponds to a unique stride x stride tile block.
+    // screen_coords gives the exact pixel coordinate on the target canvas (twoD).
+    ivec2 tileCoord = ivec2(floor(screen_coords));
+    ivec2 baseCoord = tileCoord * stride;
+    
+    float maxVal = 0.0;
+    float previous = maxVal;
+    ivec2 peakOffset = ivec2(0);
+
+    // Scan ONLY within this specific tile's neighborhood using the smoothed image
+    for (int y = 0; y < stride; y++) {
+        for (int x = 0; x < stride; x++) {
+            ivec2 samplePos = baseCoord + ivec2(x, y);
+            float val = texelFetch(smoothedImage, samplePos, 0) [channel];
+            
+            if (val >= maxVal) {
+                previous = maxVal;
+                maxVal = val;
+                peakOffset = ivec2(x, y);
+            }
+        }
     }
-    return vec4(c, c, c, 1.0);
-  }
+
+    // Threshold check for flat-top saturation
+    if (maxVal == previous) {
+        return vec4(0.0);
+    }
+
+    ivec2 centrePixel = baseCoord + peakOffset;
+
+    // Extract Centroid and Flux from a 3x3 area on the main texture (tex) around the peak
+    float weightSum = 1e-6;
+    vec2 centroidSum = vec2(0.0);
+    int idx = 0;
+
+    vec3 X = vec3(0.0);
+    vec3 Y = vec3(0.0);
+    
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            ivec2 samplePos = centrePixel + ivec2(dx, dy);
+            float rawVal = texelFetch(tex, samplePos, 0) [channel];
+            
+            weightSum += rawVal;
+            X[dx + 1] += rawVal;
+            Y[dy + 1] += rawVal;
+        }
+    }
+
+    // centre calculation uses model of 2D sloping plane plus a paraboloid peak
+    float dx = 0.5 * (X[0] - X[2]) / (X[0] - 2.0 * X[1] + X[2]);
+    float dy = 0.5 * (Y[0] - Y[2]) / (Y[0] - 2.0 * Y[1] + Y[2]);
+    
+    if (dx < -0.5 || dy > 0.5 || dy < -0.5 || dy > 0.5) { // indicates poorly shaped stars
+        return vec4(0.0);
+    }
+    
+    vec2 starCoord = vec2(centrePixel);
+//    starCoord = starCoord + vec2(dx, dy);                // fine adjustment based on peak location
+    float flux = weightSum / 9.0;                         // normalized to unity
+    float fwhm = sqrt(weightSum/maxVal);                  // gross approximation
+
+    return vec4(starCoord, flux, fwhm);
+}
+
 ]]
 
-local function maxchan(canvas, direction, radius, channel)
-  channel = channel or 0        -- default to red channel
-  maxShader:send("channel", channel)
-  maxShader:send("direction", direction)
-  maxShader:send("radius", math.floor(radius))
-  lg.setShader(maxShader) 
-  lg.draw(canvas)
-  lg.setShader() 
-end
+local function sortorder(a,b) return a[3] > b[3] end    -- order {x, y, flux, fwhm} by flux
 
---[[
+--
+-- group stars into 3x3 grid (nonants, cf. quadrants)
+-- selecting locally the best
+--
 
- 1. Flux calculation
- 
-    3x3 pixel area around peak
-    
-      .  u  .
-      l  x  r
-      .  d  .
-      
-    A proxy estimate for flux would be the sum of all these nine points (although could be further extended.)
-    Further approximate the sum of the diagonal components as r + l + u + d
-    
-        Flux = x + 2(r + l + u + d)
- 
- 2. FWHM test
- 
-    A coarse estimation of the FWHM can be derived by dividing the total area under the peak by the peak height.
-    In 1-D, (l x r) or (u x d)
-    
-        FWHM = (l + x + r) / x or (u + x + d) / x
-        
-    Average of these 
-    
-        FWHM = (r + l + u + d + 2x) / 2x 
-        FWHM = (r + l + u + d) / 2x + 1
-        
-    So if (r + l + u + d) > 2x then FWHM > 2
-    
- 3. Centroid calculation
- 
-    A simple moments calculation of vertical (u, x, d) and horizontal (r, x, l) balance gives centroid offset from centre.
- 
---]]
-
-local matchPixels = lg.newShader [[
-  uniform Image stars, maxed;
-  const float eps = 1.0e-6;
-  uniform vec2 dx, dy;
+local function nonants(xyfw, W, H)
   
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 _) {
-    float a = Texel(texture, tc).r;
-    float b = Texel(maxed, tc).r;
-    bool peak = abs(a - b) < eps;   // true, if this pixel is a local maxima
-    
-    float x = Texel(stars, tc).r;   // original star intensity
-    
-    float r, l, u, d;               // right, left, up down
-    r = Texel(stars, tc + dx).r;
-    l = Texel(stars, tc - dx).r;
-    u = Texel(stars, tc + dy).r;
-    d = Texel(stars, tc - dy).r;
-    float t = r + l + u + d;
-    
-    bool fwhm_ok = x + x < t;     // Issue #13, use FWHM-related metric (FWHM > 2) to discriminate against hot pixels
-    
-    // centroid offsets, using left or upper points as reference origin
-    // range is 0 - 2, but scaled by 2 here, since stored in range 0 - 1
-    
-    float Dx, Dy;     
-    Dx = (x + 2.0 * r) / (l + x + r + eps) / 2.0;
-    Dy = (x + 2.0 * d) / (u + x + d + eps) / 2.0;
-    
-    float flux = peak && fwhm_ok ? (2.0 * t + x) / 9.0 : 0.0;   // nine-point average, proxy for flux
-    
-    return vec4(flux, Dx, Dy, 1.0);
-  }
-]]
-
-
-local function matchStars(input, maxed, stars)
-  matchPixels: send("maxed", maxed)
-  matchPixels: send("stars", stars)
+  local W3, H3 = 3 / W , 3 / H
+  local I9 = { { {}, {}, {} }, { {}, {}, {} }, { {}, {}, {} } }
   
-  local w, h = stars: getDimensions()
-  matchPixels: send("dx", {1 / w, 0})
-  matchPixels: send("dy", {0, 1 / h})
-  
-  lg.setShader(matchPixels)
-  lg.draw(input)
-  lg.setShader() 
-end
-
-local function recoverCoordinates(coords, w, h, maxstar)
-  local elapsed = newTimer()
-  local a = coords:newImageData()       -- this is what takes most of the time
-  
-  local stars = {}
-  for i = 0, w - 1 do
-    stars[i+1] = {a: getPixel(i, 0)}      -- {x, y, z, n}
+  -- populate the nonants
+  for i = 1, #xyfw do
+    local star = xyfw[i]
+    local u, v = 1 + math.floor(star[1] * W3), 1 + math.floor(star[2] * H3)
+    local nonant = I9[u][v]
+    nonant[#nonant+1] = star
   end
   
-  table.sort(stars, function(a,b) return a[3] > b[3] end)   -- largest peaks first
-  
-  local thold = 0
-  local xyzn = {}
-  for i = 1, maxstar do
-    local x, y, z, n = unpack(stars[i])
-    if z <= thold then break end
-    local margin = 5       -- margin in pixels
-    local xok = x > margin and  x < w - margin
-    local yok = y > margin and  y < h - margin
-    if n ~= 0 and xok and yok then
-      xyzn[#xyzn+1] = {x, y, z, n}
+  -- sort them and save top 4 (36 in total)
+  local best4 = table.new(36, 0)
+  for u = 1, 3 do
+    for v = 1, 3 do
+      local nonant = I9[u][v]
+      table.sort(nonant, sortorder)   -- largest peaks first 
+      for i = 1, 4 do
+        best4[#best4+1] = nonant[i]   -- note that there may be less than 4, and that's OK
+      end
     end
   end
-  a: release()
---  print(pretty(xyzn))
-  return xyzn
+  
+  -- now sort the 36 and return best 30 (possibly dropping up to 6 stars)
+  table.sort(best4, sortorder)   -- largest peaks first 
+  local some = table.new(30, 0)
+  for i = 1, 30 do
+    some[i] = best4[i]
+  end
+  return some, best4
 end
 
--- returns coordinates and intensity of matching pixels of two images, 
--- also returns count of number of peaks in column (but only LARGEST is returned as coordinates)
+--
+-- avoid near duplication of stars {x, y, flux, fwhm} from adjacent patches
+--
+local function distinct(xyfw, minDistance)
+    if #xyfw <= 1 then return xyfw end
+    minDistance = minDistance or 4.0
+    local distSq = minDistance * minDistance
 
+    -- Sort by X coordinate to enable spatial locality
+    table.sort(xyfw, function(a, b) return a[1] < b[1] end)
 
-local finder_INTEGER = lg.newShader [[
-  uniform float h;
-  uniform Image maxima;
-  
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 sc) {
-    float n = 0.0;
-    vec4 xyzn = vec4(0.0);
-    for (float i = 0.0; i < h; i += 1.0)
-    {
-      float y = i / h;
-      float a = Texel(maxima, vec2(tc.x, y)) .r;
-      bool ok = a > xyzn.a;                      // select the biggest peak
-      
-      xyzn = ok ? vec4(sc.x + 1.0, i + 1.0, a, n + 1.0) : xyzn;
-      
-      n = xyzn.a;
-    }
-    return xyzn;
-  }
-]]
+    local unique = {}
+    
+    for i = 1, #xyfw do
+        local star = xyfw[i]
+        local keep = true
 
+        -- Scan backwards through already accepted stars
+        for j = #unique, 1, -1 do
+            local kept = unique[j]
+            local dx = star[1] - kept[1]
 
-local finder_CENTROID = lg.newShader [[
-  uniform float h;
-  uniform Image maxima;
-  
-  vec4 effect(vec4 color, Image texture, vec2 tc, vec2 sc) {
-    float n = 0.0;
-    vec4 xyzn = vec4(0.0);
-    for (float i = 0.0; i < h; i += 1.0)
-    {
-      float y = i / h;
-      vec4 adxdy = Texel(maxima, vec2(tc.x, y));
-      float a  = adxdy.r;
-      float dx = adxdy.g * 2.0;
-      float dy = adxdy.b * 2.0;
-      bool ok = a > xyzn.a;                      // select the biggest peak
-      
-      xyzn = ok ? vec4(sc.x + dx, i + dy, a, n + 1.0) : xyzn;
-      
-      n = xyzn.a;
-    }
-    return xyzn;
-  }
-]]
+            -- Since stars are sorted by X, if dx exceeds minDistance, 
+            -- no earlier star can possibly be within range.
+            if dx > minDistance then
+                break 
+            end
 
-local finder = false and finder_CENTROID or finder_INTEGER     -- * * * IMPLEMENTATION CHOICE
+            local dy = star[2] - kept[2]
+            if (dx * dx + dy * dy) < distSq then
+                -- Duplicate found! Keep the brighter one (or handle tie-breaks)
+                if star[3] > kept[3] then
+                    -- Replace the dimmer existing star with this brighter one
+                    unique[j] = star
+                end
+                star = nil
+                break
+            end
+        end
 
-local function findPeaksUsingShader(peaks, maxstar)
-  local w, h = peaks: getDimensions()
-  lg.setShader(finder)
-  finder: send("h", peaks: getHeight())
-  finder: send("maxima", peaks)
+        unique[#unique + 1] = star
+    end
 
-  oneD: renderTo(lg.clear)
-  lg.setBlendMode("replace", "premultiplied")
-  oneD: renderTo(lg.draw, peaks)
-  lg.setBlendMode "alpha"
-
-  lg.setShader()
-  local xyzn = recoverCoordinates(oneD, w, h, maxstar)
---  _log(pretty(xyzn))    -- dump coordinate info
-  return xyzn
+    return unique
 end
+
+
+ffi.cdef[[
+    typedef struct {
+        float x;
+        float y;
+        float flux;
+        float fwhm;
+    } StarPoint;
+]]
+
+local function recoverCoordinates2d(coords, fullWidth, fullHeight, border)
+  
+  --
+  -- recover star coordinates and parameters...
+  -- ... ignoring saturated stars and those close to the image edge
+  --
+  
+  border = border or 20
+  local xmin, xmax = border, fullWidth  - 2 * border
+  local ymin, ymax = border, fullHeight - 2 * border
+  
+  local data = coords:newImageData()
+  local W, H = data:getDimensions()
+  local N = {}        -- funnel sizes
+  N[1] = W * H
+
+  local stars = ffi.cast("StarPoint*", data:getFFIPointer())
+  local xyfw = {}
+  local j = 0
+
+  for i = 0, N[1] - 1 do
+    local p = stars[i]
+    local x, y, flux, fwhm = p.x , p.y , p.flux, p.fwhm
+    if flux < 0.99 and x > xmin and x < xmax and y > ymin and y < ymax then
+      j = j + 1
+      xyfw[j] = { x, y, flux, fwhm }
+    end
+  end
+  data:release()
+  N[2] = #xyfw
+  
+  --
+  -- cull any near-duplicates (probably from adjacent patches)
+  --
+
+  local unique = distinct(xyfw, fullHeight * 0.01)      -- 1% of image height tolerance
+  N[3] = #unique
+  
+  local some, best4 = nonants(unique, fullWidth, fullHeight)
+  N[4] = #best4
+  N[5] = #some
+  
+  local funnel = ("candidate funnel: %d => %d => %d => %d => %d") % N
+  _log (funnel)
+  
+  return some
+end
+
+
+local TILESIZE = 16;
+
+local twoD = lg.newCanvas(1,1)      -- just a dummy to start with
+
 
 -- detects stars, returning array 'xyl' of {x, y, flux} tuples
 -- note that this doesn't disrupt the workflow, 
 -- as it restores original workflow output before returning
+-- NB: the alpha channel may not be unity (could be replicated monochrome image) hence BlendMode
 local function starfinder(workflow, span, maxstar)
   local channel = 0       -- use the red channel (maybe just monochrome anyway)
-
+  local scale = 1 / TILESIZE
   local elapsed = newTimer()
 
+  --
+  -- configure 2D canvas, 16x16 smaller than raw image and full 32-bit FP
+  --
+  
   local w,h = workflow: getDimensions()
-
-  if w ~= oneD: getWidth() then
---    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
-    oneD = lg.newCanvas(w, 1, {dpiscale = 1, format = "rgba16f"})      -- coordinates and intensity of peaks
+  local w2, h2 = math.floor(w * scale), math.floor(h* scale)  
+  if w2 ~= twoD: getWidth() or h2 ~= twoD: getHeight() then
+    twoD: release()
+    twoD = lg.newCanvas(w2, h2, {dpiscale = 1, format = "rgba32f"})      -- coordinates and intensity of peaks
   end
   
-  lg.setBlendMode("replace", "premultiplied")
-  workflow: copy("output", "temp")
-  require "shaders.filter" .gaussian (workflow, 5)
---  workflow: gaussian(5)
-  workflow: copy("output", "temp1")
-
-  -- find local maxima in star image
-  workflow: renderTo(maxchan, {1 / w, 0}, span, channel)
-  workflow: renderTo(maxchan, {0, 1 / h}, span)  
-  workflow: renderTo(matchStars, workflow.temp1, workflow.temp)
-  lg.setBlendMode "alpha"
-
-  -- recover coordinates of maxima
-  local xyl = findPeaksUsingShader(workflow.output, maxstar)
-
-  local nxyl = #xyl
-  _log(elapsed ("%.3f ms, detected %d stars", nxyl))
+  --
+  -- filter input in two stages, after saving original in "temp"
+  --
   
-  -- revert workflow buffer
-  workflow:swap ("output", "temp")
+  _log "filtering..."
+  lg.setBlendMode("replace", "premultiplied")
+  workflow: copy("output", "temp")          -- save raw input
+  require "shaders.filter" .gaussian (workflow, 1)    
+  lg.setBlendMode("replace", "premultiplied")
+  require "shaders.filter" .gaussian (workflow, 2)
+  workflow: swap("output", "input")         -- output is now Gaussian(1), input is additional Gaussian(2)
+   
+  --
+  -- extract best star in each 16x16 panel
+  --
+  
+  _log "extracting coordinates..."
+  lg.setShader(starExtract)
+  starExtract: send("smoothedImage", workflow.input)
+  lg.setBlendMode("replace", "premultiplied")  
+  twoD: renderTo(lg.draw, workflow.output)
+  workflow:swap ("temp", "output")              -- revert workflow buffer
+  lg.reset()
+  
+  --
+  -- Star funnel to select best candidates
+  --
+  
+  _log "making selection..."
+  local xyfw = recoverCoordinates2d(twoD, w, h)
+  local n = #xyfw
+  
+--[[
+  local s = '\n'
+  local t = {s, "top stars (by flux):", "(   x   ,   y  )     flux"}
+  for i = 1, math.min(n, 30) do
+    t[#t+1] = "(%6.1f, %6.1f)    %5.2f    %5.2f" % xyfw[i]
+  end
+  t[#t+1] = ''
+  _log(table.concat(t, s))
+--]]
 
-  return nxyl > 3 and xyl or {}
+  _log(elapsed ("%.3f ms, selected %d stars", n))
+
+  return n > 3 and xyfw or {}
 end
 
 return starfinder

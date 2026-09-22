@@ -33,7 +33,10 @@ local widget = {cols = cols, data = {}}    -- SUIT-able Table widget
 
 local stack
 
-function _M.update()
+function _M.update(suit)
+--  local layout = suit.layout
+--  local function col(...) return layout: col(...) end
+  
   local new_stack = stacking: get()
   if stack ~= new_stack then
     stack = new_stack
@@ -52,6 +55,8 @@ function _M.update()
     end
     
   end
+  
+--TODO: add slider to move through frames
 end
 
 function _M.load()

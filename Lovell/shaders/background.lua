@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.08.28",
+    VERSION = "2026.09.09",
     DESCRIPTION = "background gradient and black/white point estimation",
   }
 
@@ -31,6 +31,7 @@ local _M = {
 -- 2026.07.18  Version 2, using shaders.sampler (instanced mesh sampling and FFI data retrieval)
 -- 2026.08.06  workflow.dummyMesh for full-screen rendering
 -- 2026.08.28  restructure, adding quartiles(), to remove redundant calculations
+-- 2026.09.09  use closed-form fitPlane() solver rather than generic matrix least-squares
 
 
 local _log = require "logger" (_M)
@@ -38,7 +39,7 @@ local _log = require "logger" (_M)
 --local ffi = require "ffi"
 
 local sample    = require "shaders.sampler"
-local solve     = require "lib.solver" .solve
+local fitPlane  = require "lib.solver" .fitPlane
 local matrix    = require "lib.matrix"
 local vector    = require "lib.vector"
 local newTimer  = require "utils".newTimer
@@ -71,18 +72,18 @@ end
 --     fit a plane: z = a + b * x + c * y 
 --     returns {a, b, c}
 local function fitXYZ_indexed( coords, z, index )	
-	local A, b = {}, {}
   local N = #index
   -- remove outliers from background samples (ignore top and bottom 20%)
   local twenty, eighty = math.floor(0.2 * N), math.floor(0.8 * N)    -- 20% - 80% range
+  local xyz = {}
   for j = twenty, eighty do
     local i = index[j]
-		A[#A+1] = { 1, unpack(coords[i]) }
+    local x, y = unpack(coords[i])
     local v = z[i]
-		b[#b+1] = { v }
+    xyz[#xyz+1] = {x, y, v}
 	end
-  local linear = {solve(A, b)}
-  return linear
+  local a, b, c = fitPlane(xyz)
+  return {c, a, b}
 end
 
  
@@ -132,8 +133,9 @@ local function background_calc(self, input, quiet)             -- self is workfl
     local index = index_channel(channel)
     
     -- linear gradients and quartiles
-     Linear = fitXYZ_indexed(coords, channel, index)
-     Qs = quartiles(channel, index)         -- {min, Q1, median, Q3, max} 
+    local Plane
+    Linear, Plane = fitXYZ_indexed(coords, channel, index)
+    Qs = quartiles(channel, index)         -- {min, Q1, median, Q3, max} 
      
     -- calculate significant thresholds
     local median = Qs[3]

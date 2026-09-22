@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.07.24"
+  _M.VERSION = "2026.09.02"
   _M.DESCRIPTION = "GUI - stack, view each frame"
 
 -- 2025.01.22  Version 0
@@ -19,6 +19,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2026.04.29  add stretch slider
 -- 2026.06.11  access stack object directly
 -- 2026.07.24  lazy calculation of subframe gradients
+-- 2026.09.02  always show count of found and matched stars
 
 
 require "logger" (_M)
@@ -164,21 +165,21 @@ local function panel(subframe)
   suit: Label(masters, Loptions, row(w, 30))
   row(w,10)
 
-  if suit: Button("Show stars", row(w,30)) .hit then
+  if suit: Button(showstars and "Hide Stars" or "Show stars", row(w,30)) .hit then
     showstars = not showstars
   end
-  if showstars then
+--  if showstars then
     local stars = #(subframe.stars or empty)
     local matched = #(subframe.matched_pairs or empty)
     suit: Label("matched", Aoptions, row(w / 2, 20))
     suit: Label(matched, Woptions, col(w / 2 , 20))
     layout: left()
-    suit: Label("found", Loptions, row())
+    suit: Label("selected", Loptions, row())
     suit: Label(stars, Woptions, col())
     layout: left()
-  else
-    row(w, 50)
-  end
+--  else
+--    row(w, 50)
+--  end
   row(w, 40)
   
 --  self: Label("filter: " .. (frame.filter or '?'), row(w, 20))

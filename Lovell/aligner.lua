@@ -101,7 +101,8 @@ local function matchPairs(stars, keystars, maxDist)
   return starIndex, keyIndex
 end
 
-
+-- Input: stars and keystars array of coordinates:  {{x1,y1}, {x2,y2}, ...}
+-- Return: matched point pairs {xm, ym, xn, yn}
 local function NearestNeighbors(stars, keystars, maxDist)
   local starIndex, keyIndex = matchPairs(stars, keystars, maxDist)
   
@@ -111,7 +112,7 @@ local function NearestNeighbors(stars, keystars, maxDist)
     local key  = keystars[keyIndex[i]]
     point_pairs[i] = {key[1], key[2], star[1], star[2]}  -- (x,y), (x',y')
   end
-  return point_pairs, {starIndex, keyIndex}
+  return point_pairs      --, {starIndex, keyIndex}
 end
 
 -------------------------------
@@ -196,7 +197,10 @@ end
 function _M.transform(stars, keystars, maxDist, ox, oy)
   local elapsed = newTimer()
 
-  local point_pairs = NearestNeighbors(stars, keystars, maxDist)
+  local point_pairs = require "asterism3_match" .match (keystars, stars)
+  
+--  local point_pairs = NearestNeighbors(stars, keystars, maxDist)
+
   if #point_pairs == 0 then return end
 
   local theta, x,y = fast_global_registration(point_pairs, ox, oy)

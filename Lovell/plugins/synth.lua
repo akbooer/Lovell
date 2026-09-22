@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.08.02",
+  VERSION = "2026.09.22",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – Synthetic luminance from RGB",
 }
@@ -12,6 +12,7 @@ local _M = {
 local _log = require "logger" (_M)
 
 -- 2026.08.02  Version 0, extracted from shaders.colour and stacking
+-- 2026.09.22  remove colour gradient, retaining only luminance
 
 
 local love = _G.love
@@ -212,8 +213,8 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
 
     -- 1. Plane Slopes
     -- Linear is {Offsets, Xslope, Yslope}
-    u_slopes_x = background.Linear[2] * gradient,     -- or * {1,1,1,gradient},
-    u_slopes_y = background.Linear[3] * gradient,
+    u_slopes_x = background.Linear[2] * {0,0,0,gradient}, -- don't use colour gradient -- * gradient
+    u_slopes_y = background.Linear[3] * {0,0,0,gradient},
     u_plane_offset = background.MEDIAN,               -- 'grey-sky' offsets,
 --    u_whitepoint = whitepoint / ((pweight * background.MAX): sum()),
     u_whitepoint = whitepoint,
