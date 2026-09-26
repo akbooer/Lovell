@@ -8,7 +8,7 @@ local _M = {
     NAME = ...,
     VERSION = "2026.06.10",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "DSO table and observing list manager",
+    DESCRIPTION = "DSO table and observing list manager (translated from Jocular)",
 
   }
 

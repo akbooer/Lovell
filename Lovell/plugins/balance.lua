@@ -46,6 +46,7 @@ For that, use the chroma-specific plugin controls such as temperature or tint (f
 
 function plugin: run(workflow)
   -- required, but nothing to do here, since other processing uses these values directly
+  -- ... this means that it doesn't matter where it appears in the post-processing chain
 end
 
 

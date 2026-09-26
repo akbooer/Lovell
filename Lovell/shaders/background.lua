@@ -117,14 +117,16 @@ local coords = generate_mesh()    -- mesh size independent of image dimensions
 -- calculate input image gradients for RGB channels
 local function background_calc(self, input, quiet)             -- self is workflow
   local elapsed = newTimer()
-  
+  local channelCount = self: getChannelCount()
+  if not quiet then 
+    _log ("sampling %d image channels..." % channelCount)
+  end
   local rgba = {sample(input, coords)}    -- returns R G B A channels separately
    
   local BP, WP, MEDIAN = vector{0,0,0,0}, vector{1,1,1,1}, vector{0,0,0,0}
   local QUARTILES, MAD = {}, vector{0,0,0,0}
   local LINEAR = {}
   
-  local channelCount = self: getChannelCount()
   local Linear, Qs
   local X = {'R','G','B','L'}
   for i = 1, 4 do
@@ -173,7 +175,6 @@ local function background_calc(self, input, quiet)             -- self is workfl
   end
     
   if not quiet then
-    _log("channelCount", channelCount)
     _log("RGBL black points: %.4f, %.4f, %.4f, %.4f" % BP)
     _log("RGBL white points: %.4f, %.4f, %.4f, %.4f" % WP)
     _log(pretty(background))

@@ -4,12 +4,13 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.27",
+    VERSION = "2026.09.25",
     DESCRIPTION = "Plugin Library for processing: model, view, control (MVC)",
   }
 
 
 -- 2026.06.27  Version 0, a loader and dispatcher for individual plugins
+-- 2026.09.25  add default plugin configuration with iterator (for processing and display)
 
 
 local _log = require "logger" (_M)
@@ -46,6 +47,43 @@ function meta.__index: reset()
   end
 end
 
+-- DEFAULT PROCESS SEQUENCE CONFIGURATION
+
+local default_sequence = {"balance", "bilateral", "clahe"} -- may be replaced from settings.load()
+
+meta.__index.process_sequence = setmetatable({"balance", "bilateral", "clahe"},
+  {__call = function(self)    -- iterator
+      local i = 0
+      return function()
+        while i < self._max do
+          i = i + 1
+          if self[i] then 
+            return i, self[i]
+          end
+        end
+      end
+    end,
+  __index = {
+      _max = 8,
+      factory_reset = function(self)
+        for i = 1, self._max do
+          self[i] = default_sequence[i]    -- overwrite table, DON'T replace! (it would break other references)
+        end
+      end,
+      clear_all = function(self)
+        for i = 1, self._max do
+          self[i] = nil           -- clear table, DON'T replace!
+        end
+      end,
+      set = function(self, values)
+        for i = 1, self._max do
+          self[i] = values[i] 
+        end
+      end,
+    },
+  })
+
+  
 -- DRAW
 
 function meta.__index: draw(name, suit, ...)

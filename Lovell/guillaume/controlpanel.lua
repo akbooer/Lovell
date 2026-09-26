@@ -5,13 +5,14 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2026.05.19"
+  _M.VERSION = "2026.09.25"
   _M.DESCRIPTION = "control panel for main display"
 
 local _log = require "logger" (_M)
 
 
--- 2026.05.19   split from mainGUI and redesign control layout using new Suitable widgets
+-- 2026.05.19  split from mainGUI and redesign control layout using new Suitable widgets
+-- 2026.09.25  use plugins.process_sequence() iterator
 
 
 local controls  = require "controls"
@@ -66,7 +67,6 @@ function _M.update(suit, controls, image)
   -- LUMINANCE
   
   row(0,0)
-  local L = controls.luminance 
   local Hb = 25
   local x,y, w,h 
   x,y, w,h = row(W/2 - 2, Hb)
@@ -87,22 +87,20 @@ function _M.update(suit, controls, image)
   
   x,y, w,h = row(W/2 - 2, Hb)
   suit: Plugin("synth", x,y, w,h)
-  suit: Plugin("balance", x + Wh + 2, y, w, h)
-
-  -- NOISE and SHARPEN
- 
-  x,y, w,h = row(W/2 - 2, Hb)
-  suit: Plugin("bilateral", x,y, w,h)
-  suit: Plugin("apfr", x + Wh + 2, y, w, h)
   
-  x,y, w,h = row(W/2 - 2, Hb)
-  suit: Plugin("clahe", x,y, w,h)
+  -- CONFIGURABLE PLUGINS
   
-  -- EXTRAS
-  
---  row(0,0)
-  suit: Plugin("blurCompare", x + Wh + 2, y, w, h)
-
+  local new_row
+  for _, plugin in plugins.process_sequence() do
+    if new_row then
+      x,y, w,h = row(W/2 - 2, Hb)
+      suit: Plugin(plugin, x,y, w,h)
+    else
+      suit: Plugin(plugin, x + Wh + 2, y, w, h)
+    end
+    new_row = not new_row
+  end
+      
   -- PRESTACK and STACK
   
   row(W, 40)

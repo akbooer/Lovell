@@ -121,8 +121,8 @@ local left = {align = "left"}
 
 local plugin = {
     documentation = docs,
-    sigma_s  = {id = "sigma_s", value = 0, max = 10, default = 0},                          -- space dimension
-    sigma_c  = {id = "sigma_c", value = 0.15, min = 0.1, max = 0.5, default = 0.15},      -- colour dimension (sigmaR)
+    sigma_s  = {id = "sigma_s", value = 0, max = 10, default = 0},                        -- space dimension
+    sigma_c  = {id = "sigma_r", value = 0.1, min = 0, max = 0.3, default = 0.1},      -- colour dimension (sigmaR)
   }
 
 function plugin:run(workflow)

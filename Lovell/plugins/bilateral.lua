@@ -27,7 +27,7 @@ local bilateral = lg.newShader [[
 // Hyperparameters to tune your denoising
 uniform int RADIUS = 4;             // Size of the blur kernel (higher = more denoising, heavier)
 uniform float SIGMA_SPATIAL = 3.0;  // Controls spatial blur width
-uniform float SIGMA_COLOR = 0.15;   // Controls edge preservation (lower = protects stars better)
+uniform float SIGMA_COLOR = 0.1;    // Controls edge preservation (lower = protects stars better)
 
 // Gaussian weight
 float gaussian(float x, float sigma) {
@@ -83,7 +83,7 @@ Sigma_r is the 'range' dimension (intensity) and controls the smoothing in the i
 ]],
 
     sigma_s  = {id = "sigma_s", value = 0, max = 10, default = 0},
-    sigma_r   = {id = "sigma_r", value = 0.15, min = 0.01, max = 0.3, default = 0.15},
+    sigma_r   = {id = "sigma_r", value = 0.1, min = 0.01, max = 0.3, default = 0.1},
   }
 
 

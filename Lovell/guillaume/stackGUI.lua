@@ -134,7 +134,7 @@ local showstars             -- toggle star display
 
 -- control panel
 local xy = "(%0.1f, %0.1f)"
-local theta = "%0.3fº"
+local theta = "%0.2fº"
 local rejected = {checked = false, text = "omit from stack"}
 
 local function panel(subframe)

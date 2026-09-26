@@ -98,8 +98,8 @@ local function buffer(image, buffer, settings, comment)
   if not buffer then 
     buffer = lg.newCanvas(w1, h1, new_settings)
     buffer: setWrap("clamp", "clamp")
-    buffer: setFilter("linear", "linear")
---    buffer: setFilter("nearest", "nearest")
+--    buffer: setFilter("linear", "linear")
+    buffer: setFilter("nearest", "nearest")
     local mode = buffer: getMipmapMode()
     local mip = mode ~= "none" and '(' .. mode ..')' or ''
     _log ("new buffer %s[%dx%d] %s %s" % {new_settings.format, w1,h1, mip, comment or ''})

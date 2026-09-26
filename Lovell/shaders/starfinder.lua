@@ -255,10 +255,7 @@ local function recoverCoordinates2d(coords, fullWidth, fullHeight, border)
   N[4] = #best4
   N[5] = #some
   
-  local funnel = ("candidate funnel: %d => %d => %d => %d => %d") % N
-  _log (funnel)
-  
-  return some
+  return some, N
 end
 
 
@@ -316,8 +313,10 @@ local function starfinder(workflow, span, maxstar)
   --
   
   _log "making selection..."
-  local xyfw = recoverCoordinates2d(twoD, w, h)
+  local xyfw, funnel = recoverCoordinates2d(twoD, w, h)
   local n = #xyfw
+  
+  _log ("candidate funnel: %d => %d => %d => %d => %d" % funnel)
   
 --[[
   local s = '\n'

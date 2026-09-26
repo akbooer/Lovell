@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.08.04",
+  VERSION = "2026.09.25",
   AUTHOR = "AK Booer",
   DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
 }
@@ -20,12 +20,15 @@ local _M = {
 
 -- 2026.06.11  access stack object directly, rather than poststack() parameter list
 -- 2026.08.04  complete refactor using "synth" plugin
+-- 2026.09.25  use plugins.process_sequence() iterator
 
 
 require "logger" (_M)
 
 local controls  = require "controls"
 local stacking  = require "stacking"
+local plugins   = require "plugins"
+
 
 local newTimer = require "utils" .newTimer
 
@@ -111,14 +114,12 @@ local function poststack(workflows)
   local name = controls.palette: get()                -- selected chroma workflow name: rgb, sho, ...
   workflow: plugin (name)
   
--- recommended order is: bilateral, contrast, apfr
+-- CONFIGURABLE PLUGINS
 
---  workflow: plugin "O1_bilateral"            -- works on all colour channels
-  workflow: plugin "bilateral"            -- works on all colour channels... should it??
-  workflow: plugin "clahe"
-  workflow: plugin "apfr"
+  for _, plugin in plugins.process_sequence() do
+    workflow: plugin(plugin)
+  end
   
-  workflow: plugin "blurCompare"
   workflow: plugin "channel"            -- channel selection and inversion
 
 --_log(elapsed "%.3f ms")

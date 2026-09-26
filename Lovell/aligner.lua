@@ -197,7 +197,7 @@ end
 function _M.transform(stars, keystars, maxDist, ox, oy)
   local elapsed = newTimer()
 
-  local point_pairs = require "asterism3_match" .match (keystars, stars)
+  local point_pairs = require "asterism4_match" .match (keystars, stars)
   
 --  local point_pairs = NearestNeighbors(stars, keystars, maxDist)
 

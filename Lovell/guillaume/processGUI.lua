@@ -18,8 +18,6 @@ local _log = require "logger" (_M)
 
 
 local plugins = require "plugins"
-local vector  = require "lib.vector"
-
 local suit  = require "suit" .new()     -- make a new SUIT instance for ourselves
 local DaD   = suit: DragAndDrop()       -- actually, a SUIT-able extension
 
@@ -32,8 +30,6 @@ local row, col = _M.rowcol(layout)
 local hrule = ('–'): rep(25)                         -- for menu dividers
 local grey = {normal = {fg = { 0.5, 0.5, 0.5}}}     -- grey text colour
 
-local NPROC = 8     -- maximum number of active plugins
-
 local function index(x)
   for i, name in ipairs(x) do
     x[name] = i
@@ -41,9 +37,15 @@ local function index(x)
   return x
 end
 
-
 local OMIT = index {"channel"}
 
+local sequence = plugins.process_sequence    -- get the current sequence
+
+local target = {}
+for i = 1, sequence._max do
+  target[i] = '#' .. i
+end
+index(target)      -- two-way lookup of process index/id
 
 -- Utilities
 
@@ -83,7 +85,7 @@ local function info(name, docs)
     end
      
     --  add frame
-    local x,y = row(0,0)
+    local _,y = row(0,0)
     outline = {620, 150, 200, y - 160 + 30, 4, text = plugin.documentation}   -- 4 is corner radius
     
   else
@@ -111,10 +113,12 @@ end
 --
 
 -- create the menu of installed plugins
-local menu = {}
-for filename, plugin in sorted(plugins) do
-  if not (OMIT[filename] or plugin.static) then
-    menu[#menu+1] = filename
+-- also index by id to yield filename of dynamic plugins (NB. static plugin ids may not be unique, eg. Chroma)
+local menu, filename = {}, {}
+for fname, plugin in sorted(plugins) do
+  if not (OMIT[fname] or plugin.static) then
+    menu[#menu+1] = fname
+    filename[plugin.id] = fname
   end
 end
 
@@ -148,11 +152,36 @@ local Shelp = [[
 Static plugins are part of the system workflow and, as such, are permanently installed and may not be dragged into the post-stack workflow.
 ]]
 
-local function onDrop(...)
-  _log("you dropped me:", pretty{...})
+
+local function PPsequence()
+  _log ("workflow changed:", pretty(sequence))
 end
 
-local c1, c2 = 100, 360
+local function clear(item_name)
+  local fname = filename[item_name]
+  for i, plugin in sequence() do
+    if plugin == fname then
+      sequence[i] = nil
+      break
+    end
+  end  
+end
+
+local function onDrop(item_name, target_name)
+  clear(item_name)                    -- remove from wherever it was
+  local i = target[target_name]       -- look up target sequence number
+  if sequence[i] then                 -- slot is already filled...
+    return false                      -- ...abandon drop sequence
+  end
+  sequence[i] = filename[item_name]   -- put in place
+  PPsequence()
+  return true
+end
+
+local function onClear(item_name)
+  clear(item_name)
+  PPsequence()
+end
 
 function _M.update(dt)
   dt = dt
@@ -161,8 +190,6 @@ function _M.update(dt)
   
   suit: Button("Plugins and Process Workflow", 300, 20, 300, 30)
   
---  local cellGrid = cellGrid()     -- dynamic calculation of number of rows/cols in grid to fit screen
- 
   layout:reset(100,90,100,10)
 
   if suit: Button("Plugins", col(160,30)) .hovered then info("Plugins", Phelp) end
@@ -173,9 +200,23 @@ function _M.update(dt)
   
   -- destinations
   local dest = {}
-  for i = 1, NPROC do
+  for i in ipairs(target) do
     dest[i] = {}    -- unique IDs
-    DaD: Targetable("#" .. i, dest[i], row(160, 30))
+    DaD: Targetable(target[i], dest[i], row(160, 30))
+  end
+
+  row()
+  
+  if suit: Button("Clear All", row()) .hit then
+    DaD: Clear()
+    sequence: clear_all()
+    PPsequence()
+  end
+  
+  if suit: Button("Factory Reset", row()) .hit then
+    DaD: Clear()
+    sequence: factory_reset()
+    PPsequence()
   end
   
   -- available plugins
@@ -189,13 +230,13 @@ function _M.update(dt)
     local drag
     local ghost = Ghost(plugin.id, x,y, w,h)
     if not plugin.static then
-      drag = DaD: Draggable(plugin.id, {id = 'p' .. i, onDrop = onDrop}, x,y, w,h) 
+      drag = DaD: Draggable(plugin.id, {id = 'p' .. i, onDrop = onDrop, onClear  = onClear}, x,y, w,h) 
     end
     
     if ghost.hovered or drag.hovered then
       info(name)
     end
-
+    
   end 
   
   -- static plugins 
@@ -209,7 +250,16 @@ function _M.update(dt)
         info(name)
       end
     end  
-  end  
+  end   
+  
+    
+  -- default configuration, ...actually only necessary on first pass, 
+  -- as sequence[] is updated to be in sync with DaD internals, ...but no harm doing it each time 
+  DaD: Clear()
+  for i, fname in sequence() do
+    DaD: Drop(plugins[fname].id, target[i])
+  end
+
 end
 
 

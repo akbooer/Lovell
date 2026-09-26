@@ -76,7 +76,7 @@ local plugin = {
     documentation = [[
 Contrast Limited Adaptive Histogram Equalisation.  
 
-This is a multi-scale implementation with individual strengths and contrast limits.  
+This is a multi-scale implementation with individual strength and contrast limits.  
 
 The three scales correspond to structures of around 4, 8, and 32 pixels.]]
     

@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.07.07",
+    VERSION = "2026.09.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -25,6 +25,7 @@ local _M = {
 -- 2026.06.18  add 'title' option for Choosable title
 -- 2026.07.05  add pin to locked popup
 -- 2026.07.07  add Draggable and Targetable ("drag and drop")
+-- 2026.09.23  update onDrop() and onClear() calling sequence
 
 
 local _log = require "logger" (_M)
@@ -449,13 +450,14 @@ end
 --
 -- Usage:  DaD = suit:DragAndDrop()
 --
---  DaD: Targetable(..same args as Button)    -- Targets shold be defined before Draggables.
+--  DaD: Targetable(..same args as Button)    -- Targets should be defined before Draggables.
 --  DaD: Draggable(...ditto)
 --  DaD: draw()
 --
 -- option parameters in Draggable() allow onClear(name) and onDrop(name) functions for those events
+-- onDrop() should return true if it allows the drop, false or nil to disallow.
+-- option parameter 'float' leaves item where dropped, not snapped to target location
 --
-
 local function DragAndDrop()
   local ui_targets = suit.new()
   local ui_draggables = suit.new()
@@ -468,14 +470,64 @@ local function DragAndDrop()
   local active_item_submitted = false
 
   local registry = {}
+  local targets = {}
   local system = {}
 
+  -- TODO: TWEEN
+  local tweens = {}
+  local function tween(item)
+--          state.x = state.home_x
+--          state.y = state.home_y
+    for name, state in pairs(tweens) do
+      local item = registry[item]
+      if item then
+        local dx = state.x - item.home_x
+        local dy = state.y - item.home_y
+        state.x = state.x - dx / 3000
+        state.y = state.y - dy / 3000
+        if dx * dx + dy * dy < 10 then
+--          item.x = item.home_x
+--          item.y = item.home_y
+--          tweens[name] = nil
+          item.x = item.x + 1
+          item.y = item.y + 1
+        else
+          item.x = state.x
+          item.y = state.y
+        end
+      end
+    end
+    print(pretty(tweens))
+  end
+  
+  -- DROP, API to simulate drop
+  function system:Drop(item, target)
+    item = registry[item]
+    target = targets[target]
+    if item and target then
+      item.x = target.x
+      item.y = target.y
+      item.is_targeted = true
+    end
+  end
+  
+  -- CLEAR, move droppable (or all of them) to home position
+  function system:Clear(id)
+    for name, item in pairs(registry) do
+      if not id or id == name then 
+        item.x = item.home_x
+        item.y = item.home_y
+      end
+    end
+  end    
+    
   -- TARGETABLE
   function system:Targetable(target, ...)
     local opt, x, y, w, h = suit.getOptionsAndSize(...)
     local state = ui_targets:Button(target, opt, x, y, w, h)
+    targets[target] = {id = target, x = x, y = y, w = w, h = h}
     if state.hovered then
-      hovered_target = {id = target, x = x, y = y, w = w, h = h}
+      hovered_target = targets[target]
     end
     return state
   end
@@ -495,7 +547,7 @@ local function DragAndDrop()
       registry[item] = state 
     end
 
-    -- Unconditionally update layout shapes every frame
+    -- Unconditionally update layout shapes every frame (they may be claased with new location/size)
     state.home_x = x
     state.home_y = y
     state.w = w
@@ -512,26 +564,23 @@ local function DragAndDrop()
         -- Dragging phase
         state.x = mouse_x + offset_x
         state.y = mouse_y + offset_y
-        button_state = ui_active:Button(item, opt, state.x, state.y, state.w, state.h)
+        button_state = ui_active:Button(item, opt, state.x - 3, state.y - 3, state.w + 5, state.h + 5) -- expand
       else
         -- Drop phase
-        if hovered_target then
+        if hovered_target and (not opt.onDrop or opt.onDrop(item, hovered_target.id)) then
           state.is_targeted = true
-          if opt.onDrop then
-            opt.onDrop(hovered_target)
-            if opt.float then     -- leave it where you dropped it
-              state.x = hovered_target.x + (hovered_target.w - state.w) / 2
-              state.y = hovered_target.y + (hovered_target.h - state.h) / 2
-            else
-              state.x = hovered_target.x
-              state.y = hovered_target.y
-            end
+          if opt.float then     -- leave it where you dropped it
+            state.x = hovered_target.x + (hovered_target.w - state.w) / 2
+            state.y = hovered_target.y + (hovered_target.h - state.h) / 2
+          else
+            state.x = hovered_target.x
+            state.y = hovered_target.y
           end
         else
           state.is_targeted = false
-          if opt.onClear then opt.onClear() end
           state.x = state.home_x
           state.y = state.home_y
+          if opt.onClear then opt.onClear(item) end
         end
 
         button_state = ui_active:Button(item, opt, state.x, state.y, state.w, state.h)
@@ -554,18 +603,19 @@ local function DragAndDrop()
         offset_y = state.y - mouse_y
       end
     end
+    
     return button_state
   end
 
-  function system:draw()
-    ui_targets:draw()
-    ui_draggables:draw()
-    ui_active:draw() 
-
+  function system:draw() 
     if active_item_id and not active_item_submitted then
       is_dragging = false
       active_item_id = nil
-    end
+    end  
+    
+    ui_targets:draw()
+    ui_draggables:draw()
+    ui_active:draw() 
 
     hovered_target = nil
     active_item_submitted = false

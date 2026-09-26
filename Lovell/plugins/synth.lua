@@ -123,7 +123,7 @@ local lrgb = lg.newShader ([[
         float sat_weight = smoothstep(0.0, knee_point, mixed_I0);    // are these values right?
         vec3 neutral_grey = vec3(mixed_I0);
         rgb = mix(neutral_grey, chromatic_colour, sat_weight);
-  
+
 
       // Clamp and output to target canvas
         
@@ -144,9 +144,9 @@ This plugin builds an LRGB composite image from any available Chrominance and Lu
 
 This includes pure mono, one-shot colour (OSC), separate R G B filters, (or H, S, O).
 
-On arrival of each new image, a mix of channels is updated to create a synthetic luminance for the composite image.  The criteria used to combine the channels is based on the number of images in each channel, the exposures (if available), and possibly the signal-to-noise ratios (variances).
+On arrival of each new image, a mix of channels is updated to create a synthetic luminance for the composite image.  The criteria used to combine the channels is based on the number of images in each channel, their exposures (if available), and possibly the signal-to-noise ratios (variances / MAD).
 
-The auto settings may subsequently be over-ridden by the manual controls for Red: Green/Blue ratio, and Green : Blue ratio.  Additionally, if both synthetic luminance from any RGB channels and a separately meanure luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
+The auto settings may subsequently be over-ridden by the manual controls for Red: Green/Blue ratio, and Green : Blue ratio.  Additionally, if both synthetic luminance from any RGB channels and a separately measured luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
 
 Together these parameters provide complete control of the composite image luminance.
 ]],
@@ -207,7 +207,7 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
 --  _log(pretty {workflow.RGBL, RGBmix = RGBmix, pweight = pweight})
   pedestal = pweight: sum()
 
-  -- Transfer 32-bit Float Stack to 16-bit Fixed Target
+  -- Transfer 32-bit float stack to 16-bit fixed-point workflow
 
   local params = {
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.27",
+    VERSION = "2026.09.25",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -25,7 +25,7 @@ local _log = require "logger" (_M)
 -- 2026.06.12  add load() and save() 
 -- 2026.06.17  add synthetic luminance control group
 -- 2026.06.27  add plugin module
-
+-- 2026.09.25  add settings.process_sequence for plugin display and processing
 
 
 local json = require "lib.json"
@@ -230,19 +230,22 @@ end
 
 function controls: load()
   local f, err = json.read "settings.json" or controls.settings
+  controls.settings.process_sequence = plugins.process_sequence    -- may be changed in settings file below
   if f then
     for n,v in pairs(f) do controls.settings[n] = v end
   end
+  plugins.process_sequence: set(controls.settings.process_sequence)
   stackOptions.selected = controls.settings.stacking or 1
   _log (f and "settings loaded" or "failed to load: ", err)
   
   for name, plugin in pairs(plugins) do
     controls[name] = control_cluster (plugin)
   end
-
+  
 end
 
 function controls: save()
+  controls.settings.process_sequence = plugins.process_sequence   -- save the latest workflow
   local ok, err = json.write("settings.json", controls.settings)
   _log (ok and "settings saved" or "failed to save: ", err)
 end
