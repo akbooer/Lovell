@@ -28,7 +28,7 @@ local layout = suit.layout
 local row, col = _M.rowcol(layout)
 
 local hrule = ('–'): rep(25)                         -- for menu dividers
-local grey = {normal = {fg = { 0.5, 0.5, 0.5}}}     -- grey text colour
+local grey = {normal = {fg = { 0.25, 0.25, 0.25}}}     -- grey text colour
 
 local function index(x)
   for i, name in ipairs(x) do
@@ -96,15 +96,29 @@ local function info(name, docs)
   layout: pop()
 end
 
+--[[
+theme.color = {
+	normal   = {bg = { 0.25, 0.25, 0.25}, fg = {0.73,0.73,0.73}},
+	hovered  = {bg = { 0.19,0.6,0.73}, fg = {1,1,1}},
+	active   = {bg = {1,0.6,  0}, fg = {1,1,1}}
+}
+--]]
 
-local ghosts    -- leave a ghost outline of a plugin
+local ghostly = { normal = {bg = { 0.3,0.3,0.3}, fg = {0.5,0.5,0.5}} }
+
+local function DrawGhost(text, opt, x,y,w,h)
+  local theme = suit.theme
+  lg.setColor(unpack(ghostly.normal.bg))
+	lg.rectangle("line", x, y, w, h, opt.cornerRadius or 4)
+	
+  lg.setFont(opt.font)
+  lg.setColor(unpack(ghostly.normal.fg))
+	y = y + theme.getVerticalOffsetForAlign(opt.valign, opt.font, h)
+	lg.printf(text, x+2, y, w-4, opt.align or "center")
+end
 
 local function Ghost(name, ...)
-  local opt = {color = grey, ...}
-  opt[5] = 4              -- add corner radius for outline
-  ghosts = ghosts or {}
-  ghosts[#ghosts + 1] = opt  
-  return suit: Label(name, opt, ...)
+  return suit: Label(name, {draw = DrawGhost}, ...)
 end  
 
 -------------------------
@@ -131,7 +145,7 @@ end
 local Phelp = [[
 This column shows all the plugins in the Lovell/plugins folder.
 
-Static plugins are part of the system and permanently installed, others may be added to the workflow by dragging and dropping into a workflow slot.
+Static plugins are part of the system and permanently installed, others may be added to the workflow by dragging and dropping into an empty workflow slot.
 
 They are executed in order, top to bottom, and any missing slots are skipped.
 ]]
@@ -183,9 +197,16 @@ local function onClear(item_name)
   PPsequence()
 end
 
+local target_opt = {}    -- unique target options, get colour added when dragging
+local drag_opt = {}      -- unique draggable options
+
+local highlight do        -- highlight possible targets when dragging
+  local m, c = 0.3, 0.2
+  highlight = {normal = {bg = { 0.19*m+c,0.6*m+c,0.73*m+c}, fg = {1,1,1}}}
+end
+
 function _M.update(dt)
   dt = dt
-  ghosts = {}
   outline = nil
   
   suit: Button("Plugins and Process Workflow", 300, 20, 300, 30)
@@ -199,10 +220,11 @@ function _M.update(dt)
   layout:reset(360,150,10,10)
   
   -- destinations
-  local dest = {}
   for i in ipairs(target) do
-    dest[i] = {}    -- unique IDs
-    DaD: Targetable(target[i], dest[i], row(160, 30))
+    local dest = target_opt[i] or {}    -- unique IDs
+    target_opt[i] = dest
+    dest.color = DaD: Dragging() and highlight or nil
+    DaD: Targetable(target[i], dest, row(160, 30))
   end
 
   row()
@@ -230,10 +252,11 @@ function _M.update(dt)
     local drag
     local ghost = Ghost(plugin.id, x,y, w,h)
     if not plugin.static then
-      drag = DaD: Draggable(plugin.id, {id = 'p' .. i, onDrop = onDrop, onClear  = onClear}, x,y, w,h) 
+    local opt = drag_opt[i] or {id = 'p'..i, onDrop = onDrop, onClear = onClear, gripHandle = true}
+      drag = DaD: Draggable(plugin.id, opt, x,y, w,h) 
     end
     
-    if ghost.hovered or drag.hovered then
+    if drag.hovered or ghost.hovered then
       info(name)
     end
     
@@ -242,7 +265,7 @@ function _M.update(dt)
   -- static plugins 
   row()
   if suit: Button("Static Plugins", row()) .hovered then info("Static Plugins", Shelp) end
-  for name, plugin in pairs(plugins) do
+  for name, plugin in sorted(plugins) do
     if plugin.static then 
       local id = plugin.id
       id = id == "Chroma" and ("Chroma (" .. name:upper() .. ")") or id
@@ -250,11 +273,9 @@ function _M.update(dt)
         info(name)
       end
     end  
-  end   
-  
+  end     
     
-  -- default configuration, ...actually only necessary on first pass, 
-  -- as sequence[] is updated to be in sync with DaD internals, ...but no harm doing it each time 
+  -- DaD internals updated to be in sync with sequence[] 
   DaD: Clear()
   for i, fname in sequence() do
     DaD: Drop(plugins[fname].id, target[i])
@@ -265,11 +286,8 @@ end
 
 function _M.draw()
   local d, b = 0.3, 0.7     -- dark, bright
-  lg.setColor(d,d,d,1)
-  
-  for _, ghost in ipairs(ghosts) do
-    lg.rectangle("line", unpack(ghost))   -- ghost outlines
-  end
+  lg.setColor(b,b,b,1)
+  lg.setLineWidth(1)
     
   if outline then
     if #outline == 5 then     -- x,y, w,h, radius
@@ -278,7 +296,14 @@ function _M.draw()
     lg.setColor(b,b,b,1)
     lg.printf(outline.text or '', 850, 160, 300)  -- "text", x,y, width
   end
-    
+  
+  -- workflow line
+  d = 0.25
+  lg.setColor(d,d,d,1)
+  lg.setLineWidth(5)
+  lg.line(440, 150, 440, 450)
+  lg.setLineWidth(1)
+  
   suit: draw()      -- background layer
   
   DaD: draw()       -- update dynamic layer AFTER the background

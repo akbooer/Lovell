@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.23",
+    VERSION = "2026.09.27",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -26,6 +26,7 @@ local _M = {
 -- 2026.07.05  add pin to locked popup
 -- 2026.07.07  add Draggable and Targetable ("drag and drop")
 -- 2026.09.23  update onDrop() and onClear() calling sequence
+-- 2026.09.27  add Dragging()
 
 
 local _log = require "logger" (_M)
@@ -458,6 +459,30 @@ end
 -- onDrop() should return true if it allows the drop, false or nil to disallow.
 -- option parameter 'float' leaves item where dropped, not snapped to target location
 --
+
+local ghostly = {
+--	normal   = {bg = { 0.25, 0.25, 0.25}, fg = {0.73,0.73,0.73}},
+--	hovered  = {bg = { 0.19,0.6,0.73}, fg = {1,1,1}},
+	active   = {bg = {1,0.6,  0, .7}, fg = {0.9,0.9,0.9}},
+}
+
+local function DrawDrag(text, opt, x,y,w,h)
+	local c = theme.getColorForState(opt)
+
+	lg.setColor(0,0,0,0.3)
+--  lg.rectangle("fill", x, y, w+2 +3, h+3 +3, opt.cornerRadius or 4)   -- shadow
+--	theme.drawBox(x-2, y-2, w+3, h+3, c, opt.cornerRadius)
+  lg.rectangle("fill", x, y, w+2, h+4, opt.cornerRadius or 4)   -- shadow
+	theme.drawBox(x-2, y-2, w, h, c, opt.cornerRadius)
+	
+  lg.setColor(c.fg)
+  lg.setFont(opt.font)
+	y = y + theme.getVerticalOffsetForAlign(opt.valign, opt.font, h)
+	lg.printf(text, x+2 -2, y -2, w-4, opt.align or "center")
+end
+
+local drag_opt = {draw = DrawDrag, color = ghostly}
+
 local function DragAndDrop()
   local ui_targets = suit.new()
   local ui_draggables = suit.new()
@@ -473,7 +498,7 @@ local function DragAndDrop()
   local targets = {}
   local system = {}
 
-  -- TODO: TWEEN
+  -- TODO: TWEEN cleared item back to home position
   local tweens = {}
   local function tween(item)
 --          state.x = state.home_x
@@ -498,6 +523,12 @@ local function DragAndDrop()
       end
     end
     print(pretty(tweens))
+  end
+  
+  -- DRAGGING
+  
+  function system:Dragging()
+    return is_dragging
   end
   
   -- DROP, API to simulate drop
@@ -564,7 +595,8 @@ local function DragAndDrop()
         -- Dragging phase
         state.x = mouse_x + offset_x
         state.y = mouse_y + offset_y
-        button_state = ui_active:Button(item, opt, state.x - 3, state.y - 3, state.w + 5, state.h + 5) -- expand
+        local dopt = setmetatable(drag_opt, opt)
+        button_state = ui_active:Button(item, dopt, state.x, state.y, state.w, state.h) -- expand
       else
         -- Drop phase
         if hovered_target and (not opt.onDrop or opt.onDrop(item, hovered_target.id)) then
@@ -602,6 +634,10 @@ local function DragAndDrop()
         offset_x = state.x - mouse_x
         offset_y = state.y - mouse_y
       end
+    end
+    
+    if opt.gripHandle then
+      ui_active: ImageButton(_G.dots6, state.x + 2, state.y + 6)
     end
     
     return button_state

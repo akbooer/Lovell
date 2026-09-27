@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.14",
+    VERSION = "2026.09.27",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
@@ -19,6 +19,7 @@ local _M = {
 
 -- 2026.05.19  controls now in their own module
 -- 2026.06.14  add pager control to here (from session module)
+-- 2026.09.27  add six dot pattern from draggables
 
 
 local _log = require "logger" (_M)
@@ -66,6 +67,8 @@ controls.page = "main"
 -- UTILITIES
 --
 
+-- MAC command character
+
 do
   local imgData = love.image.newImageData "resources/mac-cmd.png"
 
@@ -77,6 +80,12 @@ do
   _G.macFont = lg.newImageFont(imgData, '8')
   imgData: release()
 end
+
+
+-- six-dot pattern for grabbing
+
+_G.dots6 = lg.newImage "resources/icons8-drag-handle-18.png"
+
 
 
 local function pageSet(page) 
