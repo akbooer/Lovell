@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.07.05"
+  _M.VERSION = "2026.09.29"
   _M.DESCRIPTION = "GUI - processing/plugins configuration"
 
 local _log = require "logger" (_M)
@@ -208,14 +208,16 @@ end
 function _M.update(dt)
   dt = dt
   outline = nil
+  local dragging = DaD: Dragging()
   
   suit: Button("Plugins and Process Workflow", 300, 20, 300, 30)
   
   layout:reset(100,90,100,10)
 
-  if suit: Button("Plugins", col(160,30)) .hovered then info("Plugins", Phelp) end
-  if suit: Button("Workflow", col(160,30)) .hovered then info("Workflow", Whelp) end
-  if suit: Button("Info", col(550)) .hovered then info("Info", Ihelp) end
+ 
+  if suit: Button("Plugins", col(160,30)) .hovered and not dragging then info("Plugins", Phelp) end
+  if suit: Button("Workflow", col(160,30)) .hovered and not dragging then info("Workflow", Whelp) end
+  if suit: Button("Info", col(550)) .hovered and not dragging then info("Info", Ihelp) end
 
   layout:reset(360,150,10,10)
   
@@ -223,7 +225,7 @@ function _M.update(dt)
   for i in ipairs(target) do
     local dest = target_opt[i] or {}    -- unique IDs
     target_opt[i] = dest
-    dest.color = DaD: Dragging() and highlight or nil
+    dest.color = dragging and highlight or nil
     DaD: Targetable(target[i], dest, row(160, 30))
   end
 
@@ -249,14 +251,14 @@ function _M.update(dt)
     
     local x,y, w,h = row(160, 30)
     
-    local drag
+    local plug
     local ghost = Ghost(plugin.id, x,y, w,h)
     if not plugin.static then
-    local opt = drag_opt[i] or {id = 'p'..i, onDrop = onDrop, onClear = onClear, gripHandle = true}
-      drag = DaD: Draggable(plugin.id, opt, x,y, w,h) 
+      local opt = drag_opt[i] or {id = 'p'..i, onDrop = onDrop, onClear = onClear, gripHandle = true}
+      plug = DaD: Draggable(plugin.id, opt, x,y, w,h) 
     end
     
-    if drag.hovered or ghost.hovered then
+    if (dragging == plugin.id) or (not dragging and (plug.hovered or ghost.hovered)) then
       info(name)
     end
     
@@ -264,12 +266,12 @@ function _M.update(dt)
   
   -- static plugins 
   row()
-  if suit: Button("Static Plugins", row()) .hovered then info("Static Plugins", Shelp) end
+  if suit: Button("Static Plugins", row()) .hovered and not dragging then info("Static Plugins", Shelp) end
   for name, plugin in sorted(plugins) do
     if plugin.static then 
       local id = plugin.id
       id = id == "Chroma" and ("Chroma (" .. name:upper() .. ")") or id
-      if Ghost(id, row()) .hovered then
+      if Ghost(id, row()) .hovered and not dragging then
         info(name)
       end
     end  

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.06.27",
+  VERSION = "2026.09.30",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – RGB workflow",
 }
@@ -14,8 +14,8 @@ local _log = require "logger" (_M)
 
 -- 2024.11.07  Version 0, @akbooer
 
--- 2026.06.27 split from poststack module into separate plugin
-
+-- 2026.06.27  split from poststack module into separate plugin
+-- 2026.09.30  skip processing if not needed
 
 
 local color, centre
@@ -36,13 +36,23 @@ local scnr = {id = "scnr (green)", value = 80, default = 80, min = 0, max = 100,
 --
 
 local function run(self, workflow)
+  local temp, tint = temperature.value/2, tint.value/2
   
-  if not workflow.enough_RGB then return end              -- nothing to do
+  if not workflow.enough_RGB then return end        -- nothing to do
   
-  workflow: scnr(scnr.value / 100)                        -- Subtractive Chromatic Noise Reduction (Green) in percent
-  workflow: satboost((saturation.value - 1) * 2 + 1)      -- apply saturation stretch
-  workflow: temp_tint(temperature.value/2, tint.value/2)      -- colour temperature and tint
-
+  if (temp ~= 0 or  tint ~= 0) then
+    workflow: temp_tint(temp, tint)         -- colour temperature and tint
+  end
+  
+  local scnr = scnr.value
+  if scnr > 0 then
+    workflow: scnr( scnr / 100)            -- Subtractive Chromatic Noise Reduction (Green) in percent
+  end
+  
+  local sat = saturation.value
+  if sat ~= 1 then
+    workflow: satboost((saturation.value - 1) * 2 + 1)      -- apply saturation stretch
+  end
 end
 
 

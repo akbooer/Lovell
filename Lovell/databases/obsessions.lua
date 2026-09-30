@@ -266,7 +266,17 @@ function _M.update(self)
   
   local h = love.graphics.getHeight()
   self: Label(name, Loptions, layout: col(250, 30))
-  self: Label(folder, Loptions, 20, h - 40, 550, 30)
+  if folder and #folder > 0 then
+    if self: Button("Go To Folder:", 20, h - 50, 180, 30) .hit then
+      local opsys = love.system.getOS( )
+      if opsys: match "OS X" then
+        os.execute ("open '%s'" % folder)
+      else
+        -- TODO: add open with explorer for Windows
+      end
+    end
+    self: Label(folder, Loptions, 220, h - 50, 550, 30)
+  end
 
 end
 

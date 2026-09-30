@@ -463,17 +463,17 @@ end
 local ghostly = {
 --	normal   = {bg = { 0.25, 0.25, 0.25}, fg = {0.73,0.73,0.73}},
 --	hovered  = {bg = { 0.19,0.6,0.73}, fg = {1,1,1}},
-	active   = {bg = {1,0.6,  0, .7}, fg = {0.9,0.9,0.9}},
+	active   = {bg = {1,0.6,  0, .5}, fg = {0.9,0.9,0.9}},
 }
 
 local function DrawDrag(text, opt, x,y,w,h)
 	local c = theme.getColorForState(opt)
 
 	lg.setColor(0,0,0,0.3)
---  lg.rectangle("fill", x, y, w+2 +3, h+3 +3, opt.cornerRadius or 4)   -- shadow
---	theme.drawBox(x-2, y-2, w+3, h+3, c, opt.cornerRadius)
-  lg.rectangle("fill", x, y, w+2, h+4, opt.cornerRadius or 4)   -- shadow
-	theme.drawBox(x-2, y-2, w, h, c, opt.cornerRadius)
+  lg.rectangle("fill", x, y, w+2 +5, h+3 +4, opt.cornerRadius or 4)   -- shadow
+	theme.drawBox(x-3, y-4, w+5, h+4, c, opt.cornerRadius)
+--  lg.rectangle("fill", x, y, w+2, h+4, opt.cornerRadius or 4)   -- shadow
+--	theme.drawBox(x-2, y-2, w, h, c, opt.cornerRadius)
 	
   lg.setColor(c.fg)
   lg.setFont(opt.font)
@@ -588,6 +588,7 @@ local function DragAndDrop()
     local button_pressed = love.mouse.isDown(1)
     local button_state
     
+--    lm.setCursor(lm.getSystemCursor "arrow")
     if active_item_id == item then
       active_item_submitted = true
 
@@ -626,9 +627,13 @@ local function DragAndDrop()
         state.y = y
       end
 
-      button_state = ui_draggables:Button(item, opt, state.x, state.y, state.w, state.h)
+      local dx, dy = 0,0
+      if ui_draggables: wasHovered(opt.id) then   -- animate hovered state
+        dx, dy = -2, -2
+      end
+      button_state = ui_draggables:Button(item, opt, state.x + dx, state.y + dy, state.w, state.h)
       if button_state.hovered and button_pressed and not is_dragging then
-        is_dragging = true
+        is_dragging = item
         active_item_id = item
         active_item_submitted = true -- FIXED: Prevents draw() from wiping the click on frame 1
         offset_x = state.x - mouse_x

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.09.22",
+  VERSION = "2026.09.30",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – Synthetic luminance from RGB",
 }
@@ -13,6 +13,7 @@ local _log = require "logger" (_M)
 
 -- 2026.08.02  Version 0, extracted from shaders.colour and stacking
 -- 2026.09.22  remove colour gradient, retaining only luminance
+-- 2026.09.30  adjust defaults for synthetic lum RGB ratios
 
 
 local love = _G.love
@@ -107,23 +108,24 @@ local lrgb = lg.newShader ([[
           vec3 rgb = rgbl.rgb;
           float Irgb = dot(rgb, u_intensity_weights);
           float mixed_I0 = mix(Irgb, rgbl.a, u_Lratio);
-          
+
       // Exit here if mono only
       
         if (!u_colour_mode) { return vec4(vec3(mixed_I0), 1.0); }
 
       // Compute Chromatic Vector (RGB Ratio Scaling)
       
-        float maxc = max(rgb.r, max(rgb.g, rgb.b)) + eps;
-        vec3 chromatic_colour = rgb * mixed_I0 / maxc;       // apply modified intensity
+ //       float maxc = max(rgb.r, max(rgb.g, rgb.b)) + eps;
+        float maxc = (0.2*rgb.r + 0.6*rgb.g + 0.1*rgb.b) + eps;   // perceptual brightness
+        rgb = rgb * mixed_I0 / maxc;       // apply modified intensity
 
       // Desaturate low intensities
-      
+/*    
         float knee_point = 1.0 * u_pedestal;
         float sat_weight = smoothstep(0.0, knee_point, mixed_I0);    // are these values right?
         vec3 neutral_grey = vec3(mixed_I0);
-        rgb = mix(neutral_grey, chromatic_colour, sat_weight);
-
+        rgb = mix(neutral_grey, rgb, sat_weight);
+*/
 
       // Clamp and output to target canvas
         
@@ -142,17 +144,19 @@ local plugin = {
   documentation = [[
 This plugin builds an LRGB composite image from any available Chrominance and Luminance channels from the stack.
 
-This includes pure mono, one-shot colour (OSC), separate R G B filters, (or H, S, O).
+This includes pure mono, one-shot colour (OSC), separate R G B filters, (or H S O).
 
 On arrival of each new image, a mix of channels is updated to create a synthetic luminance for the composite image.  The criteria used to combine the channels is based on the number of images in each channel, their exposures (if available), and possibly the signal-to-noise ratios (variances / MAD).
 
-The auto settings may subsequently be over-ridden by the manual controls for Red: Green/Blue ratio, and Green : Blue ratio.  Additionally, if both synthetic luminance from any RGB channels and a separately measured luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
+The auto settings may subsequently be over-ridden by the manual controls for Red : Green+Blue ratio, and Green : Blue ratio.  Additionally, if both synthetic luminance from any RGB channels and a separately measured luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
 
 Together these parameters provide complete control of the composite image luminance.
 ]],
 
-  R_GB = {id = "R:GB",  default = 0.34, value = 0.34, style = "inline"},
-  G__B = {id = "G:B ",  default = 0.5,  value = 0.5, style = "inline"},
+--  R_GB = {id = "R:GB",  default = 0.34, value = 0.34, style = "inline"},
+--  G__B = {id = "G:B ",  default = 0.5,  value = 0.5, style = "inline"},
+  R_GB = {id = "R:GB",  default = 0.21, value = 0.21, style = "inline"},
+  G__B = {id = "G:B ",  default = 0.90, value = 0.90 , style = "inline"},
   lum2synth = {id = "L:S ", value = 1, default = 1, format = "%.2f", style = "inline"},
 }
 
@@ -171,11 +175,14 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
     R, G, B, L = Re, Ge, Be, Le            
   end
 
+  R, G, B = R * 0.2, G * 0.7, B * 0.1
+  
   local enough_RGB = R > 0 and G > 0 and B > 0     -- something in all the channels  
   workflow.enough_RGB = enough_RGB
 
   -- Luminance : Synth Lum ratio
   local sumRGBL = (R + G + B) / 3 + L
+--  local sumRGBL = (0.3*R + 0.6*G + 0.1*B) + L
 
   local lum2synth = self.lum2synth
   lum2synth.default = L / sumRGBL             -- ...always update default with latest auto value
@@ -202,10 +209,9 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
     Lratio = lum2synth.default
   end
 
-  local pedestal = background.MAD * 4
-  local pweight = pedestal * {R, G, B, 3 * L} / (3 * sumRGBL)
---  _log(pretty {workflow.RGBL, RGBmix = RGBmix, pweight = pweight})
-  pedestal = pweight: sum()
+  -- pedestal has to be the same for all channels to retain offset calibration
+  local pedestal = background.MAD * 4                          -- this is the classic median - C * sigma
+  pedestal = pedestal: dot {R, G, B, 3 * L} / (3 * sumRGBL)    -- weighted average of channel MADs
 
   -- Transfer 32-bit float stack to 16-bit fixed-point workflow
 
@@ -213,17 +219,16 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
 
     -- 1. Plane Slopes
     -- Linear is {Offsets, Xslope, Yslope}
-    u_slopes_x = background.Linear[2] * {0,0,0,gradient}, -- don't use colour gradient -- * gradient
-    u_slopes_y = background.Linear[3] * {0,0,0,gradient},
+    u_slopes_x = background.Linear[2] * gradient, -- {0,0,0,gradient}, -- don't use colour gradient
+    u_slopes_y = background.Linear[3] * gradient,
     u_plane_offset = background.MEDIAN,               -- 'grey-sky' offsets,
---    u_whitepoint = whitepoint / ((pweight * background.MAX): sum()),
     u_whitepoint = whitepoint,
     u_vignette = vignette,
     u_ref_point = { 0.5, 0.5 },                       -- Plane centered at image midpoint
 
     -- 2. Channel Gains (Color Balance) & Offset
     u_channel_gain = balance,
-    u_pedestal = pedestal * offset, 
+    u_pedestal = pedestal * offset,                   -- adjust pedestal by slider gain
 
     -- 3. Intensity_weights
     u_intensity_weights = RGBmix,
@@ -255,8 +260,8 @@ function plugin: draw(suit)
   local W = 200 - 20
 
   local r, g, b
-  r = (  100  ) * self.R_GB.value
-  g = (100 - r) * self.G__B.value
+  r = math.floor((  100  ) * self.R_GB.value)
+  g = math.floor((100 - r) * self.G__B.value)
   b = (100 - r) - g
 
   suit: Label("Lum:Synth ratio", left, sl:row(W,20))
