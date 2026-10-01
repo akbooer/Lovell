@@ -51,7 +51,8 @@ local function run(self, workflow)
   
   local sat = saturation.value
   if sat ~= 1 then
-    workflow: satboost((saturation.value - 1) * 2 + 1)      -- apply saturation stretch
+--    workflow: satboost((saturation.value - 1) * 2 + 1)      -- apply saturation stretch
+    workflow: satboost(saturation.value ^ 1.5)      -- apply saturation stretch
   end
 end
 

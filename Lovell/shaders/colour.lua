@@ -55,37 +55,6 @@ and maps it back to linear RGB for display.
 
 --]]
 
-local oksat = lg.newShader [[
-#pragma language glsl3
-
-// Rec. 709 perceived luminance weights (Standard for linear RGB)
-uniform vec3 LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
-
-// 1.0 = Original color, >1.0 = Boosted saturation, 0.0 = Grayscale
-uniform float u_saturation;
-
-
-vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
-    vec3 rgb = Texel(tex, tc) .rgb;
-    
-    // 1. Compute pixel luminance (grayscale equivalent)
-    float luma = dot(rgb, LUMA_WEIGHTS);
-  
-    // Smoothly taper off the saturation boost in the dark background floor
-    float mask = smoothstep(0.09, 0.15, luma);    // 9% is preferred 'grey sky' level
-    float effective_sat = mix(1.0, u_saturation, mask);
-    
-    // 2. Blend between grayscale and original color
-    vec3 rgb_out = mix(vec3(luma), rgb, effective_sat);
-    
-    // 3. Clamp negative overshoot if boosting saturation (> 1.0) on noise
-    rgb_out = max(rgb_out, vec3(0.0));
-    
-    return vec4(rgb_out, 1.0);
-}
-]]
-
-
 
 --[[#pragma language glsl3
 
@@ -164,9 +133,40 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
 ]]
 
 
+local sat = lg.newShader [[
+#pragma language glsl3
+
+// Rec. 709 perceived luminance weights (Standard for linear RGB)
+uniform vec3 LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
+
+// 1.0 = Original color, >1.0 = Boosted saturation, 0.0 = Grayscale
+uniform float u_saturation;
+
+
+vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
+    vec3 rgb = Texel(tex, tc) .rgb;
+    
+    // 1. Compute pixel luminance (grayscale equivalent)
+    float luma = dot(rgb, LUMA_WEIGHTS);
+  
+    // Smoothly taper off the saturation boost in the dark background floor
+    float mask = smoothstep(0.09, 0.15, luma);    // 9% is preferred 'grey sky' level
+    float effective_sat = mix(1.0, u_saturation, mask);
+    
+    // 2. Blend between grayscale and original color
+    vec3 rgb_out = mix(vec3(luma), rgb, effective_sat);
+    
+    // 3. Clamp negative overshoot if boosting saturation (> 1.0) on noise
+    rgb_out = max(rgb_out, vec3(0.0));
+    
+    return vec4(rgb_out, 1.0);
+}
+]]
+
+
 function _M.oksat(workflow, boost)
 --  workflow: shadeWith(oksat, {u_chroma_boost = boost})
-  workflow: shadeWith(oksat, {u_saturation = boost})
+  workflow: shadeWith(sat, {u_saturation = boost})
 end
 
 -------------------------
