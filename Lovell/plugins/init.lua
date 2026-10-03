@@ -4,13 +4,14 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.25",
+    VERSION = "2026.10.03",
     DESCRIPTION = "Plugin Library for processing: model, view, control (MVC)",
   }
 
 
 -- 2026.06.27  Version 0, a loader and dispatcher for individual plugins
 -- 2026.09.25  add default plugin configuration with iterator (for processing and display)
+-- 2026.10.03  change plugin default configuration to include GHS
 
 
 local _log = require "logger" (_M)
@@ -49,7 +50,7 @@ end
 
 -- DEFAULT PROCESS SEQUENCE CONFIGURATION
 
-local default_sequence = {"balance", "bilateral", "clahe"} -- may be replaced from settings.load()
+local default_sequence = {"GHS", "bilateral", "clahe"} -- may be replaced from settings.load()
 
 meta.__index.process_sequence = setmetatable({"balance", "bilateral", "clahe"},
   {__call = function(self)    -- iterator
@@ -113,6 +114,7 @@ function meta:__call (workflow, name, ...)
   local plugin = self[name]
   if not plugin then error ("no such plugin: " .. (tostring(name) or "???"), 2) end
   if not plugin.run then error ("run method missing in plugin: " .. name, 2) end
+  -- TODO:  gather stats on plugin runtimes and invocations...
   return plugin.run (plugin, workflow, ...) 
 end
 

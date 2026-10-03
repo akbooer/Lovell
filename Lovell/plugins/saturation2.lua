@@ -50,7 +50,7 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
     // 2. Windowed Saturation Factor s(Y):
     // Ramps UP above sky pedestal (0.09), ramps DOWN in extreme highlights (>0.70)
     float sky_ramp       = smoothstep(u_bg_center - 0.02, u_bg_center + 0.05, luma);
-    float highlight_ramp = smoothstep(0.65, 0.95, luma);
+    float highlight_ramp = smoothstep(0.8, 1, luma);
     
     // s = 0.0 at sky floor, u_saturation in midtones, 0.0 in bright highlights
     float s = mix(0.0, u_saturation, sky_ramp * (1.0 - highlight_ramp));
@@ -68,7 +68,7 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
 
 -------------------------------
 
-
+local enable = {checked = false, text = "enable"}
 local saturation  = {id = "saturation ", value = 1, default = 1, max = 2}
 
 -------------------------------
@@ -79,7 +79,7 @@ local saturation  = {id = "saturation ", value = 1, default = 1, max = 2}
 local function run(self, workflow)
   
   local sat = saturation.value
-  if sat > 0 then
+  if enable.checked then
     workflow: shadeWith(saturate, {u_saturation = saturation.value ^ 1.5})      -- apply saturation stretch
   end
 end
@@ -90,9 +90,13 @@ local function draw(self, suit)
 
   local W = 180
   local Ws = W - 20
-
+  local x,y, w,h = sl:row(Ws/2, 20)
+  suit: Checkbox(enable, x,y, w,h)
+  if suit: Button("reset", {}, x + W/2, y, 50, 20) .hit then
+    self: reset()
+  end
   suit: Slideable(saturation, sl:row(Ws, 10))
-
+  
 end
 
 
@@ -100,7 +104,7 @@ return {
   id = "Saturation", 
   
   documentation = [[
-Experimental saturation function which desaturations low and high intensities.
+Experimental saturation function which desaturates low and high intensities.
 ]],
 
   -- controls (exported so that they can be reset)

@@ -229,7 +229,7 @@ vec4 effect( vec4 color, Image source, vec2 tp, vec2 _ ){
 
 ]]
 
-_M.BayerOptions = {"Auto", "RGGB", "GRBG", "BGGR", "GBRG", id = "Bayer pattern: ", width = 50}
+_M.BayerOptions = {"Auto", "RGGB", "GRBG", "BGGR", "GBRG", id = "Bayer pattern: "}
 
 local pattern = {
     RGGB = {0, 0},
