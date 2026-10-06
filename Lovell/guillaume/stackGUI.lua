@@ -330,7 +330,7 @@ function _M.update()
     workflow: bw_points(background.BP, 1)
     workflow: scnr()
     local mid = background.MEDIAN - background.BP
-    workflow: stretch("MidTone", 2 * stretch.value, mid)
+    workflow: stretch("MidTone", 2 * stretch.value, false, mid)   -- false means RGB mode
    
     markstars(sprites, subframe.stars, w / ws)                        -- mark found stars
     markstars(matches, subframe.matched_pairs or empty, w / ws)       -- mark matched stars

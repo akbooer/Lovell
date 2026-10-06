@@ -68,52 +68,50 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
 
 -------------------------------
 
-local enable = {checked = false, text = "enable"}
-local saturation  = {id = "saturation ", value = 1, default = 1, max = 2}
+local plugin = {
+    id = "Saturation", 
+  
+    enable = {checked = false, text = "enable"},
+    saturation  = {id = "saturation ", value = 1, default = 1, max = 2},
+    lowlight = {id = "lowlight", value = 0, default = 0, max = .5},
+    highlight = {id = "highlight", value = 1, default = 1, min = .5, max = 1},
+
+    documentation = [[
+Saturation function which desaturates below and above lowlight/highlight levels
+]],
+}
 
 -------------------------------
 --
 -- RUN and DRAW
 --
-
-local function run(self, workflow)
+ 
+function plugin: run(workflow)
   
-  local sat = saturation.value
-  if enable.checked then
-    workflow: shadeWith(saturate, {u_saturation = saturation.value ^ 1.5})      -- apply saturation stretch
+  local sat = self.saturation.value
+  if self.enable.checked then
+    workflow: shadeWith(saturate, {u_saturation = sat ^ 1.5})      -- apply saturation stretch
   end
 end
 
 
-local function draw(self, suit)
+function plugin: draw(suit)
   local sl = suit.layout
 
   local W = 180
   local Ws = W - 20
   local x,y, w,h = sl:row(Ws/2, 20)
-  suit: Checkbox(enable, x,y, w,h)
+  suit: Checkbox(self.enable, x,y, w,h)
   if suit: Button("reset", {}, x + W/2, y, 50, 20) .hit then
     self: reset()
   end
-  suit: Slideable(saturation, sl:row(Ws, 10))
-  
+  suit: Slideable(self.saturation, sl:row(Ws, 10))
+  suit: Slideable(self.lowlight, sl: row())
+  suit: Slideable(self.highlight, sl: row())
 end
 
 
-return {
-  id = "Saturation", 
-  
-  documentation = [[
-Experimental saturation function which desaturates low and high intensities.
-]],
-
-  -- controls (exported so that they can be reset)
-  saturation = saturation,
-
-  -- methods
-  draw = draw,
-  run = run,
-}
+return plugin
 
 -----
 

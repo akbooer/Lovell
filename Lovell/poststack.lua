@@ -104,10 +104,12 @@ local function poststack(workflows)
   
   -- STRETCH
   
-  local selected = controls.gammaOptions: get()
+  local gamma = controls.gammaOptions
+  local selected = gamma: get()
   local stretch = l.stretch.value
+  local luminance = gamma.luminance.checked    -- false means RGB mode
   
-  workflow: stretch(selected, stretch, greysky) 
+  workflow: stretch(selected, stretch, luminance, greysky) 
 
   -- POST-PROCESS
 

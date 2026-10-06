@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.03",
+  VERSION = "2026.10.06",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – Generalised Hyperbolic Stretch",
 }
@@ -18,55 +18,38 @@ local lg = love.graphics
 -- 2026.10.01  version 0
 -- 2026.10.02  parameter tweaks
 -- 2026.10.03  PixInsight-style parameters
+-- 2026.10.06  further parameter (and implementation) tuning
 
 
 local ghs = lg.newShader [[
 #pragma language glsl3
 
-uniform float u_x0;
-uniform float u_D;
-uniform float u_b;
-uniform float u_bp = 0.0;   // symmetric curve
+uniform float u_BP;
+uniform float u_inv_scale;
+uniform float u_SP_norm;
+uniform float u_p_norm;
 uniform float u_S0;
-uniform float u_invDenom;
+uniform float u_inv_S_range;
 
-// Standard CIE Rec.709 luminance weights
-const vec3 LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
-
-float ghsStretch(float x) {
-    if (x <= u_x0) return 0.0;
-    float x_norm = (x - u_x0) / (1.0 - u_x0);
-    
-    if (u_D < 0.001 || u_invDenom == 0.0) return x_norm;
-
-    float S_x = asinh(u_D * (x_norm - u_b) + u_bp);
-    return clamp((S_x - u_S0) * u_invDenom, 0.0, 1.0);
+// Vectorized inverse hyperbolic sine
+vec3 ghs_asinh(vec3 z) {
+    return log(z + sqrt(z * z + vec3(1.0)));
 }
 
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
-    vec4 texColor = Texel(tex, texture_coords);
+    vec4 tex_color = Texel(tex, texture_coords);
     
-    // 1. Calculate linear luminance
-    float L = dot(texColor.rgb, LUMA_WEIGHTS);
-
-    // 2. Compute stretched luminance (only 1 GHS call total)
-    float L_stretched = ghsStretch(L);
-
-    // 3. Scale RGB by the luminance stretch ratio
-    vec3 stretchedRGB = vec3(0.0);
-    if (L > 1e-6) {
-        float ratio = L_stretched / L;
-        stretchedRGB = texColor.rgb * ratio;
-    }
-
-    // Optional Gamut Protection for Bright Stars
-    float maxChannel = max(stretchedRGB.r, max(stretchedRGB.g, stretchedRGB.b));
-    if (maxChannel > 1.0) {
-        // Softly compress out-of-bounds RGB back into [0, 1] while preserving hue
-        stretchedRGB /= maxChannel; 
-    }
+    // 1. Pre-normalize input color into [0.0, 1.0] relative to BP
+    vec3 x_norm = clamp((tex_color.rgb - vec3(u_BP)) * u_inv_scale, 0.0, 1.0);
     
-    return vec4(stretchedRGB, 1.0);
+    // 2. Form argument z = p_norm * (x_norm - SP_norm)
+    vec3 z = u_p_norm * (x_norm - vec3(u_SP_norm));
+    
+    // 3. Compute stretched output anchored at [0.0, 1.0]
+    vec3 Sx = ghs_asinh(z);
+    vec3 stretched_rgb = (Sx - vec3(u_S0)) * u_inv_S_range;
+
+    return vec4(stretched_rgb, tex_color.a) * color;
 }
 ]]
 
@@ -76,7 +59,7 @@ local plugin = {
     id = "GHS",
     lum = {checked = true, text = "luminance mode"},
     D  = {id = "D stretch factor", value = 0, default = 0, max = 20, format = "%0.3f"},
-    b  = {id = "b local intensity", value = 10, default = 10, max = 15, format = "%0.3f"},
+    b  = {id = "b local intensity", value = 10, default = 0, max = 15, format = "%0.3f"},
     SP  = {id = "SP symmetry pt", value = 0, default = 0, format = "%0.3f"},
     HP  = {id = "HP highlight", value = 1, default = 1, format = "%0.3f"},
     LP  = {id = "LP lowlight", value = 0, default = 0, format = "%0.3f"},
@@ -85,12 +68,54 @@ local plugin = {
     finetune = {'D', 'b', 'SP', 'BP', selected = 3, default = 3, id = '', size = {50,18}, indent = 0},
     tweak = {id = "tweak", value = 0.5, default = 0.5},
     highly_sensitive = {checked = false, text = "highest sensitivity"},
+    split_menu = {checked = false, text = "split menu"},
 
   }
 
 -- Helper function for asinh in Lua
 local function asinh(x)
     return math.log(x + math.sqrt(x * x + 1.0))
+end
+
+
+local function calculateGHSUniforms(D, b, BP, SP)
+    local safe_BP = math.min(math.max(BP, 0.0), 0.999999)
+    local safe_scale = 1.0 - safe_BP
+    local inv_scale = 1.0 / safe_scale
+
+    local SP_norm = math.min(math.max((SP - safe_BP) * inv_scale, 0.0), 1.0)
+    local b_factor = 10.0 ^ (math.abs(b) / 5.0)
+
+    -- Option A: Linear D (Use math.max to handle D = 0 smoothly)
+    local p_raw = D^1.5 * b_factor * safe_scale
+    
+    -- Option B: Exponential D (Uncomment if you want exponential slider response)
+--     local D_eff = math.exp(D) - 1.0
+--     local p_raw = D_eff * b_factor * safe_scale
+
+    -- Clamp p_norm to 1e-5 so D = 0 cleanly renders the linear image x_norm
+    local p_norm = math.max(p_raw, 1e-5)
+
+    local function asinh(z)
+        return math.log(z + math.sqrt(z * z + 1.0))
+    end
+
+    local z0 = -p_norm * SP_norm
+    local z1 =  p_norm * (1.0 - SP_norm)
+
+    local S0 = asinh(z0)
+    local S1 = asinh(z1)
+
+    local inv_S_range = 1.0 / (S1 - S0)
+
+    return {
+        u_BP          = safe_BP,
+        u_inv_scale   = inv_scale,
+        u_SP_norm     = SP_norm,
+        u_p_norm      = p_norm,
+        u_S0          = S0,
+        u_inv_S_range = inv_S_range
+    }
 end
 
 -------------------------------
@@ -100,40 +125,25 @@ end
 
 function plugin: run(workflow)
   local function v(n) return self[n] .value end
-  
   local D_pi, SP_pi, b_pi, BP_pi = v 'D', v 'SP', v 'b', v 'BP'
-   
-  -- Unwrap PI's logarithmic stretch factor UI control
-  local D_raw = math.exp(D_pi) - 1.0
- 
-  local safeBP = math.min(BP_pi, 0.9999)
-  
-  -- Remap PixInsight parameters to simplified GHS domain  
-  local x0 = safeBP
-  local b  = math.max(0.0, math.min(1.0, (SP_pi - safeBP) / (1.0 - safeBP)))
-  local D  = D_raw * b_pi * (1.0 - safeBP)
-  local bp = 0.0 -- Symmetric curve
-
-  -- Pre-calculate invariant curve endpoints
-  local S_0 = asinh(bp - D * b)
-  local S_1 = asinh(D * (1.0 - b) + bp)
-  local denom = S_1 - S_0
-  local invDenom = (math.abs(denom) < 1e-6) and 0.0 or (1.0 / denom)
-
-  workflow: shadeWith(ghs, {
-      u_x0 = x0,
-      u_D = D,
-      u_b = b,
-      u_S0 = S_0,
-      u_invDenom = invDenom,
-    })
-
-    
+  workflow: shadeWith(ghs, calculateGHSUniforms(D_pi, b_pi, BP_pi, SP_pi))
 end
 
-local hrule = ('–'): rep(20)                         -- for menu dividers
+
 local lalign = {align = "left"}
 local ralign = {align = "right"}
+
+
+local function extras(self, suit, width)
+  local sl = suit.layout
+
+  local W = width or 180
+  
+  suit: Slideable(self.D, sl:row(W, 10))
+  suit: Slideable(self.b, sl:row())
+  suit: Slideable(self.SP, sl:row())
+  sl:row(W, 5)
+end
 
 function plugin: draw(suit)
   local sl = suit.layout
@@ -141,21 +151,24 @@ function plugin: draw(suit)
   local W = 180
   local Ws = W - 20
   
+  if self.split_menu.checked then
+    self.extras = extras      -- put in separate menu, or...
+  else
+    self.extras = nil         -- ...include them in this menu
+    extras(self, suit, Ws)    -- ...and in a slightly narrower dormat to match
+  end
   
-  suit: Slideable(self.D, sl:row(Ws, 10))
-  suit: Slideable(self.b, sl:row())
-  suit: Slideable(self.SP, sl:row())
-  suit: Slideable(self.HP, sl:row())
+  suit: Slideable(self.HP, sl:row(Ws, 10))
   suit: Slideable(self.LP, sl:row())
-  suit: Slideable(self.BP, sl:row())
+  suit: Slideable(self.BP, sl:row())  
+  sl:row(Ws, 5)
   
-  
---  suit: Label(hrule, {color = suit.theme.color.inactive}, sl: row(Ws, 10))
   local x,y, w,h = sl:row(100, 20)
   suit: Choosable(self.finetune, x+50, y, 60, 20)
   suit: Label("adjust: ", lalign, x,y, w,h)
   local tweak = suit: Slider(self.tweak, sl:row(Ws, 10)) 
   suit: Checkbox(self.highly_sensitive, sl:row(Ws, 16))
+  suit: Checkbox(self.split_menu, sl:row(Ws, 16))
   
   local item = self[self.finetune[self.finetune.selected]]
   if tweak.changed then

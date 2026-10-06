@@ -4,14 +4,14 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.03",
+    VERSION = "2026.10.05",
     DESCRIPTION = "Plugin Library for processing: model, view, control (MVC)",
   }
 
 
 -- 2026.06.27  Version 0, a loader and dispatcher for individual plugins
 -- 2026.09.25  add default plugin configuration with iterator (for processing and display)
--- 2026.10.03  change plugin default configuration to include GHS
+-- 2026.10.05  change plugin default configuration to include GHS (NB. filename is 'ghs')
 
 
 local _log = require "logger" (_M)
@@ -50,7 +50,7 @@ end
 
 -- DEFAULT PROCESS SEQUENCE CONFIGURATION
 
-local default_sequence = {"GHS", "bilateral", "clahe"} -- may be replaced from settings.load()
+local default_sequence = {"ghs", "bilateral", "clahe"} -- filenames may be replaced from settings.load()
 
 meta.__index.process_sequence = setmetatable({"balance", "bilateral", "clahe"},
   {__call = function(self)    -- iterator
@@ -58,8 +58,10 @@ meta.__index.process_sequence = setmetatable({"balance", "bilateral", "clahe"},
       return function()
         while i < self._max do
           i = i + 1
-          if self[i] then 
+          if plugins[self[i]] then    -- existential check! (eg. maybe invalid sequence loaded at startup)
             return i, self[i]
+          else
+            self[i] = nil             -- remove nonexistent one from list
           end
         end
       end
@@ -103,7 +105,7 @@ function meta.__index: draw(name, suit, ...)
   layout: padding(px, py)
   
   if plugin.extras then
-    plugin: extras(suit, ...)
+    plugin: extras(suit)
   end
     
 end

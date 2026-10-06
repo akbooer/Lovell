@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.27",
+    VERSION = "2026.10.04",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -27,6 +27,7 @@ local _M = {
 -- 2026.07.07  add Draggable and Targetable ("drag and drop")
 -- 2026.09.23  update onDrop() and onClear() calling sequence
 -- 2026.09.27  add Dragging()
+-- 2026.10.04  allow checkbox elements in Choosable, with optional action function call
 
 
 local _log = require "logger" (_M)
@@ -281,19 +282,30 @@ local Choosable do
  -- note that this draw() function has different parameters from the internal SUIT draw() functions
  -- to match the external format used in SUITABLE widgets such as Controllable()
   local function draw (self, core, opt) --, x,y, w,h)
-    local w, h
+    local x,y, w,h
     local layout = core.layout
     if opt.size then w, h = unpack(opt.size) else w, h = 150, 25 end    -- TODO: make height dynamic
     
     self.hit = nil
     for i, name in ipairs(self) do
-      local button
-      local hidden, item = name: match "(%-?)(.*)"
-      hidden = (hidden == '-')
-      if hidden then
-        button = core: Label (item, unchoosable, layout: row(w, h))
+      local button, hidden, item, checkbox
+      x,y, w,h = layout: row(w, h)
+      
+      checkbox = type(name) == "table"        -- assume nested checkbox widget
+      if checkbox then
+        hidden = true               -- don't want to be able to select this!
+        button = core: Checkbox(name, x + 10,y, w,20)
+        if button.hit and name.action then
+          name.action(button)
+        end
       else
-        button = core: Button (item, layout: row(w, h))
+        hidden, item = name: match "(%-?)(.*)"
+        hidden = (hidden == '-')
+        if hidden then
+          button = core: Label (item, unchoosable, x,y, w,h)
+        else
+          button = core: Button (item, x,y, w,h)
+        end
       end
       if button.hit and not hidden then
         self.selected = i

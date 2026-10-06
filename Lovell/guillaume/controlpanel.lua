@@ -60,8 +60,6 @@ function _M.update(suit, controls, image)
   local Wh = W / 2   -- half
   local H = lg.getHeight()
 
---  suit: Choosable(controls.channelOptions, {size = {140, 25}}, row(W,Hb))
-
   suit: Plugin ("channel", row(W,Hb))
   
   -- LUMINANCE
@@ -72,6 +70,7 @@ function _M.update(suit, controls, image)
   x,y, w,h = row(W/2 - 2, Hb)
   
   suit: Choosable(controls.gammaOptions, {id = '  ', shortcut= "G"}, x + Wh + 2, y, w, h)
+  
   suit: Plugin("luminance", x,y, w,h)
  
   -- CHROMINANCE
@@ -114,10 +113,6 @@ function _M.update(suit, controls, image)
   if button.hit then
     pager: push "database"
   end
-
--- TODO: PLATE SOLVE
-
---  slider (core, "Magnitude", w, 10)
 
   -- orientation and snapshot
  

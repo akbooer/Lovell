@@ -69,7 +69,7 @@ local outline
 
 -- write useful info in the right hand column
 local function info(name, docs)
-  layout: push(620 + 15 , 150 + 15)
+  layout: push(650 + 20 , 150 + 15)
   
   local plugin = plugins[name]
   if plugin then
@@ -86,7 +86,7 @@ local function info(name, docs)
      
     --  add frame
     local _,y = row(0,0)
-    outline = {620, 150, 200, y - 160 + 30, 4, text = plugin.documentation}   -- 4 is corner radius
+    outline = {650, 150, 200, y - 160 + 30, 4, text = plugin.documentation}   -- 4 is corner radius
     
   else
     suit: Button(name, row(160, 30))
@@ -142,30 +142,40 @@ end
 -- UPDATE / DRAW
 --
 
-local Phelp = [[
-This column shows all the plugins in the Lovell/plugins folder.
 
-Static plugins are part of the system and permanently installed, others may be added to the workflow by dragging and dropping into an empty workflow slot.
+local Title = {
+  
+    ["Static Plugins"] = [[
+Static plugins are part of the system workflow and, as such, are permanently installed and may not be dragged into the post-stack workflow.
+]],
+
+    ["Dynamic Plugins"] = [[
+This column shows all the dynamic plugins.
+
+These may be added to the workflow by dragging and dropping into an empty workflow slot.
 
 They are executed in order, top to bottom, and any missing slots are skipped.
-]]
+]],
 
-local Whelp = [[
-This column shows the active plugins  in the current workflow.
+    ["Workflow"] = [[
+This column shows the active plugins in the current workflow.
 
 Controls from these plugins appear on the main display.  
 
-A plugin may be removed from the workflow by dragging away from a process slot, and it snaps back to its allocated position in the Plugins column.
-]]
+A plugin may be removed from the workflow by dragging away from a process slot, and it snaps back to its allocated position in the Dynamic Plugins column.
+]],
 
-local Ihelp = [[
-This column shows interesting information (possibly)
-]]
+    ["Info"] = [[
+This column shows interesting information (possibly).
+]],
 
-local Shelp = [[
-Static plugins are part of the system workflow and, as such, are permanently installed and may not be dragged into the post-stack workflow.
-]]
+    ["Clear All"] = [[
+Clears all Dynamic Plugins from the workflow column.
+]],
 
+    ["Factory Reset"] = [[Reverts the workflow to initial factory settings.
+]],
+ } 
 
 local function PPsequence()
   _log ("workflow changed:", pretty(sequence))
@@ -197,31 +207,44 @@ local function onClear(item_name)
   PPsequence()
 end
 
-local target_opt = {}    -- unique target options, get colour added when dragging
-local drag_opt = {}      -- unique draggable options
+local target_opt = {}     -- unique target options, get colour added when dragging
+local drag_opt = {}       -- unique draggable options
+local dragging            -- flag true if actively dragging an item
+
 
 local highlight do        -- highlight possible targets when dragging
   local m, c = 0.3, 0.2
   highlight = {normal = {bg = { 0.19*m+c,0.6*m+c,0.73*m+c}, fg = {1,1,1}}}
 end
 
-function _M.update(dt)
-  dt = dt
-  outline = nil
-  local dragging = DaD: Dragging()
-  
-  suit: Button("Plugins and Process Workflow", 300, 20, 300, 30)
-  
-  layout:reset(100,90,100,10)
+local function columnTitle(name, width)
+  width = width or 160
+  local button = suit: Button(name, row(width, 30))
+  if button.hovered and not dragging then 
+    info(name, Title[name]) 
+  end
+  row()
+  return button
+end
 
- 
-  if suit: Button("Plugins", col(160,30)) .hovered and not dragging then info("Plugins", Phelp) end
-  if suit: Button("Workflow", col(160,30)) .hovered and not dragging then info("Workflow", Whelp) end
-  if suit: Button("Info", col(550)) .hovered and not dragging then info("Info", Ihelp) end
-
-  layout:reset(360,150,10,10)
+local function static_plugins (plugins)
+  columnTitle [[Static Plugins]]
   
-  -- destinations
+  for name, plugin in sorted(plugins) do
+    if plugin.static then 
+      local id = plugin.id
+      id = id == "Chroma" and ("Chroma (" .. name:upper() .. ")") or id
+      if Ghost(id, row()) .hovered and not dragging then
+        info(name)
+      end
+    end  
+  end     
+end
+
+
+local function destinations(target)
+  columnTitle [[Workflow]]
+
   for i in ipairs(target) do
     local dest = target_opt[i] or {}    -- unique IDs
     target_opt[i] = dest
@@ -231,20 +254,22 @@ function _M.update(dt)
 
   row()
   
-  if suit: Button("Clear All", row()) .hit then
+  if columnTitle [[Clear All]] .hit then
     DaD: Clear()
     sequence: clear_all()
     PPsequence()
   end
   
-  if suit: Button("Factory Reset", row()) .hit then
+  if columnTitle [[Factory Reset]] .hit then
     DaD: Clear()
     sequence: factory_reset()
     PPsequence()
   end
-  
-  -- available plugins
-  layout: reset(100, 150, 10, 10)
+end
+
+ 
+local function dynamic_plugins(menu)
+  columnTitle [[Dynamic Plugins]]
   
   for i, name in ipairs(menu) do
     local plugin = plugins[name]
@@ -263,20 +288,30 @@ function _M.update(dt)
     end
     
   end 
+end
+
+local column = {50, 250, 450, 650}
+local rows =  {100, 200}
+
+function _M.update(dt)
+  dt = dt
+  outline = nil
+  dragging = DaD: Dragging()
   
-  -- static plugins 
-  row()
-  if suit: Button("Static Plugins", row()) .hovered and not dragging then info("Static Plugins", Shelp) end
-  for name, plugin in sorted(plugins) do
-    if plugin.static then 
-      local id = plugin.id
-      id = id == "Chroma" and ("Chroma (" .. name:upper() .. ")") or id
-      if Ghost(id, row()) .hovered and not dragging then
-        info(name)
-      end
-    end  
-  end     
-    
+  suit: Button("Plugins and Process Workflow", column[2], 20, 2 * 160 + 40, 30)
+ 
+  layout:reset(column[3], rows[1], 10,10)
+  destinations(target)      -- must be created bofre dynamic plugins
+ 
+  layout: reset(column[1], rows[1], 10, 10)
+  static_plugins(plugins)
+  
+  layout: reset(column[2], rows[1], 10, 10)
+  dynamic_plugins(menu)
+  
+  layout:reset(column[4], rows[1], 100, 10)
+  columnTitle ([[Info]], 550)
+   
   -- DaD internals updated to be in sync with sequence[] 
   DaD: Clear()
   for i, fname in sequence() do
@@ -296,14 +331,15 @@ function _M.draw()
       lg.rectangle("line", unpack(outline))
     end
     lg.setColor(b,b,b,1)
-    lg.printf(outline.text or '', 850, 160, 300)  -- "text", x,y, width
+    lg.printf(outline.text or '', 850 + 20, 160, 320)  -- "text", x,y, width
   end
   
   -- workflow line
   d = 0.25
   lg.setColor(d,d,d,1)
   lg.setLineWidth(5)
-  lg.line(440, 150, 440, 450)
+  local x = column[3] + 80  - 2
+  lg.line(x, rows[2], x, rows[2] + 7 * (30 + 10))
   lg.setLineWidth(1)
   
   suit: draw()      -- background layer
