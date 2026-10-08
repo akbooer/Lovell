@@ -71,7 +71,7 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
 local plugin = {
     id = "Saturation", 
   
-    enable = {checked = false, text = "enable"},
+    enable = {checked = false, default = false, text = "enable"},
     saturation  = {id = "saturation ", value = 1, default = 1, max = 2},
     lowlight = {id = "lowlight", value = 0, default = 0, max = .5},
     highlight = {id = "highlight", value = 1, default = 1, min = .5, max = 1},

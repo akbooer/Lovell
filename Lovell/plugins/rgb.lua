@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.05",
+  VERSION = "2026.0.30",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – RGB workflow",
 }
@@ -16,7 +16,6 @@ local _log = require "logger" (_M)
 
 -- 2026.06.27  split from poststack module into separate plugin
 -- 2026.09.30  skip processing if not needed
--- 2026.10.05  change SCNR default setting to 100%
 
 
 local color, centre
@@ -29,7 +28,7 @@ local tint        = {id = "tint", value = 0, default = 0, min = -1, max = 1}    
 local temperature = {id = "temperature", value = 0, default = 0, min = -1, max = 1}       --  Blue : Yellow   (B:RG)
 
 -- Subtractive Chromatic Noise Reduction (Green) in percent 100% enabled by default
-local scnr = {id = "scnr (green)", value = 100, default = 100, min = 0, max = 100, format = "%d%%"}
+local scnr = {id = "scnr (green)", value = 80, default = 80, min = 0, max = 100, format = "%d%%"}
 
 -------------------------------
 --

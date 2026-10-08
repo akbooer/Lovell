@@ -244,7 +244,7 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
   workflow: shadeWith(lrgb, params)
 
 --  _log (pretty(params))
-  return pedestal           -- default grey sky level (for MidTone stretch)
+  return pedestal           -- default grey sky level (for stretch parameter scaling)
 
 end
 

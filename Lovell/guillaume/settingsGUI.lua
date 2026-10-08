@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.08.26"
+  _M.VERSION = "2026.10.08"
   _M.DESCRIPTION = "GUI - settings, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -21,6 +21,7 @@ local _M = require "guillaume.objects" .GUIobject()
 
 -- 2026.06.05  use database page for viewing FITS headers
 -- 2026.08.26  add button to go to plugins page
+-- 2026.10.08  add default stretch setting
 
 
 local _log = require "logger" (_M)
@@ -38,8 +39,9 @@ local settings = controls.settings
 local ses = controls.ses_notes
 local obs = controls.obs_notes
 
-local stack_default = {selected = 1, id = "Default: ", unpack(controls.stackOptions)}   -- clone actual stack options menu items
-local retainControls = {}
+local stack_default = {selected = 1, id = "Default stack: ", unpack(controls.stackOptions)}   -- clone stack options menu
+local stretch_default = {selected = 1, id = "Default stretch: ", unpack(controls.gammaOptions)}   -- clone stack options menu
+local retainControls = {text = "retain controls"}
 local Lalign = {align = "left"}
 
 local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
@@ -89,26 +91,25 @@ local coords = {}
 local ditto = _G.READONLY {}
 
   
-coords.stickies1 = layout: cols {pos = {120, 70}, padding = {20, 0}, {200, 20}, ditto}
-coords.stickies2 = layout: cols {pos = {120, 95}, padding = {20, 0}, {150, 30}, {80}, {200, 20}}
+coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto, {200, 25}}
 
 local function stickies()  
  
+ -- get current values
   stack_default.selected = settings.stacking or 1
+  stretch_default.selected = settings.stretch or 1
   retainControls.checked = settings.retainControls
   
+  -- possible update
   widgets {
-    coords = coords.stickies1,
-    {"default stacking mode", Lalign},
-    {"retain controls", Lalign}}
-  
-  widgets {
-    coords = coords.stickies2,
+    coords = coords.stickies,
     {stack_default},
-    {''},
+    {stretch_default},
     {retainControls}}
   
+  -- save any changes
   settings.stacking = stack_default.selected
+  settings.stretch = stretch_default.selected  
   settings.retainControls = retainControls.checked or nil
 end
 

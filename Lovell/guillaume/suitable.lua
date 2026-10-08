@@ -52,7 +52,9 @@ local inactive = {normal = {fg = {0.5, 0.5, 0.5}}}
 
 suit.theme.color.bluetext = bluetext    -- make accessible externally
 suit.theme.color.inactive = inactive
-
+suit.theme.color.dark = {normal = {bg = { 0.18, 0.18, 0.18}, fg = {0.73,0.73,0.73}}}
+suit.theme.color.light = {normal = {bg = { 0.33, 0.33, 0.33}, fg = {0.73,0.73,0.73}}}
+  
 --[[
 
 theme.color = {
@@ -278,6 +280,7 @@ local Choosable do
   local padding = {5, 3}
   local background =  theme.color.normal.bg
   local unchoosable = {color = inactive}
+  local checkbox_colour = {color = theme.color.light}
  
  -- note that this draw() function has different parameters from the internal SUIT draw() functions
  -- to match the external format used in SUITABLE widgets such as Controllable()
@@ -294,7 +297,7 @@ local Choosable do
       checkbox = type(name) == "table"        -- assume nested checkbox widget
       if checkbox then
         hidden = true               -- don't want to be able to select this!
-        button = core: Checkbox(name, x + 10,y, w,20)
+        button = core: Checkbox(name, checkbox_colour, x + 10,y, w,20)
         if button.hit and name.action then
           name.action(button)
         end
@@ -336,6 +339,7 @@ local Choosable do
         latency = opt.latency or info.latency,
         indent = opt.indent or info.indent,
         reset = reset,
+        color = opt.color or info.color,
       }
     
     local popup = core: Controllable(info, newopt, x,y,w,h)
@@ -356,7 +360,8 @@ local Controllable do
   local hi, lo = 0.35, 0.18
   local border  = {hi, hi, hi}
   local default = {lo, lo, lo}
-  local color = {bg = default}   -- background colour rather than theme.color.normal
+--  local color = {bg = default}   -- background colour rather than theme.color.normal
+  local color = theme.color.dark
   local selected = {normal = theme.color.hovered}
   
   local function draw(core, info, opt, x,y,w,h)

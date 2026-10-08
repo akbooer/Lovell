@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.06",
+  VERSION = "2026.10.08",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – Generalised Hyperbolic Stretch",
 }
@@ -18,39 +18,59 @@ local lg = love.graphics
 -- 2026.10.01  version 0
 -- 2026.10.02  parameter tweaks
 -- 2026.10.03  PixInsight-style parameters
--- 2026.10.06  further parameter (and implementation) tuning
+-- 2026.10.08  further parameter (and implementation) tuning
+
+--[[
+const vec3 LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
+--]]
 
 
 local ghs = lg.newShader [[
 #pragma language glsl3
 
 uniform float u_BP;
-uniform float u_inv_scale;
-uniform float u_SP_norm;
-uniform float u_p_norm;
-uniform float u_S0;
-uniform float u_inv_S_range;
+uniform float u_SP;
+uniform float u_p;
 
-// Vectorized inverse hyperbolic sine
-vec3 ghs_asinh(vec3 z) {
-    return log(z + sqrt(z * z + vec3(1.0)));
-}
+const float eps = 1.0e-5;
+
+// bounds check input to ensure valid calculations
+float BP = min(1.0 - eps, u_BP);
+float scale = 1.0 - BP;
+float inv_scale = 1.0 / scale;
+
+float SP = min(max((u_SP - BP) * inv_scale, 0.0), 1.0);
+float p = max(u_p, eps);
+
+float S0 = asinh(-p * SP);
+float S1 = asinh(p * (1.0 - SP));
+float inv_S_range = 1.0 / (S1 - S0);
+
 
 vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
     vec4 tex_color = Texel(tex, texture_coords);
     
     // 1. Pre-normalize input color into [0.0, 1.0] relative to BP
-    vec3 x_norm = clamp((tex_color.rgb - vec3(u_BP)) * u_inv_scale, 0.0, 1.0);
+    vec3 x_norm = clamp((tex_color.rgb - vec3(BP)) * inv_scale, 0.0, 1.0);
     
-    // 2. Form argument z = p_norm * (x_norm - SP_norm)
-    vec3 z = u_p_norm * (x_norm - vec3(u_SP_norm));
+    // 2. Form argument z = p * (x_norm - SP)
+    vec3 z = p * (x_norm - vec3(SP));
     
     // 3. Compute stretched output anchored at [0.0, 1.0]
-    vec3 Sx = ghs_asinh(z);
-    vec3 stretched_rgb = (Sx - vec3(u_S0)) * u_inv_S_range;
+    vec3 Sx = asinh(z);
+    vec3 stretched_rgb = (Sx - vec3(S0)) * inv_S_range;
 
     return vec4(stretched_rgb, tex_color.a) * color;
 }
+]]
+
+--[[
+
+// 5. Highlight Gamut Protection
+    float maxChannel = max(stretched_rgb.r, max(stretched_rgb.g, stretched_rgb.b));
+    if (maxChannel > 1.0) {
+        stretched_rgb / maxChannel;
+    }
 ]]
 
 -------------------------------
@@ -60,7 +80,7 @@ local plugin = {
     lum = {checked = true, text = "luminance mode"},
     D  = {id = "D stretch factor", value = 0, default = 0, max = 20, format = "%0.3f"},
     b  = {id = "b local intensity", value = 10, default = 0, max = 15, format = "%0.3f"},
-    SP  = {id = "SP symmetry pt", value = 0, default = 0, format = "%0.3f"},
+    SP  = {id = "SP symmetry pt", value = 0.12, default = 0.12, format = "%0.3f"},  -- default grey sky on input
     HP  = {id = "HP highlight", value = 1, default = 1, format = "%0.3f"},
     LP  = {id = "LP lowlight", value = 0, default = 0, format = "%0.3f"},
     BP  = {id = "BP black point", value = 0, default = 0, format = "%0.3f"},
@@ -77,6 +97,7 @@ local function asinh(x)
     return math.log(x + math.sqrt(x * x + 1.0))
 end
 
+--[[
 
 local function calculateGHSUniforms(D, b, BP, SP)
     local safe_BP = math.min(math.max(BP, 0.0), 0.999999)
@@ -118,6 +139,25 @@ local function calculateGHSUniforms(D, b, BP, SP)
     }
 end
 
+--]]
+
+
+local function calculateGHSUniforms(D, b, BP, SP)
+    local safe_BP = math.min(math.max(BP, 0.0), 0.999999)
+    local safe_scale = 1.0 - safe_BP
+    
+    local b_factor = 10.0 ^ (math.abs(b) / 5.0)
+
+    -- Option A: Linear D (Use math.max to handle D = 0 smoothly)
+    local p = D ^ 1.5 * b_factor * safe_scale
+    
+    -- Option B: Exponential D (Uncomment if you want exponential slider response)
+--     local D_eff = math.exp(D) - 1.0
+--     local p = D_eff * b_factor * safe_scale
+
+    return {u_BP = BP, u_SP = SP, u_p  = p}
+end
+
 -------------------------------
 --
 -- RUN and DRAW
@@ -126,6 +166,9 @@ end
 function plugin: run(workflow)
   local function v(n) return self[n] .value end
   local D_pi, SP_pi, b_pi, BP_pi = v 'D', v 'SP', v 'b', v 'BP'
+  
+  if D_pi == 0 then return end    -- linear stretch
+  
   workflow: shadeWith(ghs, calculateGHSUniforms(D_pi, b_pi, BP_pi, SP_pi))
 end
 
@@ -145,8 +188,12 @@ local function extras(self, suit, width)
   sl:row(W, 5)
 end
 
+local hrule = ('–'): rep(25)    -- for menu dividers
+local hrule_opt
+
 function plugin: draw(suit)
   local sl = suit.layout
+  hrule_opt = hrule_opt or {color = suit.theme.color.inactive}
 
   local W = 180
   local Ws = W - 20
@@ -168,6 +215,7 @@ function plugin: draw(suit)
   suit: Label("adjust: ", lalign, x,y, w,h)
   local tweak = suit: Slider(self.tweak, sl:row(Ws, 10)) 
   suit: Checkbox(self.highly_sensitive, sl:row(Ws, 16))
+  suit: Label(hrule, hrule_opt, sl:row(nil, 10))
   suit: Checkbox(self.split_menu, sl:row(Ws, 16))
   
   local item = self[self.finetune[self.finetune.selected]]

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.25",
+    VERSION = "2026.10.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -26,6 +26,7 @@ local _log = require "logger" (_M)
 -- 2026.06.17  add synthetic luminance control group
 -- 2026.06.27  add plugin module
 -- 2026.09.25  add settings.process_sequence for plugin display and processing
+-- 2026.10.08  add default gamma stretch option on load
 
 
 local json = require "lib.json"
@@ -236,6 +237,7 @@ function controls: load()
   end
   plugins.process_sequence: set(controls.settings.process_sequence)
   stackOptions.selected = controls.settings.stacking or 1
+  gammaOptions.selected = controls.settings.stretch or 1
   _log (f and "settings loaded" or "failed to load: ", err)
   
   for name, plugin in pairs(plugins) do
