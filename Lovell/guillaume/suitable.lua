@@ -28,7 +28,7 @@ local _M = {
 -- 2026.09.23  update onDrop() and onClear() calling sequence
 -- 2026.09.27  add Dragging()
 -- 2026.10.04  allow checkbox elements in Choosable, with optional action function call
--- 2026.10.10  add shift key to Slideable to control rate asymptotically
+-- 2026.10.10  add option key to Slideable to control rate asymptotically
 
 
 local _log = require "logger" (_M)
@@ -110,6 +110,10 @@ end
 
 local function shiftKey()
   return lk.isDown "lshift" or lk.isDown "rshift"
+end
+
+local function optionKey()
+  return lk.isDown "lalt" or lk.isDown "ralt"
 end
 
 local function rightClick(state)
@@ -235,8 +239,8 @@ local Slideable do
   local function slide(core, control, ...)
     local original = control.value
     local state = core: Slider(control, ...)
-    if shiftKey() then
-      control.value = original + (control.value - original) / 10
+    if optionKey() then
+      control.value = original + (control.value - original) / 100    -- slowly approach target value
       state.value = control.value
     end
     return state
@@ -280,10 +284,10 @@ local Slideable do
     local state =  fct(core, control, name, value, x,y, w,h)
     core.layout: padding(px, py)
    
-     -- slow-motion with either shift key down
-     if shiftKey() then
-       control.value = original + (control.value - original) / 10
-     end
+    if rightClick(state) then
+       _M.reset = true
+      control.value = control.default or control.value    -- reset to default
+    end
      
     return state
    end 
