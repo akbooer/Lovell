@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.04",
+    VERSION = "2026.10.10",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -28,6 +28,7 @@ local _M = {
 -- 2026.09.23  update onDrop() and onClear() calling sequence
 -- 2026.09.27  add Dragging()
 -- 2026.10.04  allow checkbox elements in Choosable, with optional action function call
+-- 2026.10.10  add shift key to Slideable to control rate asymptotically
 
 
 local _log = require "logger" (_M)
@@ -107,9 +108,13 @@ end
 -- UTILITIES
 --
 
+local function shiftKey()
+  return lk.isDown "lshift" or lk.isDown "rshift"
+end
+
 local function rightClick(state)
   local hit, hovered = state.hit, state.hovered
-  local rclick = hovered and lm.isDown(2) or hit and (lk.isDown "lshift" or lk.isDown "rshift") 
+  local rclick = hovered and lm.isDown(2) or hit and shiftKey() 
   return rclick
 end
 
@@ -119,6 +124,14 @@ function _M.anyReset()
   local reset = _M.reset
   _M.reset = false
   return reset
+end
+  
+function _M.anyHovered()
+  return suit.anyHovered()
+end
+ 
+function _M.anyActive()
+  return suit.anyActive()
 end
   
  
@@ -219,10 +232,21 @@ local Slideable do
   local Loptions = {align = "left", color = bluetext}     -- fixed labels
   local Soptions = {align = "right"}                      -- dynamic labels
 
+  local function slide(core, control, ...)
+    local original = control.value
+    local state = core: Slider(control, ...)
+    if shiftKey() then
+      control.value = original + (control.value - original) / 10
+      state.value = control.value
+    end
+    return state
+  end
+  
   local function normal(core, control, name, value, x,y, w,h)
     core: Label(name, Loptions, x,y, w,h)
     core.layout: padding (10,7)
-    local state = core: Slider(control, core.layout: row(w, h))
+--    local state = core: Slider(control, core.layout: row(w, h))
+    local state = slide(core, control, core.layout: row(w, h))
     if state.hovered then
       core:Label(value, Soptions, x, y, w, h)
     end
@@ -233,7 +257,8 @@ local Slideable do
     core.layout: padding (20,5)
     local left  = #name  * en_space + 10
     local right = #value * en_space + 10
-    local state = core: Slider(control, x + left, y, w - left - right, 10)
+--    local state = core: Slider(control, x + left, y, w - left - right, 10)
+    local state = slide(core, control, x + left, y, w - left - right, 10)
     core: Label(name, Loptions, x,y, w,10)
     core: Label(value, Soptions, x,y, w,10)
     return state
@@ -245,6 +270,7 @@ local Slideable do
     local style = opt.style or control.style
         
     local fmt = control.format or opt.format or "%.2f"
+    local original = control.value
     local value = fmt % control.value
     local name  = opt.id or control.id or "???"
 
@@ -253,12 +279,12 @@ local Slideable do
     local px, py = core.layout: padding()
     local state =  fct(core, control, name, value, x,y, w,h)
     core.layout: padding(px, py)
-    
-    if rightClick(state) then
-       _M.reset = true
-      control.value = control.default or control.value    -- reset to default
-    end
    
+     -- slow-motion with either shift key down
+     if shiftKey() then
+       control.value = original + (control.value - original) / 10
+     end
+     
     return state
    end 
     

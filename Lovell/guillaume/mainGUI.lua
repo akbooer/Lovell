@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2026.05.16"
+  _M.VERSION = "2026.10.10"
   _M.DESCRIPTION = "GUI - main page"
 
 _log = require "logger" (_M)
@@ -22,7 +22,8 @@ _log = require "logger" (_M)
 -- 2025.02.28  correct zoom and rotate origin (centre of displayed image, rather than centre of frame)
 -- 2025.03.31  change keyboard shortcuts (Issue #2)
 
--- 2026.05.16   redesign control layout using new Suitable widgets
+-- 2026.05.16  redesign control layout using new Suitable widgets
+-- 2026.10.10  fix dragging image when sliding controls
 
 
 local suit      = require "suit"
@@ -72,10 +73,9 @@ function _M.update(dt, image)
   love.mouse.setCursor(arrow)
   
   local w, h = lg.getDimensions()
-  local eyepiece = controls.eyepiece.checked
-  
+  local eyepiece = controls.eyepiece.checked  
 
-  adjustments = suit.mouseInRect(1, 1, margin + 30, h - 5) or eyepiece or pin_controls.checked
+  adjustments = suit.mouseInRect(1, 1, margin + 100, h - 5) or eyepiece or pin_controls.checked
   if adjustments  then
     controlpanel.update(self, controls, image)
   end
@@ -266,7 +266,7 @@ end
 --
 function _M.mousepressed(mx, my, btn, _, presses)
   local eyepiece = controls.eyepiece.checked
-  local on_image = (eyepiece and Oculus.within(mx, my)) or (not eyepiece and mx > margin)
+  local on_image = mx > margin + 100 and (not eyepiece or (eyepiece and Oculus.within(mx, my)))
   DRAGGING = btn == 1 and on_image
   -- toggle normal/inverse image
   if presses == 2 and on_image then

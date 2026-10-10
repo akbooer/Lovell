@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.05.08",
+    VERSION = "2026.10.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -19,6 +19,7 @@ local _M = {
 
 -- 2026.05.08  empty messages generate blank lines in log (for readability)
 -- 2026.07.20  require "table.new" (FFI extension to pre-allocate tables)
+-- 2026.10.09  add math.asinh()
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -29,6 +30,14 @@ require "table.new"       -- LuaJit extension
 
 local logChannel = love.thread.getChannel "logChannel"
 
+
+-------------------------
+--
+-- Lua is missing asinh() function
+--
+function math.asinh(x)
+    return math.log(x + math.sqrt(x * x + 1.0))
+end
 
 -------------------------
 --

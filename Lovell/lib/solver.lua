@@ -3,6 +3,8 @@
 --
 
 -- 2026.09.09  add closed-form fitPlane() solver in addition to generic matrix least-squares
+-- 2026.10.09  add Newton-Raphson iterator to find root given function (for setting stretches)
+
 
 local matrix = require "lib.matrix"
   
@@ -14,7 +16,10 @@ getmetatable(matrix {}).__concat = function(self, mat) return self:concath(mat) 
 local _M = {}
 
 
+-------------------------------
+--
 -- solve Ax = b
+--
 function _M.solve(A, b)
 	A = matrix(A)
 	b = matrix(b)
@@ -41,7 +46,7 @@ end
 --         OR array format: { {1.2, 3.4, 10.1}, ... }
 -- Returns: a (x-slope), b (y-slope), c (z-offset at x=0, y=0)
 --          Returns nil if points are colinear or degenerate (det close to 0)
---------------------------------------------------------------------------------
+--
 function _M.fitPlane(points)
   local n = #points
   if n < 3 then
@@ -96,13 +101,39 @@ function _M.fitPlane(points)
   return a, b, c
 end
 
---------------------------------------------------------------------------------
--- Convenience evaluator for the fitted plane
---------------------------------------------------------------------------------
-function _M.evaluate(x, y, a, b, c)
-  return a * x + b * y + c
-end
 
+-------------------------------
+--
+-- Generic Newton-Raphson root finder using numerical differentiation
+-- objective_fn: function(c) that returns 0 when target is met
+-- c0: initial starting guess
+-- max_iters: optional max loop count (default 10)
+--
+function _M.find_root(objective_fn, c0, max_iters)
+    max_iters = max_iters or 10
+    local c = c0
+    local h = 1e-5 -- small step for numerical derivative
+    
+    for i = 1, max_iters do
+        local f_val = objective_fn(c)
+        
+        -- Optional early exit if close enough
+        if math.abs(f_val) < 1e-7 then
+            break
+        end
+        
+        -- Central difference derivative: f'(c) ≈ (f(c+h) - f(c-h)) / (2h)
+        local f_prime = (objective_fn(c + h) - objective_fn(c - h)) / (2.0 * h)
+        
+        if math.abs(f_prime) < 1e-12 then
+            break -- prevent division by zero or flat slope
+        end
+        
+        c = c - (f_val / f_prime)
+    end
+    
+    return math.max(0.0, c)
+end
 
 return _M
 

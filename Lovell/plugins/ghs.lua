@@ -75,12 +75,14 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
 
 -------------------------------
 
+local GREY_SKY = 0.09   -- default SP
+
 local plugin = {
     id = "GHS",
     lum = {checked = true, text = "luminance mode"},
     D  = {id = "D stretch factor", value = 0, default = 0, max = 20, format = "%0.3f"},
     b  = {id = "b local intensity", value = 10, default = 0, max = 15, format = "%0.3f"},
-    SP  = {id = "SP symmetry pt", value = 0.12, default = 0.12, format = "%0.3f"},  -- default grey sky on input
+    SP  = {id = "SP symmetry pt", value = GREY_SKY, default = GREY_SKY, format = "%0.3f"},
     HP  = {id = "HP highlight", value = 1, default = 1, format = "%0.3f"},
     LP  = {id = "LP lowlight", value = 0, default = 0, format = "%0.3f"},
     BP  = {id = "BP black point", value = 0, default = 0, format = "%0.3f"},
@@ -204,6 +206,10 @@ function plugin: draw(suit)
     self.extras = nil         -- ...include them in this menu
     extras(self, suit, Ws)    -- ...and in a slightly narrower dormat to match
   end
+  
+  local SP = self.SP.value
+  self.HP.value = math.max(self.HP.value, SP)
+  self.LP.value = math.min(self.LP.value, SP)
   
   suit: Slideable(self.HP, sl:row(Ws, 10))
   suit: Slideable(self.LP, sl:row())
