@@ -78,7 +78,8 @@ Close button returns to main display.
 
 Most processing steps have been implemented in a modular plugin architecture which allows for (relatively) easy extensions.  Each plugin is a classic MVC (model-view-control) structure containing its own controls, GUI, processing (probably implemented as a GLSL shader plus Lua code), and brief documentation.
 
-<img width="1275" height="735" alt="Screenshot 2026-08-29 at 17 35 21" src="https://github.com/user-attachments/assets/359025f3-f127-4486-98a1-707354c1308f" />
+<img width="1270" height="729" alt="image" src="https://github.com/user-attachments/assets/27f81b20-9b80-4e96-a71d-335c230aae29" />
+
 
 
 ## Acknowledgements
