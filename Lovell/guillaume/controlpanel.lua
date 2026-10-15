@@ -21,6 +21,7 @@ local plugins   = require "plugins"
 
 local love = _G.love
 local lg = love.graphics
+local lk = love.keyboard
 
 local margin = 240          -- margin width for panel
 local Hb = 25               -- button height
@@ -45,6 +46,7 @@ end
 --
 -- UPDATE
 --
+local snapButton = ''
 
 function _M.update(suit, controls, image)
   suit.Plugin = Plugin          -- ensure plugin helper function is installed in suit instance
@@ -123,7 +125,12 @@ function _M.update(suit, controls, image)
     controls.eyepiece.checked = not controls.eyepiece.checked
   end
  
-  if suit:Button ("Snapshot", layout:row(80, 50)) .hit then
+  local snap = suit: Button (snapButton, layout:row(80, 50))
+  
+  snapButton = snap.hovered and (lk.isDown "lalt" or lk.isDown "ralt") 
+                    and "Large PNG" or "Snapshot"
+  
+  if snap.hit then
     snapshot.snap(image) 
   end
   

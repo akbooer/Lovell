@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.08",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -27,6 +27,7 @@ local _log = require "logger" (_M)
 -- 2026.06.27  add plugin module
 -- 2026.09.25  add settings.process_sequence for plugin display and processing
 -- 2026.10.08  add default gamma stretch option on load
+-- 2026.10.12  add utility function pixel_size()
 
 
 local json = require "lib.json"
@@ -45,8 +46,6 @@ local paletteOptions  = {"RGB", "Hubble", '-––––––––––', "-S
 
 local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
 
-
-local hrule = ('–'): rep(25)    -- for menu dividers
 
 -------------------------------
 --
@@ -207,6 +206,22 @@ controls = {
     },
   
   }
+
+
+-------------------------------
+--
+-- UTILITY FUNCTIONS
+--
+
+-- pixel size in arc seconds (assume square)
+function controls.pixel_size()
+  local pixel = tonumber(controls.pixelsize.text) or 0
+  local focal = tonumber(controls.focal_len.text) or 0
+  local reducer = tonumber(controls.reducer.text) or 1
+  if focal > 0 and pixel > 0 then
+    return 36 * 18 / math.pi * pixel / (focal * reducer)    
+  end
+end
 
 
 -------------------------------

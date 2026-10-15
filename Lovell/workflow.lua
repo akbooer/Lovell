@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.08.03",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "workflow utilities",
   }
@@ -44,12 +44,15 @@ local _M = {
 -- 2026.07.16  replace stats package with (much) faster version
 -- 2026.08.01  add get_balanced_chroma()
 -- 2026.08.03  require .new {name = name, format = fmt}
+-- 2026.10.12  add profiling
 
 
 local _log = require "logger" (_M)
 
+local profiler    = require "utils" .profiler
+
 local badpixel    = require "shaders.badpixel"
-local debayer     = require "shaders.debayer"
+local debayer     = require "shaders.debayer" .demosaic
 local starfinder  = require "shaders.starfinder"
 local background  = require "shaders.background"
 local colour      = require "shaders.colour"
@@ -64,7 +67,33 @@ local love = _G.love
 local lg = love.graphics
 
 local EMPTY = _G.READONLY {}
-  
+
+local dispatch = {
+    kovesi = {fct = kovesi},
+    debayer = {fct = debayer},
+    background = {fct = background},
+    starfinder = {fct = starfinder},
+  }
+
+local profiles = profiler(10e-6)    -- ignore anything under 10 microseconds
+
+local function profile(name)
+  local p = dispatch[name]
+  local now = love.timer.getTime
+  return function (...)
+    local t = now()
+    local a, b, c = p.fct(...)
+    if c then error ("more than two return parameters", 2) end
+    profiles: add (name, now() - t)
+    return a, b
+  end
+end
+
+local function report_profile()
+  _log ("shader profiling", profiles: report())
+  _log ("plugin profiling", plugins: profile())
+end
+
 -------------------------
 --
 -- IMAGE BUFFER
@@ -334,15 +363,15 @@ function _M.new(info)
     canvas = nil,       -- temporary input
     
     badpixel    = badpixel,
-    debayer     = debayer.demosaic,
+    debayer     = profile "debayer",
     
-    starfinder  = starfinder,
+    starfinder  = profile "starfinder",
     
     thumbnail   = thumbnail,
     stretch     = stretcher.stretch,
     bw_points   = stretcher.bw_points,
      
-    background  = background,
+    background  = profile "background",
     calibrate   = calibrator.calibrate,
     
     scnr        = colour.scnr,
@@ -354,7 +383,7 @@ function _M.new(info)
     
     plugin      = plugins,    -- special calling syntax   workflow: plugin ("NAME", ...)
     
-    gaussian  = kovesi,
+    gaussian  = profile "kovesi",
     mipblur   = mipblur,
     
     -- local methods
@@ -369,6 +398,7 @@ function _M.new(info)
     renderTo = renderTo,
     shadeWith = shadeWith,
     setShader = setShader,
+    profile = report_profile,
     
     renderToMipmap = renderToMipmap,
     renderToMipLevel = renderToMipLevel,

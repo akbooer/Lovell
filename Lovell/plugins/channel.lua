@@ -44,7 +44,8 @@ local rgb = {Red = {1,0,0}, Green = {0,1,0}, Blue = {0,0,1}, Luminance = {0.3, 0
 
 -- PLUGIN with controls (in this case, just a Choosable)
 
-local plugin = {"LRGB", "Luminance", "Inverted", "Red", "Green", "Blue", id = "Channel: ", default = 1, selected = 1}
+local plugin = {"LRGB", "Luminance", "Inverted", "Red", "Green", "Blue", 
+                  id = "Channel: ", default = 1, selected = 1} 
 
 
 -- RUN and DRAW methods

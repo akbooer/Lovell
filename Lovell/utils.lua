@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.09",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry utilities",
   }
@@ -16,14 +16,21 @@ local _M = {
 
 -- 2026.03.29  tidy up getDimensions()
 -- 2026.06.09  add alphanumeric_sort()
+-- 2026.10.12  add sorted() iterator
 
 
-require "logger" (_M)
+local _log = require "logger" (_M)
 
 local lg = require "love.graphics"
 local lt = require "love.timer"
 
 local floor = math.floor
+
+
+-------------------------
+--
+-- TIMING and PROFILING 
+--
 
 -- newTimer, returns a function which gives time (in ms) since its creation
 -- returned function can be called multiple times, for cumulative timings
@@ -41,6 +48,40 @@ function _M.newTimer()
     local dt = 1000 * (gt() - t) 
     return fmt and fmt % {dt, ...} or dt
   end
+end
+
+do -- PROFILER utility
+  
+  local index = {}
+  local meta = {__index = index}
+  
+  function index: add(name, deltaT)
+    if deltaT < self._threshold then return end
+    local p = self[name] 
+    if not p then -- ignore first call (because you're probably timing the JIT compiler)
+      self[name] = {calls = 0, time = 0}
+      return 
+    end
+    p.calls = p.calls + 1
+    p.time = p.time + deltaT
+  end
+  
+  function index: report()
+    local r =  {'', '', "      name    #calls   time(s)  per call(ms)"}
+    local fmt = "%12s  %4d   %8.3f    %0.3f"
+    for name, p in _M.sorted(self) do
+      if name ~= "_threshold" and p.calls > 0 then 
+        r[#r+1] = (fmt % {name, p.calls, p.time, 1000 * p.time/p.calls})
+      end
+    end
+    r[#r+1] = ''
+    return table.concat(r, '\n')
+  end
+  
+  function _M.profiler(thold)    -- ignore any single call under threshold
+    return setmetatable({_threshold = thold or 0}, meta)
+  end
+    
 end
 
 -------------------------
@@ -77,6 +118,22 @@ function _M.alphanumeric_sort(a,b)
   return false
 end
 
+
+-- sorted version of the pairs iterator
+-- use like this:  for a,b in sorted (x, fct) do ... end
+-- optional second parameter is sort function cf. table.sort
+function _M.sorted (x, fct)
+  local y, i = {}, 0
+  for z in pairs(x) do y[#y+1] = z end
+  table.sort (y, fct) 
+  return function ()
+    i = i + 1
+    local z = y[i]
+    return z, x[z]  -- if z is nil, then x[z] is nil, and loop terminates
+  end
+end
+
+
 -------------------------
 --
 -- FORMATTING
@@ -92,7 +149,8 @@ local function deg_to_dms(deg)
   local d, m, s
   d = floor(deg)
   m = 60 * (deg - d)
-  s = floor(60 * (m % 1) + 0.5)
+  -- don't round up as 59.6 seconds will be shown as 60!
+  s = floor(60 * (m % 1))
   m = floor(m)
   return sign * d, m, s
 end
@@ -133,8 +191,10 @@ function _M.formatAngle(x)
 end
 
 -- return degrees given radians
-function _M.formatDegrees(x)
-  return "%dº" % (x * 180 / math.pi + 0.5)
+function _M.formatDegrees(x, dp)
+  dp = math.floor(dp or 0)        -- decimal places
+  local fmt = string.format ("%%0.%dfº", dp)
+  return fmt % (x * 180 / math.pi)
 end
 
 -- seconds to mm:ss

@@ -16,7 +16,7 @@ local _log = require "logger" (_M)
 
 -- 2026.07.05  renamed processingGUI, with completely different layout, using plugins
 
-
+local sorted = require "utils" .sorted
 local plugins = require "plugins"
 local suit  = require "suit" .new()     -- make a new SUIT instance for ourselves
 local DaD   = suit: DragAndDrop()       -- actually, a SUIT-able extension
@@ -48,22 +48,6 @@ end
 index(target)      -- two-way lookup of process index/id
 
 -- Utilities
-
-
--- sorted version of the pairs iterator
--- use like this:  for a,b in sorted (x, fct) do ... end
--- optional second parameter is sort function cf. table.sort
-local function sorted (x, fct)
-  local y, i = {}, 0
-  for z in pairs(x) do y[#y+1] = z end
-  table.sort (y, fct) 
-  return function ()
-    i = i + 1
-    local z = y[i]
-    return z, x[z]  -- if z is nil, then x[z] is nil, and loop terminates
-  end
-end
-
 
 local outline
 

@@ -94,55 +94,6 @@ local plugin = {
 
   }
 
--- Helper function for asinh in Lua
-local function asinh(x)
-    return math.log(x + math.sqrt(x * x + 1.0))
-end
-
---[[
-
-local function calculateGHSUniforms(D, b, BP, SP)
-    local safe_BP = math.min(math.max(BP, 0.0), 0.999999)
-    local safe_scale = 1.0 - safe_BP
-    local inv_scale = 1.0 / safe_scale
-
-    local SP_norm = math.min(math.max((SP - safe_BP) * inv_scale, 0.0), 1.0)
-    local b_factor = 10.0 ^ (math.abs(b) / 5.0)
-
-    -- Option A: Linear D (Use math.max to handle D = 0 smoothly)
-    local p_raw = D^1.5 * b_factor * safe_scale
-    
-    -- Option B: Exponential D (Uncomment if you want exponential slider response)
---     local D_eff = math.exp(D) - 1.0
---     local p_raw = D_eff * b_factor * safe_scale
-
-    -- Clamp p_norm to 1e-5 so D = 0 cleanly renders the linear image x_norm
-    local p_norm = math.max(p_raw, 1e-5)
-
-    local function asinh(z)
-        return math.log(z + math.sqrt(z * z + 1.0))
-    end
-
-    local z0 = -p_norm * SP_norm
-    local z1 =  p_norm * (1.0 - SP_norm)
-
-    local S0 = asinh(z0)
-    local S1 = asinh(z1)
-
-    local inv_S_range = 1.0 / (S1 - S0)
-
-    return {
-        u_BP          = safe_BP,
-        u_inv_scale   = inv_scale,
-        u_SP_norm     = SP_norm,
-        u_p_norm      = p_norm,
-        u_S0          = S0,
-        u_inv_S_range = inv_S_range
-    }
-end
-
---]]
-
 
 local function calculateGHSUniforms(D, b, BP, SP)
     local safe_BP = math.min(math.max(BP, 0.0), 0.999999)
@@ -166,10 +117,11 @@ end
 --
 
 function plugin: run(workflow)
+    
+  if self.D.value == 0 then return end    -- linear stretch
+  
   local function v(n) return self[n] .value end
   local D_pi, SP_pi, b_pi, BP_pi = v 'D', v 'SP', v 'b', v 'BP'
-  
-  if D_pi == 0 then return end    -- linear stretch
   
   workflow: shadeWith(ghs, calculateGHSUniforms(D_pi, b_pi, BP_pi, SP_pi))
 end
@@ -192,6 +144,7 @@ end
 
 local hrule = ('–'): rep(25)    -- for menu dividers
 local hrule_opt
+local blank = {format = ''}   -- remove value display from tweak slider
 
 function plugin: draw(suit)
   local sl = suit.layout
@@ -219,7 +172,7 @@ function plugin: draw(suit)
   local x,y, w,h = sl:row(100, 20)
   suit: Choosable(self.finetune, x+50, y, 60, 20)
   suit: Label("adjust: ", lalign, x,y, w,h)
-  local tweak = suit: Slider(self.tweak, sl:row(Ws, 10)) 
+  local tweak = suit: Slideable(self.tweak, blank, sl:row(Ws, 10)) 
   suit: Checkbox(self.highly_sensitive, sl:row(Ws, 16))
   suit: Label(hrule, hrule_opt, sl:row(nil, 10))
   suit: Checkbox(self.split_menu, sl:row(Ws, 16))

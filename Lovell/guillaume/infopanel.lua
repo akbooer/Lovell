@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.11",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "info panel for main display",
   }
@@ -17,6 +17,7 @@ local _M = {
 
 -- 2026.05.19  minor tidy, controls have own module
 -- 2026.06.11  use new stack object directly
+-- 2026.10.12  use controls.pixel_size()
 
 
 require "logger" (_M)
@@ -127,29 +128,26 @@ function _M.update(self, screen)
 
   -- FOV
   
-  local pixel = tonumber(controls.pixelsize.text) or 0
-  local focal = tonumber(controls.focal_len.text) or 0
-  local reducer = tonumber(controls.reducer.text) or 1
-  local angle = formatDegrees(controls.rotate.value or 0)
-  if focal > 0 and pixel > 0 then
-    local arcsize = 36 * 18 / math.pi * pixel / (focal * reducer)    -- camera pixel size in arc seconds (assume square)
+  local angle = formatDegrees(controls.rotate.value or 0, 1)    -- 1 decimal place
+  local arcsize = controls.pixel_size()
+  local fov = '?'
+  if arcsize then
     arcsize = arcsize / controls.zoom.value                           -- screen pixel size
     local radius, w, h = Oculus.radius()
-    self: Label("fov", Loptions, row(Wcol, 15))
-    self: Label("rotation", Loptions, col(Wcol, 15))
-    layout: left()
-    local fov
     if eyepiece then
       fov = formatAngle(arcsize * radius * 2)
     else
       fov = table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n")
     end
-    self: Label(fov, Woptions, row(Wcol, 15))
-    self: Label(angle, Woptions, col(Wcol, 15))
-    layout: left()
   end
+  self: Label("fov", Loptions, row(Wcol, 15))
+  self: Label("rotation", Loptions, col(Wcol, 15))
+  layout: left()
+  self: Label(fov, Woptions, row(Wcol, 15))
+  self: Label(angle, Woptions, col(Wcol, 15))
+  layout: left()
   
- row()
+  row()
   
 --  self:Label("stacked ", Loptions, row(Wcol, 10))
   local so = controls.stackOptions

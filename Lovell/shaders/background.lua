@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.09",
+    VERSION = "2026.10.15",
     DESCRIPTION = "background gradient and black/white point estimation",
   }
 
@@ -32,6 +32,7 @@ local _M = {
 -- 2026.08.06  workflow.dummyMesh for full-screen rendering
 -- 2026.08.28  restructure, adding quartiles(), to remove redundant calculations
 -- 2026.09.09  use closed-form fitPlane() solver rather than generic matrix least-squares
+-- 2026.10.15  add min, max to background stats
 
 
 local _log = require "logger" (_M)
@@ -125,6 +126,7 @@ local function background_calc(self, input, quiet)             -- self is workfl
    
   local BP, WP, MEDIAN = vector{0,0,0,0}, vector{1,1,1,1}, vector{0,0,0,0}
   local QUARTILES, MAD = {}, vector{0,0,0,0}
+  local MIN, MAX = {}, {}
   local LINEAR = {}
   
   local Linear, Qs
@@ -142,13 +144,15 @@ local function background_calc(self, input, quiet)             -- self is workfl
     -- calculate significant thresholds
     local median = Qs[3]
     local MADleft = median - Qs[2]        -- median value of MADleft
-    local max = Qs[5]
+    local min, max = Qs[1], Qs[5]
     
     -- save image processing info
     BP[i] = math.max(0.0, median - 4 * MADleft)
     WP[i] = max
     MEDIAN[i] = median
     LINEAR[i] = Linear 
+    MIN[i] = min
+    MAX[i] = max
     MAD[i] = MADleft
     QUARTILES[X[i]] = Qs
     
@@ -164,12 +168,13 @@ local function background_calc(self, input, quiet)             -- self is workfl
   end
   
   local background = {
-    BP = BP, WP = WP, 
-    MEDIAN = MEDIAN, MAD = MAD,
-    QUARTILES = QUARTILES,
-    Linear = matrix (LINEAR) ^ 'T',     -- transpose matrix
-    inVAR = inVar / inVar: sum()}       -- scale to unity sum
-  
+      BP = BP, WP = WP, 
+      MIN = MIN, MAX = MAX,
+      MEDIAN = MEDIAN, MAD = MAD,
+      QUARTILES = QUARTILES,
+      Linear = matrix (LINEAR) ^ 'T',     -- transpose matrix
+      inVAR = inVar / inVar: sum(),       -- scale to unity sum
+    }
   for _, v in ipairs(background.Linear) do
     vector(v)
   end
@@ -177,7 +182,7 @@ local function background_calc(self, input, quiet)             -- self is workfl
   if not quiet then
     _log("RGBL black points: %.4f, %.4f, %.4f, %.4f" % BP)
     _log("RGBL white points: %.4f, %.4f, %.4f, %.4f" % WP)
-    _log(pretty(background))
+--    _log(pretty(background))
     _log (elapsed ("%.3f ms, gradient solved using %d image samples", #coords))
   end
 

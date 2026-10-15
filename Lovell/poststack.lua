@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.09.25",
+  VERSION = "2026.10.14",
   AUTHOR = "AK Booer",
   DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
 }
@@ -21,6 +21,7 @@ local _M = {
 -- 2026.06.11  access stack object directly, rather than poststack() parameter list
 -- 2026.08.04  complete refactor using "synth" plugin
 -- 2026.09.25  use plugins.process_sequence() iterator
+-- 2026.10.14  use workflow.wstack for the stack workflow for 'synth' plugin
 
 
 require "logger" (_M)
@@ -57,7 +58,7 @@ local function poststack(workflows)
   local balance = {b.R.value, b.G.value, b.B.value, 1}
   local offset = 1 + 2 * (l.background.value - 0.5)
 
-  local greysky = workflow: plugin ("synth", wstack, background, gradient, balance, offset, whitepoint, vignette)
+  local greysky = workflow: plugin ("synth", background, gradient, balance, offset, whitepoint, vignette)
   
   -- STRETCH
   
@@ -76,7 +77,7 @@ local function poststack(workflows)
 -- CONFIGURABLE PLUGINS
 
   for _, plugin in plugins.process_sequence() do
-    workflow: plugin(plugin)
+    workflow: plugin(plugin, controls)
   end
   
   workflow: plugin "channel"            -- channel selection and inversion

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.10",
+    VERSION = "2026.10.11",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2025.06.07  add file names rejected from stack
 
 -- 2026.06.10  require controls module directly (rather than loadSession/saveSession parameter list
+-- 2-26.10.11  add "Go to Folder" for selected object
 
 
 local _log, _err = require "logger" (_M)
@@ -173,7 +174,7 @@ function _M.saveSession()
   obs.frames = stack.subs and #stack.subs or 0
   obs.exposure = stack.subs and stack.exposure / #stack.subs or 0   -- AVERAGE exposure per sub (seconds)
   obs.size = "%dx%d" % {stack.image: getDimensions()}
-  obs.rotate = controls.rotate.value ~= 0 and tonumber("%.3f" % controls.rotate.value) or nil
+  obs.rotate = controls.rotate.value ~= 0 and tonumber("%.5f" % controls.rotate.value) or nil  -- radians
   obs.telescope = non_blank(controls.telescope.text)
   obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
   
@@ -268,12 +269,7 @@ function _M.update(self)
   self: Label(name, Loptions, layout: col(250, 30))
   if folder and #folder > 0 then
     if self: Button("Go To Folder:", 20, h - 50, 180, 30) .hit then
-      local opsys = love.system.getOS( )
-      if opsys: match "OS X" then
-        os.execute ("open '%s'" % folder)
-      else
-        -- TODO: add open with explorer for Windows
-      end
+      love.system.openURL ("file://" .. folder)
     end
     self: Label(folder, Loptions, 220, h - 50, 550, 30)
   end

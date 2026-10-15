@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.05",
+    VERSION = "2026.10.12",
     DESCRIPTION = "Plugin Library for processing: model, view, control (MVC)",
   }
 
@@ -12,12 +12,16 @@ local _M = {
 -- 2026.06.27  Version 0, a loader and dispatcher for individual plugins
 -- 2026.09.25  add default plugin configuration with iterator (for processing and display)
 -- 2026.10.05  change plugin default configuration to include GHS (NB. filename is 'ghs')
+-- 2026.10.12  add performance profiling
 
 
 local _log = require "logger" (_M)
 
+local profiler    = require "utils" .profiler
+
 local love = _G.love
 local lf = love.filesystem
+local lt = love.timer
 
 -- LOAD
 
@@ -86,6 +90,14 @@ meta.__index.process_sequence = setmetatable({"balance", "bilateral", "clahe"},
     },
   })
 
+-- PROFILING
+
+local profile = profiler(100e-6)    -- ignore anything under 100 microseconds
+
+function meta.__index: profile()
+  return profile: report()
+end
+
   
 -- DRAW
 
@@ -116,8 +128,11 @@ function meta:__call (workflow, name, ...)
   local plugin = self[name]
   if not plugin then error ("no such plugin: " .. (tostring(name) or "???"), 2) end
   if not plugin.run then error ("run method missing in plugin: " .. name, 2) end
-  -- TODO:  gather stats on plugin runtimes and invocations...
-  return plugin.run (plugin, workflow, ...) 
+  -- gather stats on plugin runtimes and invocations...
+  local t = lt.getTime()
+  local reply =  plugin.run (plugin, workflow, ...) 
+  profile: add(name, lt.getTime() - t)
+  return reply
 end
 
 

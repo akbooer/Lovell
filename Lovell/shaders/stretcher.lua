@@ -292,7 +292,7 @@ function _M.hyper(stretch, luminance, median)
   local m = solve_stretch_parameter(hyper.Lua, median, GREY_SKY, 1)  
   local shader = hyper.GLSL
   local max = 1.02
---  shader: send("m",  m + (stretch - 1) * (max - m))
+  shader: send("m",  m + (stretch - 1) * (max - m))
   return shader
 end
 

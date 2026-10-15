@@ -3,7 +3,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.01.23",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "FITS file utilities",
   }
@@ -21,6 +21,7 @@ local _M = {
 -- 2025.05.15  add readImageInfo() for calibration files
 
 -- 2026.01.23  log invalid headers and abandon read (Issue #21)
+-- 2026.10.12  add basic write() function (for plate solving)
 
 
 local _log = require "logger" (_M)
@@ -215,9 +216,8 @@ end
 
 -----------
 --
--- return imageData format
+-- return imageData (and keyworks plus headers)
 --
-
 function _M.readImageData(file)
   local elapsed = newTimer()
   local ok, data, k, h = pcall(_M.read, file)
@@ -239,6 +239,108 @@ function _M.readImageData(file)
   return imageData, k, h
 end
 
+
+-----------
+--
+-- WRITE
+--
+
+-- Helper to create a strict 80-character FITS header card
+local function fits_card(keyword, value, comment)
+    local val_str
+    if type(value) == "boolean" then
+        val_str = string.format("%20s", value and "T" or "F")
+    elseif type(value) == "number" then
+        -- Format integers or floats to fit neatly in 20 chars
+        val_str = string.format(value % 1 == 0 and "%20d" or "%20.6g", value)
+    else
+        val_str = string.format("%20s", tostring(value))
+    end
+    
+    local card = string.format("%-8s= %s / %s", keyword, val_str, comment or "")
+    
+    -- Pad or truncate to exactly 80 characters
+    if #card < 80 then
+        card = card .. string.rep(" ", 80 - #card)
+    elseif #card > 80 then
+        card = string.sub(card, 1, 80)
+    end
+    return card
+end
+
+-- FFI writer for 16-bit FITS (unsigned uint16 -> big-endian signed int16 with BZERO)
+local function o16(src_ptr, out_ptr, n)
+    local src = ffi.cast('uint16_t*', src_ptr)
+    local out = ffi.cast('uint16_t*', out_ptr)
+    
+    for i = 0, n-1 do
+        -- 1. Unsigned to signed FITS range (pixel - 32768)
+        local val = bit.bxor(src[i], 0x8000)
+        
+        -- 2. Convert to big-endian (byte swap via 32-bit shift & bswap)
+        out[i] = bit.bswap(bit.lshift(val, 16))
+    end
+end
+
+
+function _M.write(image, filename)
+    local width, height = image:getDimensions()
+    local n = width * height
+    local imageData = image:newImageData()
+    
+    -- rgba16 format: 4 channels (RGBA), 2 bytes per channel = 8 bytes per pixel
+    local src_ptr = ffi.cast("uint16_t*", imageData:getPointer())
+    local out_buf = ffi.new("uint16_t[?]", n)
+    
+    for i = 0, n - 1 do
+        -- Extract Red channel at index i * 4 (R, G, B, A layout)
+        local val = src_ptr[i * 4]
+        
+        -- Convert unsigned 16-bit [0, 65535] to signed FITS range with BZERO offset (-32768)
+        local signed_val = bit.bxor(val, 0x8000)
+        
+        -- Convert to big-endian format required by FITS
+        out_buf[i] = bit.bswap(bit.lshift(signed_val, 16))
+    end
+    
+    -- Build strict 80-character FITS header cards
+    local header_cards = {
+        fits_card("SIMPLE", true, "Standard FITS format"),
+        fits_card("BITPIX", 16, "16-bit integer pixels"),
+        fits_card("NAXIS", 2, "Two-dimensional image"),
+        fits_card("NAXIS1", width, "Width of image"),
+        fits_card("NAXIS2", height, "Height of image"),
+        fits_card("BSCALE", 1.0, "Physical = BSCALE * stored + BZERO"),
+        fits_card("BZERO", 32768.0, "Offset for unsigned 16-bit integers"),
+        string.sub("END" .. string.rep(" ", 80), 1, 80)
+    }
+    
+    local header = table.concat(header_cards, "")
+    while #header < 2880 do
+        header = header .. " "
+    end
+    
+    -- Write to disk
+    local file = io.open(filename, "wb")
+    if not file then 
+        imageData:release()
+        return false 
+    end
+    
+    file:write(header)
+    local data_size_bytes = n * 2
+    file:write(ffi.string(out_buf, data_size_bytes))
+    
+    -- Pad data block to multiple of 2880 bytes
+    local remainder = data_size_bytes % 2880
+    if remainder > 0 then
+        file:write(string.rep("\0", 2880 - remainder))
+    end
+    
+    file:close()
+    imageData:release()
+    return true
+end
 
 return _M
 

@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.0.30",
+  VERSION = "2026.09.30",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – RGB workflow",
 }

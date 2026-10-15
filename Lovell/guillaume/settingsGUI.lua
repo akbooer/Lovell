@@ -216,12 +216,12 @@ local function lat_long_api()
   layout: reset(120, 500, 20, 0)
   suit:  Label("latitude", Lalign, layout: col(120, 30))
   suit: Label("longitude", Lalign, layout: col())
-  suit: Label("Astrometry key", Lalign, layout: col())
+--  suit: Label("Astrometry key", Lalign, layout: col())
   
   layout: reset(120, 530, 20, 0)
   suit: Input(settings.latitude, layout: row(120, 30))
   suit: Input(settings.longitude, layout: col())
-  suit: Input(settings.apikey, layout: col())
+--  suit: Input(settings.apikey, layout: col())
   
 end
 

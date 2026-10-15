@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.14",
+    VERSION = "2026.10.14",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -19,6 +19,7 @@ local _M = {
 -- 2025.05.23  added reducer to focal length calculation
 
 -- 2026.06.14  remove dependency on session module
+-- 2026.10.14  use controls.pixel_size(), add OPTION-click for full-size PNG
 
 
 local _log = require "logger" (_M)
@@ -40,6 +41,7 @@ local moveXY = Objects.moveXY
 
 local love = _G.love
 local lg = love.graphics
+local lk = love.keyboard
 
 local path = "snapshots/%s_%s_%x.png"   -- target, session, current epoch in hexadecimal
 
@@ -80,7 +82,6 @@ local Ses_notes, Obs_notes
 local Signature
 
 local canvas    -- the snapshot image itself
-local image     -- the image to draw
 
 -- extract basic info from various places
 local function get_annotations(image)
@@ -112,15 +113,11 @@ local function get_annotations(image)
 
   -- FOV
   
-  local pixel = tonumber(controls.pixelsize.text) or 0
-  local focal = tonumber(controls.focal_len.text) or 0
-  local reducer = tonumber(controls.reducer.text) or 1
   FOV = ''
-  Rotation = formatDegrees(controls.rotate.value or 0)
-  if focal > 0 and pixel > 0 then
-    local arcsize = 36 * 18 / math.pi * pixel / (focal * reducer)    -- camera pixel size in arc seconds (assume square)
+  Rotation = "rot: " .. formatDegrees(controls.rotate.value or 0, 1)    -- 1 decimal place
+  local arcsize = controls.pixel_size()
+  if arcsize then
     local radius = Oculus.radius()
-    
     if eyepiece then
       FOV = "fov: " .. formatAngle(arcsize * radius * 2 / controls.zoom.value)
     else
@@ -204,6 +201,7 @@ local function portrait(image, W, H)
       Ltext(DEC)
       Ltext(Diam)
       -- Bottom Left
+      Ltext(Rotation, H - 110)
       Ltext(FOV, H - 85)
       Ltext(Telescope)
       Ltext(Camera .. Ctemp)
@@ -274,12 +272,10 @@ end
 -- TODO: FITS output
 --
 
-local function hiRes()
-  local W, H = image: getDimensions()
-  local flipx = controls.flipLR.checked and -1 or 1
-  local flipy = controls.flipUD.checked and -1 or 1
-  canvas = lg.newCanvas(W, H, {format = "normal", dpiscale = 1})
-  canvas: renderTo(lg.draw, image, flipx < 1 and W or 0, flipy < 0 and H or 0, 0, flipx, flipy)
+local function hiRes(image, snap)
+  local idata = image: newImageData() 
+  idata: encode ("png", snap)
+  idata: release()
 end
 
 -------------------------
@@ -298,24 +294,33 @@ function _M.snap(image)
   local snap = path % {name, sess, os.time()}
   
   lg.setColor(1,1,1,1)
-  get_annotations(image)
+  _log (snap)
   
+  -- addio effect
+  _G.SHUTTER = 1    -- start camera shutter animation
+  love.audio.play(click)
+  
+  -- full-size PNG (no flip, no annotation)
+  
+  if lk.isDown "lalt" or lk.isDown "ralt" then
+    hiRes(image, snap)
+    return
+  end
+  
+  -- annotated image
+  get_annotations(image)
+    
   if eyepiece then
     portrait(image, W, H)
---  elseif controls.pin_info.checked then
   else
     landscape(image, W, H) 
---  else
---    hiRes(image)
   end
   
   lg.setColor(1,1,1,1)
-  canvas: newImageData() : encode ("png", snap)
+  local idata = canvas: newImageData()
+  idata: encode ("png", snap)
+  idata: release()
   canvas: release()
-  canvas = nil
-  _log (snap)
-  SHUTTER = 1    -- start camera shutter animation
-  love.audio.play(click)
   
 end
 

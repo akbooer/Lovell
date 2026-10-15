@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.27",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – APF-R sharpening [Kaltseis 2015]",
   }
@@ -16,8 +16,9 @@ local _log = require "logger" (_M)
 
 -- 2025.05.14  consolidate apf() for different numbers of backgrounds into one single code
 
--- 2026.06.27 split into separate plugin, add separate controls for each scale
+-- 2026.06.27  split into separate plugin, add separate controls for each scale
 -- 2026.07.04  use workflow:shadeWith()
+-- 2026.10.12  delay saving workflow.temp until first active sharpening (more efficient)
 
 
 local love = _G.love
@@ -142,12 +143,17 @@ There is an official APF-R Plugin for Adobe Photoshop.  This is a simplified imp
   
 
 function plugin:run(workflow, ...)
-    
-  workflow: save "temp"             -- reference image for blurring
+  
+  local temp_saved      -- flag
   
   for i = 1, 3 do
     local sharpen = self[i].value
     if sharpen > 0.02 then
+      
+      if not temp_saved then
+        workflow: save "temp"             -- reference image for blurring
+        temp_saved = true
+      end
       
       workflow: save "temp1"                -- current image
       workflow: newInput "temp"             -- reference image for blurring

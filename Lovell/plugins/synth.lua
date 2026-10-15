@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.09.30",
+  VERSION = "2026.10.14",
   AUTHOR = "AK Booer",
   DESCRIPTION = "PLUGIN – Synthetic luminance from RGB",
 }
@@ -14,6 +14,7 @@ local _log = require "logger" (_M)
 -- 2026.08.02  Version 0, extracted from shaders.colour and stacking
 -- 2026.09.22  remove colour gradient, retaining only luminance
 -- 2026.09.30  adjust defaults for synthetic lum RGB ratios
+-- 2026.10.14  use workflow.wstack for the stack workflow
 
 
 local love = _G.love
@@ -166,8 +167,9 @@ Together these parameters provide complete control of the composite image lumina
 local sequence    -- last version of stack processed
 
 -- get combined LRGB image from stack,
-function plugin: run(workflow, wstack, background, gradient, balance, offset, whitepoint, vignette)
-
+function plugin: run(workflow, background, gradient, balance, offset, whitepoint, vignette)
+  local wstack = workflow.wstack
+  
   -- calculate synth/luminance ratio for combination later, also whether enough rgb to do colour processing
   local R, G, B, L, Re, Ge, Be, Le = unpack(workflow.RGBL)  -- get exposure counts AND times
 
@@ -176,14 +178,12 @@ function plugin: run(workflow, wstack, background, gradient, balance, offset, wh
   end
 
   R, G, B = R * 0.2, G * 0.7, B * 0.1
+  local sumRGBL = (R + G + B) / 3 + L
   
   local enough_RGB = R > 0 and G > 0 and B > 0     -- something in all the channels  
   workflow.enough_RGB = enough_RGB
 
   -- Luminance : Synth Lum ratio
-  local sumRGBL = (R + G + B) / 3 + L
---  local sumRGBL = (0.3*R + 0.6*G + 0.1*B) + L
-
   local lum2synth = self.lum2synth
   lum2synth.default = L / sumRGBL             -- ...always update default with latest auto value
   if sequence ~= workflow.sequence then

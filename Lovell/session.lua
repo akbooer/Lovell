@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.07.24",
+    VERSION = "2026.10.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -20,6 +20,7 @@ local _M = {
 -- 2026.06.11  integrate functionality from old observer module
 -- 2026.06.14  add GUI update/draw (previously in main module)
 -- 2026.07.24  create multiple workflows for pre-, stack, and post-processing
+-- 2026.10.12  add workflow profile reporting on shutdown
 
 
 local _log = require "logger" (_M)
@@ -42,6 +43,8 @@ local workflows = {
     main   = workflow.new {name = "workflow", format = "rgba16"},             -- the main workflow 
     wstack = workflow.new {name = "wstack",   format = "rgba32f"}             -- the stack workflow
   }
+
+workflows.main.wstack = workflows.wstack    -- allow main workflow to access stack
 
 local love = _G.love
 
@@ -72,6 +75,7 @@ end
 function _M.close()
   saveSession()
   controls: save()
+  workflows.main: profile()
   _log "closed"
 end
 

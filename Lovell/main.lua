@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.10b",
+  VERSION = "2026.10.15",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2026 AK Booer",
   LICENCE = [[  
@@ -39,6 +39,7 @@ local _log = logger(_M)
 -- 2025.04.27  New formatting for dropped folder message
 
 -- 2026.06.14  remove GUI dependency
+-- 2026.10.12  add platesolve directory
 
 
 local jit  = _G.jit
@@ -137,6 +138,7 @@ function love.load(arg)
   lf.createDirectory "settings"    -- ditto, for sundry settings
   lf.createDirectory "sessions"
   lf.createDirectory "masters"
+  lf.createDirectory "platesolve" -- platesolving and annotation
   
 --[[
   local info = {

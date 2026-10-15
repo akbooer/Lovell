@@ -116,6 +116,9 @@ local function optionKey()
   return lk.isDown "lalt" or lk.isDown "ralt"
 end
 
+_M.shiftKey = shiftKey
+_M.optionKey = optionKey
+
 local function rightClick(state)
   local hit, hovered = state.hit, state.hovered
   local rclick = hovered and lm.isDown(2) or hit and shiftKey() 

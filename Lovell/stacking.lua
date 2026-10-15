@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.09",
+    VERSION = "2026.10.14",
     AUTHOR = "AK Booer",
     DESCRIPTION = "The stack",
   }
@@ -13,6 +13,7 @@ local _M = {
 -- 2026.05.06  extracted from observer and stacker code
 -- 2026.07.15  include RGBL in stacker call for scaling
 -- 2026.09.09  retain FITS headers in each frame
+-- 2026.10.14  use workflow.wstack for the stack workflow
 
 
 local _log = require "logger" (_M)
@@ -65,8 +66,9 @@ local rgb_count = {
         }
         
         
-local function stacking(workflow, wstack, filter, bayer, exposure)
+local function stacking(workflow, filter, bayer, exposure)
   local elapsed = newTimer()
+  local wstack = workflow.wstack
   
   filter = filter:upper()
   _log("filter type: ", filter)
@@ -167,8 +169,9 @@ function _M.new(workflows, frame)
     
     stack.Nstack = stack.Nstack + 1
     
-    stacking (workflow, wstack, filter, bayer, exposure)
-    stack.background = workflow: background(wstack.output)   
+    stacking (workflow, filter, bayer, exposure)
+    stack.background = workflow: background(wstack.output)  
+    wstack.info.background = stack.background   -- hook used by statistics plugin
  
   end
   
