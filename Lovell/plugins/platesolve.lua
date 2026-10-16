@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.14",
+    VERSION = "2026.10.16",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – ASTAP plate solver (requires local install)",
   }
@@ -12,11 +12,13 @@ local _M = {
 local _log = require "logger" (_M)
 
 -- 2026.10.11  Version 0
+-- 2026.10.16  add button to browse Aladin
 
 
 local util = require "utils"
 local fits = require "lib.fits"
 local vector = require "lib.vector"
+local visier = require "lib.visier"
 
 
 local love = _G.love
@@ -79,6 +81,17 @@ local function mono_image(workflow)
   return workflow.temp
 end
 
+-------------------------------
+--
+-- VisieR and Aladin
+--
+
+local function VisieR()
+
+end
+
+local Aladin = visier.openAladinSkyView   -- (ra, dec, fov)
+  
 -------------------------------
 --
 -- ASTAP
@@ -164,7 +177,15 @@ end
 
 local plugin = {
     id = "Plate solve",
-    solve = {"Solve..."},
+    RA = nil,
+    DEC = nil,
+    FOV = nil,
+    
+    Sx = 0,
+    Sy = 0,
+    
+    
+--    solve = {"Solve..."},
 }
 
 plugin.documentation = [[
@@ -174,9 +195,12 @@ If the object is labelled, with RA and DEC defined from the object database, the
 
 Ideally, the focal length and camera pixel size are specified in the settings so that an accurate FOV can be used. 
 
-If successful, the exact coordinates of the image centre are displayed, along with the rotation angle.  The image is rotated to the correct orientation.
+If successful, the exact coordinates of the image centre are displayed, along with the rotation angle.  The image is rotated to the correct orientation.  The actual focal length value is written to the log file.
+
+The 'Aladin' button opens a web page there with the same field of view.
 
 If no coordinates are available, a blind search is done, which may take a few more seconds.  It's certainly possible that this will fail to solve.
+
 
 ]]
 
@@ -186,10 +210,13 @@ If no coordinates are available, a blind search is done, which may take a few mo
 -- RUN and DRAW
 --
 
+local RUN 
+local ra, dec, fov
 local solution = ''   -- persistent status text 
 local degrees = ''
 
-local RUN 
+local ra_dec, info  -- raw ASTAP results
+
 
 function plugin: run(workflow, controls)
   local image, pixel_size, object
@@ -205,35 +232,58 @@ function plugin: run(workflow, controls)
     _log ("converting image to FITS file:", fitsfile)
     fits.write(image, fitspath)
     
-    local fov = pixel_size and pixel_size * image:getHeight() / 3600   -- convert from arcseconds to degrees
-    local ra_dec, info = run_astap(ASTAP, {
+    fov = pixel_size and pixel_size * image:getHeight() / 3600   -- convert from arcseconds to degrees
+    ra_dec, info = run_astap(ASTAP, {
           filepath = fitspath, 
           fov = fov,
           RA = object and object.RA,
           DEC = object and object.DEC,
         })
     if ra_dec then
-      local ra = util.formatRA(ra_dec[1])
-      local dec = util.formatDEC(ra_dec[2])
+      ra = util.formatRA(ra_dec[1])
+      dec = util.formatDEC(ra_dec[2])
       solution = "(RA, DEC)\n" .. ra ..', ' .. dec 
     else
       solution = "Not solved"
+      ra, dec, fov = nil, nil, nil
     end
-    if info and tonumber(info.CROTA1) and tonumber(info.CROTA2) then
-      local angle = (info.CROTA1 + info.CROTA2) / 2  - 90     -- in degrees (North is up)
-      degrees = "%0.1fº" % angle
-      controls.rotate.value = angle * math.pi / 180       -- rotate screen image to match
+    
+    local ok = info and tonumber(info.CROTA1) and tonumber(info.CROTA2)
+    if ok then
+      -- use full transformation matrix
+      local CD11, CD12, CD21, CD22 = info.CD1_1, info.CD1_2, info.CD2_1, info.CD2_2
+      local det = 	CD11 * CD22 - CD12 * CD21             -- transformation matrix determinant
+      local sign = det >= 0 and 1 or -1                   -- parity check for flipped image
+      local angle = -math.atan2(CD21, sign * CD11)
+      
+      local Sx = math.sqrt(CD11^2 + CD21^2)   -- x image scale in arcseconds per pixel
+      local Sy = math.sqrt(CD12^2 + CD22^2)   -- y image scale in arcseconds per pixel
+      
+      if pixel_size then
+        local px = tonumber(controls.pixelsize.text)
+        local focal_length = math.floor(px / Sx  * 180 / math.pi / 1000 + 0.5)  -- millimetres
+        
+        _log ("actual focal length = %d mm" % focal_length)
+      end
+      
+      
+      degrees = "%0.1fº" % (angle * 180 / math.pi)
+      controls.rotate.value = angle                         -- rotate screen image to match
     end
+
   end
 end
 
 function plugin: draw(suit)  
   local sl = suit.layout
-  if suit: Button(self.solve, sl: row(100, 25)) .hit then
-    RUN = true
-  end
+  RUN = suit: Button("Solve", sl: row(100, 25)) .hit 
+  
   suit: Label(solution, sl: row(160, 25)) 
-  suit: Label(degrees, sl: row(160, 25)) 
+  suit: Label(degrees, sl: row())
+    
+  if suit: Button("Aladin", sl: row()) .hit and ra_dec then
+    Aladin(ra_dec[1], ra_dec[2], fov)
+  end
   
 end
 

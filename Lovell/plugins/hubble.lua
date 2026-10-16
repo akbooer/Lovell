@@ -6,7 +6,7 @@ local _M = {
   NAME = ...,
   VERSION = "2026.06.29",
   AUTHOR = "AK Booer / Bill Blanshan",
-  DESCRIPTION = "PLUGIN – Hubble colour palette (Bill Blanshan)",
+  DESCRIPTION = "PLUGIN – Hubble colour palette (after Bill Blanshan)",
 }
 
 local _log = require "logger" (_M)

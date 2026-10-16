@@ -200,14 +200,7 @@ local function buttons()
   
   if suit:Button("configure plugins", col()) .hit then
     pager: push "process"
-  end  
-  
--- future functionality for web-based DSO info
---  if suit:Button("browser", col()) .hit then
---    local url = "http://google.com"
---    _log "open browser"
---    love.system.openURL(url)
---  end  
+  end 
   
 end
 
@@ -216,7 +209,6 @@ local function lat_long_api()
   layout: reset(120, 500, 20, 0)
   suit:  Label("latitude", Lalign, layout: col(120, 30))
   suit: Label("longitude", Lalign, layout: col())
---  suit: Label("Astrometry key", Lalign, layout: col())
   
   layout: reset(120, 530, 20, 0)
   suit: Input(settings.latitude, layout: row(120, 30))
