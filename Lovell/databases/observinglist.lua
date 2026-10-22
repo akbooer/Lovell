@@ -44,7 +44,7 @@ local lt = love.timer
 
 local sun_altitude = calcs.sun_altitude
 
-local sun_time  = {value = 0, min = 0, max = 24}      -- slider for sun position
+local sun_time  = {id='', value = 0, min = 0, max = 24}      -- slider for sun position
 
 local math = math
       math.nan = math.abs(0/0)

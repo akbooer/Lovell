@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.07",
+    VERSION = "2026.10.22",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.12.13  fold filename to lower case in new()
 
 -- 2026.06.07  update catalog structure return from load()
+-- 2026.10.22  relax filename check for dropped files... just look for FITS extensions
 
 
 local _log = require "logger" (_M)
@@ -296,9 +297,9 @@ end
 
 function _M.new(file)
   local pathname = file:getFilename() :lower()                -- Beware!  on Windows, this comes with \ separators
-  local filename = pathname: match "[^%/%\\]*master[^%/%\\]*%.fi?ts?"   -- matches fits, fit, and fts (also ft!)
+  local filename = pathname: match "[^%/%\\]*%w+[^%/%\\]*%.fi?ts?"   -- matches fits, fit, and fts (also ft!)
   if not filename then
-    _log "not a master calibration FITS file"
+    _log "not a FITS file"
     return
   end
   

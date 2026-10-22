@@ -5,10 +5,10 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2026.10.10"
+  _M.VERSION = "2026.10.19"
   _M.DESCRIPTION = "GUI - main page"
 
-_log = require "logger" (_M)
+local _log = require "logger" (_M)
 
 -- 2024.11.01  Version 0
 -- 2024.11.27  added Flip LR/UD checkboxes
@@ -24,10 +24,11 @@ _log = require "logger" (_M)
 
 -- 2026.05.16  redesign control layout using new Suitable widgets
 -- 2026.10.10  fix dragging image when sliding controls
+-- 2026.10.19  always pass on keypress to suit (rather than just object input box) and remove 'special' keypad ones
 
 
-local suit      = require "suit"
-local suitable  = require "guillaume.suitable"     -- for access to reset flag
+local suit      = require "suit" .new()             -- make a new SUIT instance for ourselves
+local suitable  = require "guillaume.suitable"      -- for access to reset flag
 local controls  = require "controls"
 local utils     = require "utils"
 
@@ -43,7 +44,7 @@ local lg = love.graphics
 local lk = love.keyboard
 
 
-local self = suit.new()     -- make a new SUIT instance for ourselves
+--local suit = suit.new() 
 
 local margin = 250          -- margin width for left- and right-hand panels
 
@@ -55,7 +56,7 @@ local DRAGGING            -- drag the image
 
 
 function controls.anyChanges()
-  return (suit.anyActive() and not DRAGGING) or suitable.anyReset()
+  return (suit:anyActive() and not DRAGGING) or suitable.anyReset()
 end 
  
 
@@ -75,31 +76,31 @@ function _M.update(dt, image)
   local w, h = lg.getDimensions()
   local eyepiece = controls.eyepiece.checked  
 
-  adjustments = suit.mouseInRect(1, 1, margin + 100, h - 5) or eyepiece or pin_controls.checked
+  adjustments = suit:mouseInRect(1, 1, margin + 100, h - 5) or eyepiece or pin_controls.checked
   if adjustments  then
-    controlpanel.update(self, controls, image)
+    controlpanel.update(suit, controls, image)
   end
   
-  info = suit.mouseInRect(w - margin - 30, 1, margin + 28, h - 5) or eyepiece or pin_info.checked
+  info = suit:mouseInRect(w - margin - 30, 1, margin + 28, h - 5) or eyepiece or pin_info.checked
   if info then
-    infopanel.update(self)
+    infopanel.update(suit)
   end
   
   local rotate = controls.rotate
   if eyepiece then
     local r = Oculus.radius() + 10
     -- rotate.changed is used to stop post-stack processing when being rotated, see session.update()
-    rotate.changed = self:Rotatable (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
+    rotate.changed = suit:Rotatable (rotate, {ring = true}, w / 2 - r, h / 2 - r, r + r, r + r) .changed
   end
 
   -- shutter tween (animation)
-  local s = SHUTTER or 0
+  local s = _G.SHUTTER or 0
   if s > 0 then
     ALPHA = math.abs(2 * s  - 1)
-    SHUTTER = s - 2 * dt
+    _G.SHUTTER = s - 2 * dt
   else
     ALPHA = 1
-    SHUTTER = 0
+    _G.SHUTTER = 0
   end
 end
 
@@ -148,7 +149,7 @@ function _M.draw(screenImage)
     lg.setColor(1,1,1, 1)
   end
   
-  self:draw()
+  suit:draw()
 
 end
   
@@ -208,17 +209,17 @@ end
 
 local special =  {
   
-  ["home"]  = fit_to_screen,
-  ["end"]   = fit_to_image,  
+--  ["home"]  = fit_to_screen,
+--  ["end"]   = fit_to_image,  
   
-  ["pageup"]    = zoom_in,
-  ["pagedown"]  = zoom_out,
+--  ["pageup"]    = zoom_in,
+--  ["pagedown"]  = zoom_out,
 
-  ["kp="] = full_size,
-  ["kp+"] = fit_to_screen,
-  ["kp-"] = fit_to_margins,
-  ["kp*"] = rotate_to_zero,
-  ["kp/"] = rotate_clockwise,
+--  ["kp="] = full_size,
+--  ["kp+"] = fit_to_screen,
+--  ["kp-"] = fit_to_margins,
+--  ["kp*"] = rotate_to_zero,
+--  ["kp/"] = rotate_clockwise,
   
 --  up        = function() y = y - inc end,
 --  down      = function() y = y + inc end,
@@ -239,6 +240,7 @@ local cmd = {
   ["="]   = zoom_in,                  -- actually '+'
   ["-"]   = zoom_out,
   
+  
   ["."]   = rotate_to_zero,
   ["/"]   = rotate_clockwise,         -- +90º
   ["\\"]  = rotate_anticlockwise,     -- -90º
@@ -248,8 +250,8 @@ local cmd = {
 
 function _M.keypressed(key)
   
-  if controls.object.focus then self: keypressed(key) return end     -- pass on to input field
-  
+  suit: keypressed(key)
+
   local ctrl = lk.isDown "lctrl" or lk.isDown "rctrl"
   local cmnd = lk.isDown "lgui" or lk.isDown "rgui"
   local action = (ctrl or cmnd) and cmd[key] or special[key]
@@ -257,7 +259,7 @@ function _M.keypressed(key)
 end
 
 function _M.textinput(...)      
-  self:textinput(...)
+  suit:textinput(...)
 end
 
 -------------------------

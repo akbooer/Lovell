@@ -77,6 +77,7 @@ local blanshan = lg.newShader [[
 local plugin = {
     id = "Chroma",
     static = true,
+    split = true,
     gold_boost  = {id = "gold_boost", value = 0.4, default = 0.4},
     blue_boost  = {id = "blue_boost", value = 0.3, default = 0.3, max = 2},
 
@@ -117,14 +118,16 @@ function plugin:draw(suit)
   suit: Slideable(self.blue_green, sl:row(Ws, 10))
   suit: Slideable(self.un_green, sl:row(Ws, 10))
   suit: Slideable(self.OIII_sub, sl:row(Ws, 10))
+  
+  self: extras(suit)    -- draw the additional controls
 
 end
 
-function plugin:extras(suit)
+function plugin:extras(suit, width)
   local sl = suit.layout
-  sl:padding(20, 5)
-  local Ws = 180
-  suit: Slideable(self.gold_boost, sl:row(Ws, 10))
+  local W = width or 180
+  
+  suit: Slideable(self.gold_boost, sl:row(W, 10))
   suit: Slideable(self.blue_boost, sl:row())
 end
 

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.14",
+    VERSION = "2026.10.18",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -20,6 +20,7 @@ local _M = {
 
 -- 2026.06.14  remove dependency on session module
 -- 2026.10.14  use controls.pixel_size(), add OPTION-click for full-size PNG
+-- 2026.10.18  use controls.option to detect option key(s)
 
 
 local _log = require "logger" (_M)
@@ -302,7 +303,7 @@ function _M.snap(image)
   
   -- full-size PNG (no flip, no annotation)
   
-  if lk.isDown "lalt" or lk.isDown "ralt" then
+  if controls.option then
     hiRes(image, snap)
     return
   end

@@ -60,6 +60,7 @@ local kovesi      = require "shaders.kovesi"
 local mipblur     = require "shaders.mipblur"
 local stretcher   = require "shaders.stretcher"
 local calibrator  = require "shaders.calibrator"
+local tetrad      = require "shaders.lodGaussian"
 
 local plugins     = require "plugins"
 
@@ -70,7 +71,9 @@ local EMPTY = _G.READONLY {}
 
 local dispatch = {
     kovesi = {fct = kovesi},
+    mipblur = {fct = mipblur},
     debayer = {fct = debayer},
+    tetrad = {fct = tetrad},
     background = {fct = background},
     starfinder = {fct = starfinder},
   }
@@ -384,7 +387,9 @@ function _M.new(info)
     plugin      = plugins,    -- special calling syntax   workflow: plugin ("NAME", ...)
     
     gaussian  = profile "kovesi",
-    mipblur   = mipblur,
+    mipblur   = profile "mipblur",
+    kovesi    = profile "kovesi",
+    tetrad    = profile "tetrad",
     
     -- local methods
     

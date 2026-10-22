@@ -80,7 +80,7 @@ local GREY_SKY = 0.09   -- default SP
 local plugin = {
     id = "GHS",
     lum = {checked = true, text = "luminance mode"},
-    D  = {id = "D stretch factor", value = 0, default = 0, max = 20, format = "%0.3f"},
+    D  = {id = "D stretch", value = 0, default = 0, max = 20, format = "%0.3f"},
     b  = {id = "b local intensity", value = 10, default = 0, max = 15, format = "%0.3f"},
     SP  = {id = "SP symmetry pt", value = GREY_SKY, default = GREY_SKY, format = "%0.3f"},
     HP  = {id = "HP highlight", value = 1, default = 1, format = "%0.3f"},
@@ -90,7 +90,6 @@ local plugin = {
     finetune = {'D', 'b', 'SP', 'BP', selected = 3, default = 3, id = '', size = {50,18}, indent = 0},
     tweak = {id = "tweak", value = 0.5, default = 0.5},
     highly_sensitive = {checked = false, text = "highest sensitivity"},
-    split_menu = {checked = false, text = "split menu"},
 
   }
 
@@ -131,7 +130,7 @@ local lalign = {align = "left"}
 local ralign = {align = "right"}
 
 
-local function extras(self, suit, width)
+function plugin: extras(suit, width)
   local sl = suit.layout
 
   local W = width or 180
@@ -139,7 +138,7 @@ local function extras(self, suit, width)
   suit: Slideable(self.D, sl:row(W, 10))
   suit: Slideable(self.b, sl:row())
   suit: Slideable(self.SP, sl:row())
-  sl:row(W, 5)
+
 end
 
 local hrule = ('–'): rep(25)    -- for menu dividers
@@ -150,32 +149,28 @@ function plugin: draw(suit)
   local sl = suit.layout
   hrule_opt = hrule_opt or {color = suit.theme.color.inactive}
 
-  local W = 180
-  local Ws = W - 20
-  
-  if self.split_menu.checked then
-    self.extras = extras      -- put in separate menu, or...
-  else
-    self.extras = nil         -- ...include them in this menu
-    extras(self, suit, Ws)    -- ...and in a slightly narrower dormat to match
-  end
+  local W = 160
   
   local SP = self.SP.value
   self.HP.value = math.max(self.HP.value, SP)
   self.LP.value = math.min(self.LP.value, SP)
   
-  suit: Slideable(self.HP, sl:row(Ws, 10))
-  suit: Slideable(self.LP, sl:row())
-  suit: Slideable(self.BP, sl:row())  
-  sl:row(Ws, 5)
+--  suit: Slideable(self.HP, sl:row(W, 10))
+--  suit: Slideable(self.LP, sl:row())
+  suit: Slideable(self.BP, sl:row(W, 10))  
+--  sl: row(W, 0)
+
+--  self: extras(suit, W)
   
+  sl: row(nil, 2)
   local x,y, w,h = sl:row(100, 20)
   suit: Choosable(self.finetune, x+50, y, 60, 20)
   suit: Label("adjust: ", lalign, x,y, w,h)
-  local tweak = suit: Slideable(self.tweak, blank, sl:row(Ws, 10)) 
-  suit: Checkbox(self.highly_sensitive, sl:row(Ws, 16))
-  suit: Label(hrule, hrule_opt, sl:row(nil, 10))
-  suit: Checkbox(self.split_menu, sl:row(Ws, 16))
+  local tweak = suit: Slideable(self.tweak, blank, sl:row(W, 10)) 
+  suit: Checkbox(self.highly_sensitive, sl:row(W, 16))
+--  suit: Slideable(self.BP, sl:row(W, 10)) 
+
+  self: extras(suit, W)
   
   local item = self[self.finetune[self.finetune.selected]]
   if tweak.changed then
@@ -208,6 +203,9 @@ HP (Protect highlights): Controls the tapering of contrast near bright regions t
 LP (Protect shadows): Tapers contrast near deep shadows to avoid amplifying background noise (LP≥0).
 
 BP (Black point): Standard linear offset applied to reset the black background floor (BP in [0,1]).
+
+ 
+D, b, and SP are visible at the top level if drop-down menu is split.
 
 ]]
 

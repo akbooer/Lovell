@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.14",
+  VERSION = "2026.10.21",
   AUTHOR = "AK Booer",
   DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
 }
@@ -22,6 +22,7 @@ local _M = {
 -- 2026.08.04  complete refactor using "synth" plugin
 -- 2026.09.25  use plugins.process_sequence() iterator
 -- 2026.10.14  use workflow.wstack for the stack workflow for 'synth' plugin
+-- 2026.10.21  static platesolve plugin
 
 
 require "logger" (_M)
@@ -31,16 +32,12 @@ local stacking  = require "stacking"
 local plugins   = require "plugins"
 
 
-local newTimer = require "utils" .newTimer
-
-
 -------------------------------
 --
 -- POSTSTACK
 --
 
 local function poststack(workflows)
---  local elapsed = newTimer()
   local workflow = workflows.main
   local wstack = workflows.wstack
   
@@ -81,8 +78,7 @@ local function poststack(workflows)
   end
   
   workflow: plugin "channel"            -- channel selection and inversion
-
---_log(elapsed "%.3f ms")
+  workflow: plugin ("platesolve", controls)
 
 end
 

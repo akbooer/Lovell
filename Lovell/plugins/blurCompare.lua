@@ -13,9 +13,6 @@ local _log = require "logger" (_M)
 
 -- 2026.07.01  Version 0, @akbooer
 
-local kovesi  = require "shaders.kovesi"
-local mipblur = require "shaders.mipblur"
-local tetrad  = require "shaders.lodGaussian"
 
 
 -- PLUGIN with controls
@@ -29,13 +26,16 @@ local plugin = {
 
 -- RUN and DRAW methods
 
-local options = {kovesi, mipblur, tetrad}
+local options = {}
 
 function plugin: run(workflow, ...)
   local sigma = self.sigma.value
   if sigma < 0.2 then return end
       
   -- swap out the implementation FOR THE WHOLE CHAIN!
+  options[1] = workflow.kovesi
+  options[2] = workflow.mipblur
+  options[3] = workflow.tetrad
   
   local choice = options[self.choice.selected]
   workflow.gaussian = choice
@@ -50,7 +50,9 @@ function plugin: draw(suit)
   local W = 180 - 20
   suit: Label("sigma width", sl:row(W, 20))
   suit: Choosable(self.choice, sl:row(W, 20))
+  suit: Label('', sl:row())
   suit: Slideable(self.sigma, sl:row(W, 10))      -- draw the width slider
+  suit: Label('', sl:row())
 end
 
 

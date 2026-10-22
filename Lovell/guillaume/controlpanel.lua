@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2026.09.25"
+  _M.VERSION = "2026.10.18"
   _M.DESCRIPTION = "control panel for main display"
 
 local _log = require "logger" (_M)
@@ -13,6 +13,7 @@ local _log = require "logger" (_M)
 
 -- 2026.05.19  split from mainGUI and redesign control layout using new Suitable widgets
 -- 2026.09.25  use plugins.process_sequence() iterator
+-- 2026.10.18  use controls.option to detect option key(s)
 
 
 local controls  = require "controls"
@@ -66,7 +67,7 @@ function _M.update(suit, controls, image)
   
   -- LUMINANCE
   
-  row(0,0)
+--  row(0,0)
   local Hb = 25
   local x,y, w,h 
   x,y, w,h = row(W/2 - 2, Hb)
@@ -77,14 +78,14 @@ function _M.update(suit, controls, image)
  
   -- CHROMINANCE
 
-  row(0,0)
+--  row(0,0)
   x,y, w,h = row(W/2 - 2, Hb)
   suit: Choosable(controls.palette, {id = ' '}, x + Wh + 2, y, w, h)
   
   local chroma = controls.palette: get()    -- selected chroma workflow name
   suit: Plugin(chroma, x,y, w,h)
   
-  row(0,0)
+  row(0,5)
   
   x,y, w,h = row(W/2 - 2, Hb)
   suit: Plugin("synth", x,y, w,h)
@@ -104,17 +105,18 @@ function _M.update(suit, controls, image)
       
   -- PRESTACK and STACK
   
-  row(W, 40)
+  row(W, 5)
   x,y, w,h = row(W/2 - 2, Hb)
-  suit: Controllable(controls.prestack, x,y, w,h)
-  suit: Controllable(controls.stacking, {indent = 60 - Wh / 2}, x + Wh + 2, y, w, h)
+  suit: Plugin("platesolve", x,y, w,h)
+  suit: Controllable(controls.prestack, x + Wh + 2, y, w, h)
      
   -- DATABASES
   
-  local button = suit: Choosable(controls.DBnames, {title = "Databases..."}, row(W, Hb))
-  if button.hit then
+  x,y, w,h = row(W/2 - 2, Hb)
+  if suit: Choosable(controls.DBnames, {title = "Databases"}, x,y, w,h) .hit then
     pager: push "database"
   end
+  suit: Controllable(controls.stacking, x + Wh + 2, y, w, h)
 
   -- orientation and snapshot
  
@@ -127,7 +129,7 @@ function _M.update(suit, controls, image)
  
   local snap = suit: Button (snapButton, layout:row(80, 50))
   
-  snapButton = snap.hovered and (lk.isDown "lalt" or lk.isDown "ralt") 
+  snapButton = snap.hovered and controls.option 
                     and "Large PNG" or "Snapshot"
   
   if snap.hit then

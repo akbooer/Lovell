@@ -64,6 +64,7 @@ function plugin: draw(suit)
     suit: Label(tostring(subs[col]), left, xc, y + (#line+2) * H, W, H)
     fmt = "%7.5f"
   end
+  
   sl: row(W, (#line+1) * H)
   sl: row(W,1)    -- TODO: somehow necessary to avoid lower items being pushed down - WHY?
 

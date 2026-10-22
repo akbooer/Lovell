@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.09.27",
+    VERSION = "2026.10.18",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
@@ -20,6 +20,7 @@ local _M = {
 -- 2026.05.19  controls now in their own module
 -- 2026.06.14  add pager control to here (from session module)
 -- 2026.09.27  add six dot pattern from draggables
+-- 2026.10.18  check for special key presses in update()
 
 
 local _log = require "logger" (_M)
@@ -118,6 +119,11 @@ function _M.update(dt, ...)
     end
   end
 
+  -- check for special key presses
+  controls.shift = lk.isDown "lshift" or lk.isDown "rshift"
+  controls.option = lk.isDown "lalt" or lk.isDown "ralt"
+
+  -- update current page
   GUI = GUIs[controls.page] or GUI.main
   GUI.update(dt, ...)
 end

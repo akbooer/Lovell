@@ -79,15 +79,14 @@ function _M.update(self, screen)
   end
 
   local w, h = getDimensions(screen)
-  layout:reset(w - margin + 10, 10)             -- position the layout origin...
-  layout:padding(10,10)           -- ...and put extra pixels between cells in each direction
+  layout:reset(w - margin + 10, 10)    -- position the layout origin...
+  layout:padding(10,10)                 -- ...and put extra pixels between cells in each direction
 
   layout: push (w - 30, 10)
   self:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
   layout: pop()
   
-  controls.object.focus =   -- add attribute to allow inspection elsewhere
-    self:Input(controls.object, Ioptions, row(margin - 20, 30)) .hovered
+  self:Input(controls.object, Ioptions, row(margin - 20, 30))
 
   self:Label("object", Loptions, row(margin - 60, 10))
   

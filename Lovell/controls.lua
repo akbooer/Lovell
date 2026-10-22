@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.12",
+    VERSION = "2026.10.22",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -28,6 +28,9 @@ local _log = require "logger" (_M)
 -- 2026.09.25  add settings.process_sequence for plugin display and processing
 -- 2026.10.08  add default gamma stretch option on load
 -- 2026.10.12  add utility function pixel_size()
+-- 2026.10.18  remove Astrometry API key (using localinstall of ASTAP instead)
+-- 2026.10.20  add settings.split_plugins to save and restore menu appearance
+-- 2026.10.33  don't override user reset() in control clusters
 
 
 local json = require "lib.json"
@@ -82,7 +85,7 @@ local function reset (self)
 end
 
 local function control_cluster(spec)    -- factory method for groups of controls (with reset function)
-  spec.reset = reset
+  spec.reset = spec.reset or reset      -- don't override user-defined reset()
   return spec
 end
 
@@ -128,7 +131,7 @@ controls = {
     
     other = {"telescope", "focal_len", "reducer", "pixelsize", "ses_notes", "obs_notes"},
     
-    telescope = {text = '', default = '', cursor = 1},      -- per observation (could have more than one scope in a session)
+    telescope = {text = '', default = '', cursor = 1},  -- per observation (could have more than one scope in a session)
     focal_len = {text = '', default = '', cursor = 1},
     reducer   = {text = '', default = '', cursor = 1},
     pixelsize = {text = '', default = '', cursor = 1},
@@ -136,7 +139,7 @@ controls = {
     ses_notes = {text = '', default = '', cursor = 1},
     obs_notes = {text = '', default = '', cursor = 1},
     
-    -- settings file
+    -- settings file, other items may also be added dynamically (eg. installed plugin names)
     
     settings =  {
         retainControls =  false,
@@ -144,7 +147,6 @@ controls = {
         stacking  = 1,                    -- default stacking option
         latitude  = {text = '51.5'},      -- defaults are approximation to Greenwich...
         longitude = {text = '0'},         -- it's actually on the O2 arena
-        apikey    = {text = ''},
       
       },
         
@@ -161,17 +163,17 @@ controls = {
       
       draw = function (self, suit)  
         local sl = suit.layout
-        local Hb = 25
-        if suit: Button("View Masters...", sl:row(200, Hb)) .hit then 
+        local W, Hb = 180, 25
+        if suit: Button("View Masters...", sl:row(W - 30, Hb)) .hit then 
           pager: push "database, calibration" 
         end 
-        suit: Choosable(self.bayer_opt, self.bayopt, sl:row(200, Hb))   -- narrow menu because short option names
+        suit: Choosable(self.bayer_opt, self.bayopt, sl:row(W, Hb))   -- narrow menu because short option names
         
-        suit: Checkbox(self.do_dark, sl:row (200, 20))
+        suit: Checkbox(self.do_dark, sl:row (W, 20))
         suit: Checkbox(self.do_flat, sl:row ())
         
         suit: Checkbox(self.badpixel, sl:row())
-        suit: Slideable(self.badratio, sl:row (200, 15))
+        suit: Slideable(self.badratio, sl:row (W, 15))
       end,
 
     },
@@ -191,12 +193,12 @@ controls = {
       draw = function(self, suit)
         local sl = suit.layout
         local Hb = 25
-        local W = 200
+        local W = 180
         
-        if suit: Button("View Stack...", sl:row(W, Hb)) .hit then 
+        if suit: Button("View Stack...", sl:row(W - 30, Hb)) .hit then 
           pager: push "stack" 
         end 
-        suit: Choosable(self.stack_opt, sl:row())  
+        suit: Choosable(self.stack_opt, sl:row(W))  
         
         suit: Label("Alignment limits", self.align, sl:row(W, 20))
         suit: Slideable(self.maxstar, sl:row(W, 10))
@@ -238,6 +240,9 @@ end
 
 function controls: reset()
   -- TODO: reset LRGB, Gamma, etc. to defaults??
+  
+  plugins["platesolve"] : reset(controls)          -- clear previous platesolve data
+  
   if not self.settings.retainControls then
     plugins: reset()
   end
@@ -245,25 +250,37 @@ function controls: reset()
 end
 
 function controls: load()
+  local SET = controls.settings
+  local SEQ = plugins.process_sequence
+  
   local f, err = json.read "settings.json" or controls.settings
-  controls.settings.process_sequence = plugins.process_sequence    -- may be changed in settings file below
+  SET.process_sequence = SEQ                -- may be updated below
   if f then
-    for n,v in pairs(f) do controls.settings[n] = v end
+    for n,v in pairs(f) do SET[n] = v end
   end
-  plugins.process_sequence: set(controls.settings.process_sequence)
-  stackOptions.selected = controls.settings.stacking or 1
-  gammaOptions.selected = controls.settings.stretch or 1
+  SEQ: set(SET.process_sequence)              -- update process sequence
+  SEQ: set_splits(SET.split_plugins)
+  
+  stackOptions.selected = SET.stacking or 1
+  gammaOptions.selected = SET.stretch or 1
   _log (f and "settings loaded" or "failed to load: ", err)
   
   for name, plugin in pairs(plugins) do
     controls[name] = control_cluster (plugin)
   end
   
+  
 end
 
 function controls: save()
-  controls.settings.process_sequence = plugins.process_sequence   -- save the latest workflow
-  local ok, err = json.write("settings.json", controls.settings)
+  local SET = controls.settings
+  local SEQ = plugins.process_sequence
+  
+  -- save the latest workflow configuration
+  SET.process_sequence = SEQ
+  SET.split_plugins = SEQ: get_splits()
+  
+  local ok, err = json.write("settings.json", SET)
   _log (ok and "settings saved" or "failed to save: ", err)
 end
 

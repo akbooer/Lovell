@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.11",
+    VERSION = "2026.10.22",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -17,7 +17,8 @@ local _M = {
 -- 2025.06.07  add file names rejected from stack
 
 -- 2026.06.10  require controls module directly (rather than loadSession/saveSession parameter list
--- 2-26.10.11  add "Go to Folder" for selected object
+-- 2026.10.11  add "Go to Folder" for selected object
+-- 2026.10.22  add focal_length and pixelsize to observation data
 
 
 local _log, _err = require "logger" (_M)
@@ -176,6 +177,8 @@ function _M.saveSession()
   obs.size = "%dx%d" % {stack.image: getDimensions()}
   obs.rotate = controls.rotate.value ~= 0 and tonumber("%.5f" % controls.rotate.value) or nil  -- radians
   obs.telescope = non_blank(controls.telescope.text)
+  obs.focal_length = non_blank(controls.focal_len.text)
+  obs.pixelsize = non_blank(controls.pixelsize.text)
   obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
   
   local reject
@@ -214,7 +217,6 @@ function _M.loadSession()
       local bin = stack.keywords.XBINNING or 1
       pix = pix * bin
     end
-    pix = tostring(pix or '')
   end
   
   local scope = stack.telescope or thisObs.telescope or ''
@@ -223,17 +225,22 @@ function _M.loadSession()
   controls.object.text    = stack.object or thisObs.object or ''
   controls.telescope.text = scope
   controls.reducer.text   = thisObs.reducer or ''
-  controls.pixelsize.text = pix
+  controls.pixelsize.text = pix and tostring(pix) or thisObs.pixelsize or ''
   controls.ses_notes.text = info.session.notes or ''
   controls.obs_notes.text = thisObs.notes or ''
   controls.flipUD.checked = thisObs.flipUD or false
   controls.flipLR.checked = thisObs.flipLR or false
+  
   controls.rotate.value   = thisObs.rotate or 0
+  controls.focal_len.text = thisObs.focal_length
+                              or telescopes: focal_length(controls.telescope.text) 
+                              or controls.focal_len.text
+  
   controls.X, controls.Y = 0, 0
-  controls.focal_len.text = telescopes: focal_length(controls.telescope.text) or controls.focal_len.text
   controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
   
-  local reject = {}
+  -- get filenames of rejected subs
+  local reject = {} 
   for _, name in ipairs(thisObs.reject or empty) do
     reject[name] = true
   end

@@ -14,70 +14,65 @@ require "logger" (_M)
 -- 2026.08.02  Version 0, extracted from controls.luminance
 
 
-local love = _G.love
-local lg = love.graphics
-
-
-
-local rgb = {Red = {1,0,0}, Green = {0,1,0}, Blue = {0,0,1}, Luminance = {0.3, 0.6, 0.1}}
-
 -- PLUGIN with controls (in this case, just a Choosable)
 
 local plugin = {
-        id = "Luminance ",    -- trailing space to distinguish from Luminance channel name
-        documentation =[[
-Luminance processing for both one-shot colour (OSC) and mono images (filtered or otherwise).
+      id = "Luminance ",    -- trailing space to distinguish from Luminance channel name
 
-Background level and Stretch are always visible, whereas gradient, vignetting, and white point controls are available on the drop-down menu.
-
-Vignetting adjustment is particularly valuable for wide-angle (short F-ratio) systems when a master flat is not available.
-]],
-
-        static = true,
-        background = {id  = "background", value = 0.5, default = 0.5},
-        whitepoint = {id = "white point", value = 1, default = 1},
---        brightness = {id = "brightness", value = 0.5, default = 0.5},
-        
-        stretch =  {id = "stretch", default = 1, value = 1, max = 2},
-        gradient = {id = "gradient", default = 0, value = 0, min = -1, max = 1},
-        vignette = {id = "vignette", default = 0, value = 0, min = -1, max = 1},
-        
+      static = true,        -- can't manually insert into workflow
+      split = true,         -- start of with split menu display (can be toggled subsequently)
+      
+      background = {id  = "background", value = 0.5, default = 0.5},
+      whitepoint = {id = "white point", value = 1, default = 1},
+      
+      stretch =  {id = "stretch", default = 1, value = 1, max = 2},
+      gradient = {id = "gradient", default = 0, value = 0, min = -1, max = 1},
+      vignette = {id = "vignette", default = 0, value = 0, min = -1, max = 1},
+      
     }
 
+plugin.documentation =[[
+Luminance processing for both one-shot colour (OSC) and mono images (filtered or otherwise).
 
--- RUN and DRAW methods
+Background level and Stretch are visible at the top level if drop-down menu is split.
+
+Gradient, Vignetting, and White point controls are available on the drop-down menu.
+
+Vignetting adjustment is particularly valuable for wide-angle (short F-ratio) systems when a master flat is not available.
+]]
+
+-- RUN and DRAW and EXTRAS methods
 
 
-function plugin: run(workflow, ...)
-
-end
-
- 
-function plugin: draw(suit)  
-
-  local sl = suit.layout
-  self.left = self.left or {align = "left", color = suit.theme.color.bluetext } -- only construct once
-  self.right = self.right or {align = "right" }
-  self.centre = self.centre or {color = suit.theme.color.inactive }
-  
-  local W = 180 - 20
-
-  suit: Slideable(self.gradient, sl:row(W, 10))
-  suit: Slideable(self.vignette, sl:row())
-  suit: Slideable(self.whitepoint, sl:row())
-  
+function plugin: run()      -- (workflow, ...)
+  -- nothing to do!  (it's all in the graphics)
 end
 
 
-function plugin: extras(suit)
+function plugin: extras(suit, width)
   local sl = suit.layout
-  local W = 200 - 20
-  
-  sl: row(0,0)
+  local W = width or 180
+    
   suit: Slideable(self.background, sl: row(W, 10))
   suit: Slideable(self.stretch, sl: row())
 
 end
+
+
+function plugin: draw(suit)  
+
+  local sl = suit.layout
+  
+  local W = 180 - 20
+  
+  suit: Slideable(self.gradient, sl:row(W, 10))
+  suit: Slideable(self.vignette, sl:row())
+  suit: Slideable(self.whitepoint, sl:row())
+  
+  self: extras(suit)
+
+end
+
 
 return plugin
 

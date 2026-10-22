@@ -110,7 +110,8 @@ function plugin:draw(suit)
   self.centre = self.centre or {color = suit.theme.color.inactive }
   local W = 180 - 40
   
-  suit: Label("multiscale contrast", sl: row(W, 10)) 
+  suit: Label('', sl: row(W, 10))
+  suit: Label("multiscale contrast", sl: row(W, 20)) 
   sl: row(W, 0)
   for i = 1, 3 do
     suit: Slideable(self[i], sl:row(W, 10))

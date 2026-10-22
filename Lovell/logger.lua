@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.09",
+    VERSION = "2026.10.16",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -20,6 +20,7 @@ local _M = {
 -- 2026.05.08  empty messages generate blank lines in log (for readability)
 -- 2026.07.20  require "table.new" (FFI extension to pre-allocate tables)
 -- 2026.10.09  add math.asinh()
+-- 2026.10.16  add math.radians(), math.degrees()
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -33,10 +34,22 @@ local logChannel = love.thread.getChannel "logChannel"
 
 -------------------------
 --
--- Lua is missing asinh() function
+-- Lua is missing functions
 --
+
+local to_degrees = 180 / math.pi
+local to_radians = math.pi / 180
+
+function math.degrees(x)
+  return x * to_degrees
+end
+
+function math.radians(x)
+  return x * to_radians
+end
+
 function math.asinh(x)
-    return math.log(x + math.sqrt(x * x + 1.0))
+  return math.log(x + math.sqrt(x * x + 1.0))
 end
 
 -------------------------

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.16",
+    VERSION = "2026.10.20",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – ASTAP plate solver (requires local install)",
   }
@@ -13,38 +13,29 @@ local _log = require "logger" (_M)
 
 -- 2026.10.11  Version 0
 -- 2026.10.16  add button to browse Aladin
+-- 2026.10.20  add pixel size and focal length input fields
 
 
 local util = require "utils"
 local fits = require "lib.fits"
 local vector = require "lib.vector"
+local ASTAP = require "lib.astap"
 local visier = require "lib.visier"
+
+local Aladin = visier.openAladinSkyView   -- (ra, dec, fov)
 
 
 local love = _G.love
 local lf = love.filesystem
 local lg = love.graphics
 
-local save_folder = lf.getSaveDirectory()
+local formatDegrees = util.formatDegrees
 
-local filename = "/platesolve/astap"
-
-local pngfile = filename .. ".png"
-local fitsfile = filename .. ".fit"
-local filepath = table.concat {save_folder, pngfile}
-local fitspath = table.concat {save_folder, fitsfile}
-
--- default file path
-local astap_app = "/Applications/astap.app/Contents/MacOS/astap"    -- Mac OS
-local astap_exe = '"C:/Program Files/astap/astap.exe"'              -- Windows
-
-local OS = love.system.getOS()
-
-local ASTAP  = OS == "OS X" and astap_app or astap_exe
+local EMPTY = _G.READONLY {}
 
 -------------------------------
 --
--- Calculate unstretched mono image directly from stack
+-- MONO SHADER - Calculate unstretched mono image directly from stack
 --
 
 local mono = lg.newShader[[
@@ -80,127 +71,60 @@ local function mono_image(workflow)
   
   return workflow.temp
 end
-
+ 
+ 
 -------------------------------
 --
--- VisieR and Aladin
+-- PLUGIN
 --
 
-local function VisieR()
+local save_folder = lf.getSaveDirectory()
+local filename = "/platesolve/astap"
 
-end
-
-local Aladin = visier.openAladinSkyView   -- (ra, dec, fov)
-  
--------------------------------
---
--- ASTAP
---
-
--- Function to execute ASTAP via io.popen and capture stdout logs
-local function run_astap(astap_path, info)
-  local image_path = info.filepath    
-
-  -- Build the command line
-  local ra, dec
-  ra  = tonumber(info.RA)  and "%0.3f" % (info.RA / 15) or nil    -- RA in hours
-  dec = tonumber(info.DEC) and "%0.3f" % (info.DEC)  or nil       -- DEC in degrees (+-90)
-
-  local options = {
-    z = 0,                                                -- auto scaling
-    m = 3,                                                -- minimum star size (in arc seconds)
-    r = ra and dec and 10 or 181,                        -- search field radius (degrees, or blind search)
-    s = 300,                                              -- max number of stars
-    fov = info.fov and "%0.2f" % info.fov or nil,
-    ra = ra,
-    spd = dec and dec + 90 or nil,                       -- south pole distance
---    update = '',                                          -- add solution to FITS file
-  }
-
-  local opts = {}
-  for flag, opt in pairs(options) do
-    opts[#opts+1] = table.concat {'-', flag, ' ', opt, ' '}
-  end
-  opts = table.concat(opts, ' ')
-
-  local cmd = string.format('"%s" -f "%s" %s', astap_path, image_path, opts)
-
-  -- Open process via popen to capture stdout
-  local handle = io.popen(cmd .. " 2>&1") -- 2>&1 merges stderr into stdout if needed
-  if not handle then
-    _log "Error: Failed to open process pipe"
-    return nil
-  end
-
-  local log_output = handle:read "*a"
-  handle:close()
-
-  if log_output: match "%S" then      -- ie. non-blank
-    local line = "------------------------\n"
-    _log ("ASTAP options:", opts, "\n\n", line, log_output, line)
-  end
-
-  -- Check if it solved successfully by checking the generated .ini or .wcs file
-  local ini_path = image_path:gsub("%.%a+$", ".ini")
-  local file = io.open(ini_path, "r")
-  if not file then
-    ini_path = image_path:gsub("%.png$", ".wcs")
-    file = io.open(ini_path, "r")
-  end
-
-  if not file then
-    _log "Error: Solution file not generated."
-    return nil
-  end
-  
---[[
-        local name, equals, value, slash, comment = record: match "([A-Z0-9-_]+)%s*(=?)%s*([^/]+)(/?)%s*(.*)"
-        local name, equals, value = record: match "([A-Z0-9-_]+)%s*(=?)([^/]+)"
---]]
-  
-  local solution = {}
-  for line in file:lines() do
-    local name, _, value = line: match "([A-Z0-9-_]+)%s*(=?)([^/]+)"
-    solution[name] = value
-  end
-  file:close()
-
-  ra, dec = tonumber(solution.CRVAL1), tonumber(solution.CRVAL2)
-  if ra and dec then
-    local ra_dec = { ra, dec }
-    _log ("Solved: (RA,DEC) %0.3f  %0.3f" % ra_dec)
-    return ra_dec, solution
-  end
-
-end
-
+local RUN 
+local result    -- solution text for draw()
 
 local plugin = {
+  
     id = "Plate solve",
-    RA = nil,
-    DEC = nil,
-    FOV = nil,
+    static = true,
     
-    Sx = 0,
-    Sy = 0,
+    -- control Input widgets, using existing controls (from the settings page)
+    pixelsize = nil, 
+    focal_len = nil,
+    fov = nil,
+    OBJECT = nil,       -- from information panel
     
+    WCS = nil,        -- World Coordinate System of solution
     
---    solve = {"Solve..."},
-}
+  }
+
+
+function plugin: reset(controls)
+  -- initial setup of input widgets
+  if controls then
+    self.pixelsize = controls.pixelsize
+    self.focal_len = controls.focal_len
+    self.OBJECT = controls.object
+  end
+  
+  -- clear previous solution
+  result = EMPTY
+end
+
 
 plugin.documentation = [[
 Plate solving using a local installation of ASTAP.
 
-If the object is labelled, with RA and DEC defined from the object database, then the 'Solve...' button will start a search around that point.  
+If the object is labelled, with RA and DEC defined from the object database, then the 'Solve with ASTAP' button will start a search around that point.  
 
 Ideally, the focal length and camera pixel size are specified in the settings so that an accurate FOV can be used. 
 
-If successful, the exact coordinates of the image centre are displayed, along with the rotation angle.  The image is rotated to the correct orientation.  The actual focal length value is written to the log file.
+If successful, the exact coordinates of the image centre are displayed, along with the rotation angle.  The image is rotated to the correct orientation, and the focal length is updated to the solved value.
 
-The 'Aladin' button opens a web page there with the same field of view.
+The 'View in Aladin' button opens a web page there with the same field of view.
 
 If no coordinates are available, a blind search is done, which may take a few more seconds.  It's certainly possible that this will fail to solve.
-
 
 ]]
 
@@ -210,79 +134,121 @@ If no coordinates are available, a blind search is done, which may take a few mo
 -- RUN and DRAW
 --
 
-local RUN 
-local ra, dec, fov
-local solution = ''   -- persistent status text 
-local degrees = ''
-
-local ra_dec, info  -- raw ASTAP results
+local fitsfile, fitspath do
+  fitsfile = filename .. ".fit"
+  fitspath = table.concat {save_folder, fitsfile}
+end
 
 
 function plugin: run(workflow, controls)
-  local image, pixel_size, object
-  image = workflow.output
-  pixel_size = controls.pixel_size()
-  object = controls.object                -- object info including name, RA, DEC, possibly
+  local image = workflow.output
   
-  if RUN and image then
-    RUN = false                           -- don't do it until pressed again
-    image = mono_image(workflow)          -- getunstretched image from stack
-    solution = 'solving...'
-    degrees = ''
-    _log ("converting image to FITS file:", fitsfile)
-    fits.write(image, fitspath)
+  if not (RUN and image) then return end     -- nothing to do!
+  RUN = false                                 -- don't do it until pressed again
+  
+  local pixel_size = controls.pixel_size()      -- pixel size in arc seconds (assume square)
+  local object = controls.object                -- object info including name, RA, DEC, possibly
+  
+  _log("getting unstretched mono image from stack [%dx%d]" % {image:getDimensions()})
+  image = mono_image(workflow)          -- get unstretched mono image from stack
+  _log ("converting image to FITS file:", fitsfile)
+  fits.write(image, fitspath)
+  
+  self.fov = pixel_size and pixel_size * image:getHeight() / 3600 or nil   -- convert from arcseconds to degrees
+  local WCS = ASTAP.run {
+        filepath = fitspath, 
+        FOV = self.fov,
+        RA = object and object.RA,
+        DEC = object and object.DEC,
+      }
+      
+  self.WCS = WCS
+  
+  if WCS then           -- World Coordinate System
     
-    fov = pixel_size and pixel_size * image:getHeight() / 3600   -- convert from arcseconds to degrees
-    ra_dec, info = run_astap(ASTAP, {
-          filepath = fitspath, 
-          fov = fov,
-          RA = object and object.RA,
-          DEC = object and object.DEC,
-        })
-    if ra_dec then
-      ra = util.formatRA(ra_dec[1])
-      dec = util.formatDEC(ra_dec[2])
-      solution = "(RA, DEC)\n" .. ra ..', ' .. dec 
-    else
-      solution = "Not solved"
-      ra, dec, fov = nil, nil, nil
-    end
+    -- adjust display angle and flips to correctly orient (North up, East left)
+    -- using full transformation matrix
+    local ra, dec = tonumber(WCS.CRVAL1), tonumber(WCS.CRVAL2)
+    local CD11, CD12, CD21, CD22 = WCS.CD1_1, WCS.CD1_2, WCS.CD2_1, WCS.CD2_2
+    local det = CD11 * CD22 - CD12 * CD21              -- transformation matrix determinant
+    local flipped = det < 0
+    local sign = flipped and -1 or 1                    -- parity check for flipped image
+    local angle = sign * math.atan2(CD21, sign * CD11)  -- apply flip to angle
+  
+    angle = angle + math.radians(180)           -- account for display Y axis pointing downwards  
+    angle = (angle + math.pi) % (2 * math.pi) - math.pi -- change range to +/- pi
+    controls.rotate.value = angle               -- rotate screen image to match
     
-    local ok = info and tonumber(info.CROTA1) and tonumber(info.CROTA2)
-    if ok then
-      -- use full transformation matrix
-      local CD11, CD12, CD21, CD22 = info.CD1_1, info.CD1_2, info.CD2_1, info.CD2_2
-      local det = 	CD11 * CD22 - CD12 * CD21             -- transformation matrix determinant
-      local sign = det >= 0 and 1 or -1                   -- parity check for flipped image
-      local angle = -math.atan2(CD21, sign * CD11)
-      
-      local Sx = math.sqrt(CD11^2 + CD21^2)   -- x image scale in arcseconds per pixel
-      local Sy = math.sqrt(CD12^2 + CD22^2)   -- y image scale in arcseconds per pixel
-      
-      if pixel_size then
-        local px = tonumber(controls.pixelsize.text)
-        local focal_length = math.floor(px / Sx  * 180 / math.pi / 1000 + 0.5)  -- millimetres
-        
-        _log ("actual focal length = %d mm" % focal_length)
-      end
-      
-      
-      degrees = "%0.1fº" % (angle * 180 / math.pi)
-      controls.rotate.value = angle                         -- rotate screen image to match
-    end
-
+    controls.flipLR.checked = flipped
+    controls.flipUD.checked = false
+    
+    local Sx = math.sqrt(CD11^2 + CD21^2)       -- x scale in degrees/pixel
+    local Sy = math.sqrt(CD12^2 + CD22^2)       -- y scale in degrees/pixel
+    
+    local px = tonumber(controls.pixelsize.text) / 1000       -- convert microns to millimetres
+    
+    local focal_length = math.floor(px / math.radians(0.5*(Sx + Sy)) + 0.5)  -- mm
+    self.focal_len.text = tostring(focal_length)
+    self.fov = Sx * image: getHeight()
+    _log ("actual focal length = %d mm" % focal_length)
+    
+    -- format output for draw()    
+    result = {
+        title = "(RA, DEC)",
+        solution =  util.formatRA(ra) ..', ' .. util.formatDEC(dec),
+        rotation = "rotation:",
+        degrees = formatDegrees(angle, 1),
+      }
+    
+  else
+    result = {solution = "Not solved"}
   end
+
 end
 
+
+local Lopt, Copt, Ropt, Wopt    -- label options
+
 function plugin: draw(suit)  
+  local W, H = 160, 25
   local sl = suit.layout
-  RUN = suit: Button("Solve", sl: row(100, 25)) .hit 
+  Lopt = Lopt or {align = "left", color = suit.theme.color.bluetext}
+  Copt = Copt or {align = "center", color = suit.theme.color.bluetext}
+  Ropt = Ropt or {align = "right", color = suit.theme.color.bluetext}
+  Wopt = Wopt or {align = "left"}
   
-  suit: Label(solution, sl: row(160, 25)) 
-  suit: Label(degrees, sl: row())
+  local W2 = W / 2
+  local x,y, w,h = sl: row(W2, 10)
+  suit: Label('Px (µm)', Lopt, x,y, W2, 20)
+  suit: Label('FL (mm)', Lopt, x + W2 + 10, y, W2, 20)
+  
+  x,y, w,h = sl: row(W2, H)
+  suit: Input(self.pixelsize, x, y, w - 10,h)
+  suit: Input(self.focal_len, x + W2 + 10, y, w - 10,h)
+  
+  RUN = suit: Button("Solve with ASTAP", sl: row(W, H)) .hit 
+  
+  suit: Label(result.title or '', Copt, sl: row(W, 10))
+  suit: Label(result.solution or '', sl: row()) 
+  
+  x,y, w,h = sl: row(W/2, 30)
+  suit: Label(result.rotation or '', Ropt, x,y, w,h)
+  suit: Label(result.degrees or '', Wopt, x + W/2 + 2,y, w,h)
+
+  if suit: Button("View in Aladin", sl: row(W, H)) .hit then
+    local ra, dec
+    local WCS, OBJECT = self.WCS, self.OBJECT
+    if WCS then                                     -- platesolved coordinates...
+      ra =  "%0.6f" % tonumber(WCS.CRVAL1)
+      dec = "%0.6f" % tonumber(WCS.CRVAL2)
+    elseif OBJECT then                              -- ...or named object coordinates
+      ra = tonumber(OBJECT.RA)
+      dec = tonumber(OBJECT.DEC)
+    end
     
-  if suit: Button("Aladin", sl: row()) .hit and ra_dec then
-    Aladin(ra_dec[1], ra_dec[2], fov)
+    if ra then 
+      Aladin(ra, dec, self.fov)
+    end
   end
   
 end
@@ -291,4 +257,5 @@ end
 return plugin
 
 -----
+
 

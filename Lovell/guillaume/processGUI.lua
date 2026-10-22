@@ -60,14 +60,11 @@ local function info(name, docs)
     suit: Label("file: " .. name, row(160, 30))
     suit: Button(plugin.id, row())
     row(0, 5)
+    local split = plugin._split.checked
+    plugin._split.checked = false
     plugin: draw(suit)    -- draw the plugin controls
+    plugin._split.checked = split
     
-    -- extras
-    if plugin.extras then
-      suit: Label(hrule, {color = grey}, row())
-      plugin: extras(suit)
-    end
-     
     --  add frame
     local _,y = row(0,0)
     outline = {650, 150, 200, y - 160 + 30, 4, text = plugin.documentation}   -- 4 is corner radius

@@ -126,6 +126,7 @@ function _M.new(workflows, frame)
     workflow.RGBL = nil                       -- clear count of separate R,G,B,L subs and exposures
     
     stack = {}
+
     
     for n,v in pairs(frame) do stack[n] = v end    
     stack.image = wstack

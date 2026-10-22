@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.12",
+    VERSION = "2026.10.16",
     AUTHOR = "AK Booer",
     DESCRIPTION = "sundry utilities",
   }
@@ -17,6 +17,7 @@ local _M = {
 -- 2026.03.29  tidy up getDimensions()
 -- 2026.06.09  add alphanumeric_sort()
 -- 2026.10.12  add sorted() iterator
+-- 2026.10.16  use math.degrees()
 
 
 local _log = require "logger" (_M)
@@ -191,10 +192,14 @@ function _M.formatAngle(x)
 end
 
 -- return degrees given radians
-function _M.formatDegrees(x, dp)
-  dp = math.floor(dp or 0)        -- decimal places
-  local fmt = string.format ("%%0.%dfº", dp)
-  return fmt % (x * 180 / math.pi)
+do 
+  local fmt = {}      -- cache for format strings
+  
+  function _M.formatDegrees(x, dp)
+    dp = math.floor(dp or 0)                              -- decimal places
+    fmt[dp] = fmt[dp] or string.format ("%%0.%dfº", dp)   -- build format if needed
+    return string.format (fmt[dp], math.degrees(x))
+  end
 end
 
 -- seconds to mm:ss

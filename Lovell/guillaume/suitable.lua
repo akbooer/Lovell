@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.10",
+    VERSION = "2026.10.21",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -29,6 +29,8 @@ local _M = {
 -- 2026.09.27  add Dragging()
 -- 2026.10.04  allow checkbox elements in Choosable, with optional action function call
 -- 2026.10.10  add option key to Slideable to control rate asymptotically
+-- 2026.10.17  add pin checkbox to Controllable, whether ticked or not
+-- 2026.10.21  make platesolve a static plugin
 
 
 local _log = require "logger" (_M)
@@ -118,7 +120,7 @@ end
 
 local function rightClick(state)
   local hit, hovered = state.hit, state.hovered
-  local rclick = hovered and lm.isDown(2) or hit and shiftKey() 
+  local rclick = hovered and lm.isDown(2) or hit and shiftKey()
   return rclick
 end
 
@@ -126,17 +128,17 @@ _M.rightClick = rightClick
 
 function _M.anyReset()
   local reset = _M.reset
-  _M.reset = false
+  _M.reset = false        -- reset each frame
   return reset
 end
   
-function _M.anyHovered()
-  return suit.anyHovered()
-end
+--function _M.anyHovered()
+--  return suit.anyHovered()
+--end
  
-function _M.anyActive()
-  return suit.anyActive()
-end
+--function _M.anyActive()
+--  return suit.anyActive()
+--end
   
  
 -------------------------------
@@ -394,10 +396,12 @@ local Controllable do
   local color = theme.color.dark
   local selected = {normal = theme.color.hovered}
   
-  local function draw(core, info, opt, x,y,w,h)
+  local function drawBackground(core, info, opt, x,y,w,h)
     local radius = opt.cornerRadius or info.cornerRadius or theme.cornerRadius
+    
     color.bg = opt.background or info.color or default
     core.theme.drawBox(x,y+1, w,h, opt.color or info.color or color, radius)
+    
     lg.setColor(border)
     lg.rectangle('line', x,y+1, w,h, radius)
   end
@@ -418,11 +422,12 @@ local Controllable do
     local w0, h0 = w, h
     local id = opt.id or info.id or tostring(opt)
     if not info then error ("Missing widget in Controllable: " .. (id or '?')) end
+    
+    info._pin = info._pin or {}   -- add pin checkbox to widget
     local layout = core.layout
-    local lock   = info.lock
     local active = info.active
     local drawer = info.shortcut and drawButton or nil
-    local colour = lock and selected or nil
+    local colour = info._pin.checked and selected or nil
     local button = core: Button(id, {draw = drawer, color = colour}, x,y, w,h)
     
     local latency = opt.latency or info.latency or 0.4   -- hover latency in seconds
@@ -435,7 +440,7 @@ local Controllable do
       x, y = x + (opt.indent or info.indent or 30) , min(max(0, y + h), H - h)   -- keep popup within screen dimensions
     end
   
-    if active or info.lock then   -- draw popup
+    if active or info._pin.checked then   -- draw popup
       layout: push(x, y)
       local px, py = 20, 10
       local padding = opt.padding
@@ -451,6 +456,18 @@ local Controllable do
       layout: pop()
       h = ymax - y + py  -- add bottom margin
       w = xmax - x
+    
+      -- add pin to popup (needs to survive several frames, so store in info)
+      local pin = core: Checkbox(info._pin, x+w-25, y+5, 20,20)
+--      local pin = core: Checkbox(info._pin, x+w-20, y+5, 16,16)
+      if pin.hit then
+        info.active = false
+      end
+      if pin.hovered then       -- tool tip
+        core: Label("pin/unpin", x+w-100, y+7, 80, 16)
+--        core: Label("pin/unpin", x+w-100, y+4, 80, 16)
+      end
+  
     end
     w = opt.width or id.width or  w
     
@@ -463,25 +480,19 @@ local Controllable do
     end
 
      if rightClick (button) and reset then 
-       _M.reset = true
+       _M.reset = true    -- flag that you've reset a value
        reset(info) 
      end
 
     if hovered then info.active = {x,y, w,h} end
-    if button.hit then info.lock = not info.lock end      
- 
-      -- add pin to popup (needs to survive several frames, so store in info)
-      if lock then 
-        info.pin = info.pin or {}
-        info.pin.checked = true
-        if core: Checkbox(info.pin, x+w-25, y+5, 20,20) .hit then
-          info.active, info.lock = false, false
-        end
-      end
+    -- check for pin
+    if button.hit and not (optionKey() or shiftKey()) then
+      info._pin.checked = not info._pin.checked 
+    end      
     
-    if info.active or info.lock then 
+    if info.active or info._pin.checked then 
       info.active = info.active or {x,y, w,h}
-      core:registerDraw(draw, core, info, opt, x,y, w,h)
+      core:registerDraw(drawBackground, core, info, opt, x,y, w,h)
       core:registerHitbox(id, x,y, w,h)                           -- to avoid anything beneath from activating
       info.active = (core: mouseInRect(unpack(info.active)) or hovered) and info.active or nil   -- still in the box?
     end
@@ -879,7 +890,10 @@ local new = suit.new      -- save parent's new()
 
 function suit.new(theme)
   local instance = new(theme)
-  
+
+  instance.optionKey = optionKey
+  instance.shiftKey = shiftKey   
+   
   -- insert new functionality here...
   instance.Choosable    = Choosable
   instance.Controllable = Controllable

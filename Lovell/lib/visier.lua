@@ -18,6 +18,12 @@ local ltn12 = require "ltn12"
 local love = _G.love
 local ls = love.system
 
+
+-------------------------------
+--
+-- VisieR
+--
+
 local base_url = "http://vizier.cds.unistra.fr/viz-bin/VizieR"
 
 local function request(params)
@@ -99,7 +105,6 @@ end
 
 
 function _M.openVizieRInBrowser(catalog, ra, dec, radius_arcsec)
-    local base_url = "http://vizier.cds.unistra.fr/viz-bin/VizieR"
     
     local params = {
         "-source=" .. (catalog or ''),
@@ -123,7 +128,6 @@ end
 -- openVizieRInBrowser("VII/118/ngc2000", 83.822, -5.391, 120) -- 2 arcminute search around M42
 
 function _M.openVizieRInBrowser(catalog, ra, dec, radius_arcsec)
-    local base_url = "http://vizier.cds.unistra.fr/viz-bin/VizieR"
     
     local params = {
         "-source=" .. catalog,
@@ -136,7 +140,7 @@ function _M.openVizieRInBrowser(catalog, ra, dec, radius_arcsec)
     
     local url = base_url .. "?" .. table.concat(params, "&")
     
-    -- Opens the URL in the default web browser on macOS
+    -- Opens the URL in the default web browser
     local success, message = love.system.openURL(url)
     if not success then
         print("Failed to open browser:", message)
@@ -144,12 +148,17 @@ function _M.openVizieRInBrowser(catalog, ra, dec, radius_arcsec)
 end
 
 
+-------------------------------
+--
+-- Aladin
+--
+
 -- Example: Open a 1.5-degree DSS color sky view centered on your solved target
 -- openAladinSkyView(83.822, -5.391, 1.5)
 function _M.openAladinSkyView(ra, dec, fov_deg)
     -- Aladin Lite URL constructor
     local Aladin = "https://aladin.u-strasbg.fr/AladinLite/?target=%.6f%+.6f&fov=%.4f&survey=P/DSS2/color"
-    local url = string.format(Aladin, ra, dec, fov_deg)
+    local url = string.format(Aladin, ra, dec, fov_deg or 0.5)
     ls.openURL(url)
 end
 
