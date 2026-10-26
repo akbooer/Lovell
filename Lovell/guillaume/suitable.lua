@@ -763,7 +763,7 @@ local function index(info, opt)
   local ridx = opt.row_index
   local cidx = opt.col_index
   local cols = opt.cols
-  local nr = ridx and (ridx.n or #ridx) or #data                  -- number of rows
+  local nr = ridx and (ridx.n or #ridx) or data.n or #data        -- number of rows
   local nc = cidx and (cidx.n or #cidx) or #(data[1] or empty)    -- number of columns
   
   ridx = ridx or empty                        -- allow indexing anyway   

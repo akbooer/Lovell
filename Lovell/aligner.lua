@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.04.02",
+  VERSION = "2026.10.24",
   DESCRIPTION = "image alignment using Fast Global Registration [Qian-Yi Zhou 2016]",
 }
 
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.03.11  linearize angle around previous transformation estimate (as per the paper)
 -- 2025.04.02  remove tuple check code and add simple test routine
 
+-- 2026.10.24  remove unused star alignment parameters
 
 --[[
 
@@ -49,71 +50,6 @@ local newTimer  = require "utils" .newTimer
 
 local deg = 180 / math.pi
 
--------------------------------
---
--- nearest neighbour to each of the keystars
--- possible that no match is found (if intensities too different)
--- returned index[i] contains index of matching star[j] or 0 if no match
---
-
-local function oneWayMatch(stars, keystars, maxDist, maxLumDiff)  
-  local maxDist2 = maxDist * maxDist
-  local maxLumDiff2 = maxLumDiff * maxLumDiff
-  local index = {}    -- index of star which matches i-th keystar
-  for i = 1, #keystars do
-    local a = keystars[i]
-    local mindist2 = maxDist2
-    local x1, y1, l1 = a[1], a[2], a[3] or 0   -- (x,y) and intensity
-    local found = 0
-    for j = 1, #stars do
-      local b = stars[j]
-      local x2, y2, l2 = b[1], b[2], b[3] or 0
-      local dist2  = (x1 - x2)^2 + (y1 - y2)^2
-      local delta2 = (l1 - l2)^2 
-      if dist2 < mindist2 and delta2 < maxLumDiff2 then
-        mindist2 = dist2
-        found = j 
-      end
-    end
-    index[i] = found
-  end
-  return index
-end
-
--- two-way match of star pairs
-local function matchPairs(stars, keystars, maxDist)
-  local elapsed= newTimer()
-  local maxLumDiff = 0.1 -- 0.05  
-  local sIndex = oneWayMatch(stars, keystars, maxDist, maxLumDiff)     -- match one to the other...
-  local kIndex = oneWayMatch(keystars, stars, maxDist, maxLumDiff)     -- ...and then the other way around
-
-  local starIndex, keyIndex = {}, {}
-  for i = 1, #sIndex do
-    local found = sIndex[i]
-    if kIndex[found] == i then
-      starIndex[#starIndex + 1] = found
-      keyIndex[#keyIndex + 1]  = i
-    end
-  end
-
-  _log(elapsed ("%.3f ms, matched  %d stars", #starIndex))
-
-  return starIndex, keyIndex
-end
-
--- Input: stars and keystars array of coordinates:  {{x1,y1}, {x2,y2}, ...}
--- Return: matched point pairs {xm, ym, xn, yn}
-local function NearestNeighbors(stars, keystars, maxDist)
-  local starIndex, keyIndex = matchPairs(stars, keystars, maxDist)
-  
-  local point_pairs = {}
-  for i = 1, #starIndex do
-    local star = stars[starIndex[i]]
-    local key  = keystars[keyIndex[i]]
-    point_pairs[i] = {key[1], key[2], star[1], star[2]}  -- (x,y), (x',y')
-  end
-  return point_pairs      --, {starIndex, keyIndex}
-end
 
 -------------------------------
 --
@@ -194,13 +130,11 @@ end
 --
 -- ox, oy are x,y offset to center of rotation
 --
-function _M.transform(stars, keystars, maxDist, ox, oy)
+function _M.transform(stars, keystars, ox, oy)
   local elapsed = newTimer()
 
   local point_pairs = require "asterism4_match" .match (keystars, stars)
   
---  local point_pairs = NearestNeighbors(stars, keystars, maxDist)
-
   if #point_pairs == 0 then return end
 
   local theta, x,y = fast_global_registration(point_pairs, ox, oy)

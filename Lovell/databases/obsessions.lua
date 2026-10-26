@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.22",
+    VERSION = "2026.10.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -18,13 +18,13 @@ local _M = {
 
 -- 2026.06.10  require controls module directly (rather than loadSession/saveSession parameter list
 -- 2026.10.11  add "Go to Folder" for selected object
--- 2026.10.22  add focal_length and pixelsize to observation data
+-- 2026.10.22  add focal_length and pixelsize to observation data, add Bayer pattern column (was hidden filter)
+-- 2026.10.24  remove zoom adjustment (no image now that loadSession() is called before prestack)
 
 
 local _log, _err = require "logger" (_M)
 
 local controls = require "controls"
-local stacking = require "stacking"
 local telescopes = require "databases.telescopes"     -- for focal length info
 
 local json  = require "lib.json"
@@ -59,14 +59,14 @@ local cols = {
         {'Time',      w =  50, align = "center", },
         {"Frames",    w =  40, align = "center", type = "number", label = '#'},
         {"Expo",      w =  70, align = "center", type = "number", format = utils.formatSeconds, },
-        {"Filts",     w =  60, },
+        {"Bayer",     w =  60, align = "center", },
         {"Size",      w = 100, align = "center", },
         {"Telescope", w = 200, },
         {"Notes",     w = 300, },
         {"Path",      w = 300, },   -- not shown on screen
       }
       
-local col_index = {1, --[[2,3,]] 4,5,6,7, --[[8,]] 9, 10, 11}
+local col_index = {1, --[[2,3,]] 4,5,6,7, 8, 9, 10, 11}   -- which columns to show
 
 local widget = {cols = cols, col_index = col_index, tally = tally}    -- SUIT-able Table widget
 
@@ -107,7 +107,7 @@ function _M.load()
             obs.time or '',
             obs.frames or '',     -- number of frames
             obs.exposure or '',
-            'filt',
+            obs.bayer or '',
             obs.size,
             obs.telescope or '', 
             obs.notes or '',
@@ -142,9 +142,9 @@ end
 
 
 -- construct session and observation IDs and info
-local function getInfo(stack)
-  local sesID = sessionID(stack.epoch)            -- use observation date as session ID
-  local obsID = stack.folder                      -- use observation folder as observation ID
+local function getInfo(frame)
+  local sesID = sessionID(frame.epoch)            -- use observation date as session ID
+  local obsID = frame.folder                      -- use observation folder as observation ID
   local path = "sessions/%s.json" % sesID         -- create path for meta file
   return sesID, obsID, path
 end
@@ -153,12 +153,10 @@ local function non_blank(text)
   return #text > 0 and text or nil
 end
 
--- TODO: save Bayer setting if not AUTO
-
 function _M.saveSession()
   
-  local stack = stacking: get()
-  if not stack then return end
+  local stack = controls.info
+  if not controls.subs then return end
   
   local sesID, obsID, path = getInfo(stack)
    _log("saving metadata for session", sesID)
@@ -180,6 +178,7 @@ function _M.saveSession()
   obs.focal_length = non_blank(controls.focal_len.text)
   obs.pixelsize = non_blank(controls.pixelsize.text)
   obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
+  obs.bayer = controls.BAYER
   
   local reject
   for name, yes in pairs(controls.reject or empty) do
@@ -194,12 +193,12 @@ function _M.saveSession()
   info = nil
 end
 
-function _M.loadSession()
-  
-  local stack = stacking: get()  
-  if not stack then return end
+function _M.loadSession(frame)
+--   print(pretty(frame))
+--  local stack = stacking: get()  
+--  if not stack then return end
 
-  local sesID, obsID, path = getInfo(stack)
+  local sesID, obsID, path = getInfo(frame)
   _log("loading metadata for session", sesID)
   info = json.read(path) or {}
   info.session = {ID = sesID}
@@ -212,17 +211,27 @@ function _M.loadSession()
 
   -- scale pixel size by binning
   local pix do
-    pix = stack.keywords.XPIXSZ
-    if pix then
-      local bin = stack.keywords.XBINNING or 1
+    pix = frame.keywords.XPIXSZ
+--[[
+
+NOT SURE IF THIS IS RIGHT THING TO DO?
+
+if pix then
+      local bin = frame.keywords.XBINNING or 1
       pix = pix * bin
     end
-  end
+--]]
+end
   
-  local scope = stack.telescope or thisObs.telescope or ''
-  local zoom = math.max(utils.calcScreenRatios(stack.image))     -- max size of full screen image
+  -- choose correct Bayer pattern:
+  -- menu selection takes priority, then observation data, then image file.
+  local bopt = controls.prestack.bayer_opt
+  local selected = bopt[bopt.selected]
+  controls.BAYER = selected ~= "Auto" and selected or frame.bayer or thisObs.bayer
   
-  controls.object.text    = stack.object or thisObs.object or ''
+  local scope = frame.telescope or thisObs.telescope or ''
+  
+  controls.object.text    = frame.object or thisObs.object or ''
   controls.telescope.text = scope
   controls.reducer.text   = thisObs.reducer or ''
   controls.pixelsize.text = pix and tostring(pix) or thisObs.pixelsize or ''
@@ -232,12 +241,12 @@ function _M.loadSession()
   controls.flipLR.checked = thisObs.flipLR or false
   
   controls.rotate.value   = thisObs.rotate or 0
-  controls.focal_len.text = thisObs.focal_length
+  controls.focal_len.text = thisObs.focal_length 
+                              or frame.focallen
                               or telescopes: focal_length(controls.telescope.text) 
                               or controls.focal_len.text
   
   controls.X, controls.Y = 0, 0
-  controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
   
   -- get filenames of rejected subs
   local reject = {} 
@@ -257,8 +266,8 @@ end
 local DOUBLE    -- double click
 local Loptions = {align = "left"}
 
-function _M.update(self)
-  local layout = self.layout
+function _M.update(suit)
+  local layout = suit.layout
   local ridx = widget.row_index 
   local sel = widget.highlight or {}
   widget.highlight = sel
@@ -266,19 +275,19 @@ function _M.update(self)
   local name, folder = current[1] or '', current[12] or ''
   
   layout: reset(550,20, 10,10)
-  if self: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
+  if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
     reloadFolder: push(current)       -- send the whole metadata
     pager: push "main"                -- switch to main display
     DOUBLE = false
   end
   
   local h = love.graphics.getHeight()
-  self: Label(name, Loptions, layout: col(250, 30))
+  suit: Label(name, Loptions, layout: col(250, 30))
   if folder and #folder > 0 then
-    if self: Button("Go To Folder:", 20, h - 50, 180, 30) .hit then
+    if suit: Button("Go To Folder:", 20, h - 50, 180, 30) .hit then
       love.system.openURL ("file://" .. folder)
     end
-    self: Label(folder, Loptions, 220, h - 50, 550, 30)
+    suit: Label(folder, Loptions, 220, h - 50, 550, 30)
   end
 
 end

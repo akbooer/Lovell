@@ -1,0 +1,10 @@
+site_name: Lovell User Manual
+site_description: User documentation for astronomical live-stacking and processing.
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+
+nav:
+  - Home: index.md

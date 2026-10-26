@@ -167,11 +167,11 @@ Together these parameters provide complete control of the composite image lumina
 local sequence    -- last version of stack processed
 
 -- get combined LRGB image from stack,
-function plugin: run(workflow, background, gradient, balance, offset, whitepoint, vignette)
+function plugin: run(workflow, controls, background, gradient, balance, offset, whitepoint, vignette)
   local wstack = workflow.wstack
   
   -- calculate synth/luminance ratio for combination later, also whether enough rgb to do colour processing
-  local R, G, B, L, Re, Ge, Be, Le = unpack(workflow.RGBL)  -- get exposure counts AND times
+  local R, G, B, L, Re, Ge, Be, Le = unpack(controls.RGBL)  -- get exposure counts AND times
 
   if Re + Ge + Be + Le > 0 then                     -- use exposure times if available (issue #6)                        
     R, G, B, L = Re, Ge, Be, Le            

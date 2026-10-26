@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.21",
+  VERSION = "2026.10.26",
   AUTHOR = "AK Booer",
   DESCRIPTION = "poststack processing (background, stretch, scnr, ...)",
 }
@@ -21,14 +21,13 @@ local _M = {
 -- 2026.06.11  access stack object directly, rather than poststack() parameter list
 -- 2026.08.04  complete refactor using "synth" plugin
 -- 2026.09.25  use plugins.process_sequence() iterator
--- 2026.10.14  use workflow.wstack for the stack workflow for 'synth' plugin
 -- 2026.10.21  static platesolve plugin
+-- 2026.10.26  use controls.info for background stats
 
 
 require "logger" (_M)
 
 local controls  = require "controls"
-local stacking  = require "stacking"
 local plugins   = require "plugins"
 
 
@@ -39,23 +38,21 @@ local plugins   = require "plugins"
 
 local function poststack(workflows)
   local workflow = workflows.main
-  local wstack = workflows.wstack
   
-  local stack = stacking.get()
-  if not stack then return end
-
+  if not controls.info.subs then return end
+  
   -- get LRGB composite image from stack
   
   local b = controls.balance            -- channel gains
   local l = controls.luminance          -- brightness, etc.
-  local background = stack.background
+  local background = controls.info.background
   local gradient = 1 + 2 * l.gradient.value    -- gradient strength (slider zero at centre)
   local whitepoint = l.whitepoint.value
   local vignette = l.vignette.value
   local balance = {b.R.value, b.G.value, b.B.value, 1}
   local offset = 1 + 2 * (l.background.value - 0.5)
 
-  local greysky = workflow: plugin ("synth", background, gradient, balance, offset, whitepoint, vignette)
+  local greysky = workflow: plugin ("synth", controls, background, gradient, balance, offset, whitepoint, vignette)
   
   -- STRETCH
   

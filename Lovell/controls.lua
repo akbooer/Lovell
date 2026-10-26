@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.22",
+    VERSION = "2026.10.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -30,7 +30,8 @@ local _log = require "logger" (_M)
 -- 2026.10.12  add utility function pixel_size()
 -- 2026.10.18  remove Astrometry API key (using localinstall of ASTAP instead)
 -- 2026.10.20  add settings.split_plugins to save and restore menu appearance
--- 2026.10.33  don't override user reset() in control clusters
+-- 2026.10.22  don't override user reset() in control clusters
+-- 2026.10.24  remove unused star alignment parameters
 
 
 local json = require "lib.json"
@@ -126,6 +127,7 @@ controls = {
     -- info panel
     
     object = {default = ''},
+    info = {},                  -- sundry info added to during stacking and processing
     
     -- settings page
     
@@ -186,9 +188,7 @@ controls = {
       stack_opt = stackOptions,
       
       -- max # stars to find, peak search radius, limit to between-frame shifts
-      maxstar = {id = "#stars", value =  50, default =   50, min = 10, max = 100, format = "%3d", style = "inline"},
-      radius  = {id = "radius", value =  50, default =   50, min = 10, max = 100, format = "%3d", style = "inline"},
-      offset  = {id = "offset", value = 150, default =  150, min = 30, max = 300, format = "%3d", style = "inline"},
+      maxstar = {id = "#stars", value =  30, default =   30, min = 10, max = 40,  format = "%3d", style = "inline"},
       
       draw = function(self, suit)
         local sl = suit.layout
@@ -199,12 +199,10 @@ controls = {
           pager: push "stack" 
         end 
         suit: Choosable(self.stack_opt, sl:row(W))  
-        
-        suit: Label("Alignment limits", self.align, sl:row(W, 20))
+        suit: Label("Alignment", self.align, sl:row(W, 20))
         suit: Slideable(self.maxstar, sl:row(W, 10))
-        suit: Slideable(self.radius, sl:row())
-        suit: Slideable(self.offset, sl:row())
-       end,
+        suit: Label('', self.align, sl:row(W, 20))
+      end,
     },
   
   }
@@ -242,11 +240,15 @@ function controls: reset()
   -- TODO: reset LRGB, Gamma, etc. to defaults??
   
   plugins["platesolve"] : reset(controls)          -- clear previous platesolve data
+  self.object.text = ''    -- forget the last object
+  self.subs = nil
+  self.info = {
+    -- Nstack = 0,    -- number of stacked frames
+    }
   
   if not self.settings.retainControls then
     plugins: reset()
   end
-  self.object.text = ''    -- forget the last object
 end
 
 function controls: load()

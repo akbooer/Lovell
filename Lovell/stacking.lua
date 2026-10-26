@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.14",
+    VERSION = "2026.10.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "The stack",
   }
@@ -14,6 +14,7 @@ local _M = {
 -- 2026.07.15  include RGBL in stacker call for scaling
 -- 2026.09.09  retain FITS headers in each frame
 -- 2026.10.14  use workflow.wstack for the stack workflow
+-- 2026.10.24  remove unused star alignment parameters
 
 
 local _log = require "logger" (_M)
@@ -25,16 +26,6 @@ local stacker   = require "shaders.stacker"
 local vector    = require "lib.vector"
 local newTimer  = require "utils" .newTimer
 
-local stack           -- the stack frame, full of useful info
-
-
-function _M.get()
-  return stack
-end
-
-function _M.clear()
-  stack = nil
-end
 
 -------------------------------
 --
@@ -74,13 +65,14 @@ local function stacking(workflow, filter, bayer, exposure)
   _log("filter type: ", filter)
   local filterChans = bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
   local countChans  = bayer and rgb_count.RGB or rgb_count[filter] or {0,0,0,0}
-    
-  local RGBL = workflow.RGBL or vector {0,0,0,0,  0,0,0,0}      -- initalise stack counts, and exposures
-  
   countChans = vector(countChans)
+    
+  local RGBL = controls.RGBL or 
+          vector {0,0,0,0,  0,0,0,0}      -- initalise stack counts, and exposures
   
   RGBL = RGBL + (countChans .. (countChans * exposure))
-  workflow.RGBL = RGBL
+  
+  controls.RGBL = RGBL
   workflow.sequence = workflow.sequence and (workflow.sequence + 1) or 1    -- track stack updates
 
   stacker.stack(wstack, workflow, filterChans, RGBL)
@@ -98,7 +90,7 @@ end
 -- ADD new frame to stack
 --
 
-function _M.new(workflows, frame)
+local function stack(workflows, frame)
   _log ''
   _log "STACK"
   local elapsed = newTimer()
@@ -112,6 +104,7 @@ function _M.new(workflows, frame)
 
   local alignment, paired
 
+  local info = controls.info
   if frame.first then
     
      -- create/clear new stack
@@ -123,26 +116,23 @@ function _M.new(workflows, frame)
     wstack: clear "output"
     wstack: newInput(workflow.output)
     
-    workflow.RGBL = nil                       -- clear count of separate R,G,B,L subs and exposures
+    controls.RGBL = nil                       -- clear count of separate R,G,B,L subs and exposures
     
-    stack = {}
-
+    for n,v in pairs(frame) do info[n] = v end    
+    info.image = wstack
+    info.Nstack = 0
+    info.exposure = 0
+    info.subs = {}
     
-    for n,v in pairs(frame) do stack[n] = v end    
-    stack.image = wstack
-    stack.Nstack = 0
-    stack.exposure = 0
-    stack.subs = {}
-    
-    stack.keystars = frame.stars     -- possible to choose a different stack for keystars subsequently?
+    info.keystars = frame.stars     -- possible to choose a different stack for keystars subsequently?
     alignment = aligner.null()
     
   else
-    if not stack then return end
+--    if not stack then return end
+    if not info.subs then return end
     local w, h = workflow: getDimensions()
-    local maxDist = controls.stacking.offset.value
 
-    alignment, paired = aligner.transform(stack.keystars, frame.stars, maxDist, w/2, h/2)
+    alignment, paired = aligner.transform(info.keystars, frame.stars, w/2, h/2)
     frame.matched_pairs = paired
   end
   
@@ -152,7 +142,9 @@ function _M.new(workflows, frame)
    
   -- store alignment info
   frame.align = alignment
-  stack.subs[#stack.subs + 1] = frame
+  info.subs[#info.subs + 1] = frame
+  controls.subs = info.subs
+  
   
   -------------------------------
   --
@@ -164,15 +156,14 @@ function _M.new(workflows, frame)
     
     local filter, bayer, exposure
     filter = frame.filter                         -- stacker needs to know which filter(s)
-    bayer = frame.bayer
+    bayer = controls.BAYER
     exposure = frame.exposure or 0                -- ...and the exposure 
-    stack.exposure = stack.exposure + exposure
+    info.exposure = info.exposure + exposure
     
-    stack.Nstack = stack.Nstack + 1
+    info.Nstack = info.Nstack + 1
     
     stacking (workflow, filter, bayer, exposure)
-    stack.background = workflow: background(wstack.output)  
-    wstack.info.background = stack.background   -- hook used by statistics plugin
+    info.background = workflow: background(wstack.output)  
  
   end
   
@@ -181,6 +172,6 @@ function _M.new(workflows, frame)
 end
 
 
-return _M
+return stack
 
 -----

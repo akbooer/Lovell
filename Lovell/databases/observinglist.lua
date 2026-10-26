@@ -407,11 +407,11 @@ end
 -- UPDATE GUI
 --
 
-function _M: update()
+function _M.update(suit)
   
   if #widget.data == 0 then return end
   
-  local layout = self.layout
+  local layout = suit.layout
   local function row(...) return layout: row(...) end
   local function col(...) return layout: col(...) end
    
@@ -423,20 +423,20 @@ function _M: update()
 
   -- observing list buttons
   
-  if self: Button("Select all", row(120, 30)) .hit then
+  if suit: Button("Select all", row(120, 30)) .hit then
     select_all()
   end
   col(15, 30)
-  if self: Button("Deselect all", col(120, 30)) .hit then
+  if suit: Button("Deselect all", col(120, 30)) .hit then
     deselect_all()
   end
 
   col(50, 30)
-  if self: Button("Add to Watchlist", col(170, 30)) .hit then
+  if suit: Button("Add to Watchlist", col(170, 30)) .hit then
     add_to_observing_list()
   end
   col(15, 30)
-  if self: Button("Delete from Watchlist", col(170, 30)) .hit then
+  if suit: Button("Delete from Watchlist", col(170, 30)) .hit then
     remove_from_observing_list()
   end
 
@@ -449,12 +449,12 @@ function _M: update()
   local datetime = os.date("!*t", when)
   _M.local_sidereal_time = local_sidereal_time(datetime, _M.longitude)
   local sun_elev = sun_altitude(datetime, _M.latitude, _M.longitude)
-  self: Label("sun: %.0fº" % sun_elev, col(100, 30))
+  suit: Label("sun: %.0fº" % sun_elev, col(100, 30))
   
   local x,y,w,h = col(220, 30)    -- position for slider
-  self: Label(os.date("%d %b %H:%M", when), col(150, 30))
+  suit: Label(os.date("%d %b %H:%M", when), col(150, 30))
   -- user moves time slider
-  local time_slider = self: Slider(sun_time, x,y+10, w,14) 
+  local time_slider = suit: Slider(sun_time, x,y+10, w,14) 
   local t = lt.getTime()
   
   if rightClick(time_slider) then  
@@ -462,7 +462,7 @@ function _M: update()
   end
   
   if time_slider.hovered then
-    self: Label('+' .. utils.formatHM(hour_offset), Loptions, x - 17 + w * hour_offset /24, y - 15, 50, h)
+    suit: Label('+' .. utils.formatHM(hour_offset), Loptions, x - 17 + w * hour_offset /24, y - 15, 50, h)
      last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
   
   end
@@ -472,10 +472,10 @@ function _M: update()
   
   local current = controls.object
   layout: reset(550,20, 10,10)     -- go back to top and insert button to set current object
-  if self: Button("Set Current Object", col(150, 30)) .hit then
+  if suit: Button("Set Current Object", col(150, 30)) .hit then
     current.text = (widget.data[widget.row_index[sel.anchor]] or {})[1] or ''
   end
-  self: Label(current.text, Loptions, col(250, 30))
+  suit: Label(current.text, Loptions, col(250, 30))
 
 end
 

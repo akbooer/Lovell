@@ -54,10 +54,10 @@ vec4 effect(vec4 color, Image tex, vec2 tc, vec2 _) {
 ]]
 
 
-local function mono_image(workflow)
+local function mono_image(workflow, controls)
   
   -- calculate synthetic luminance from available channels
-  local R, G, B, L, Re, Ge, Be, Le = unpack(workflow.RGBL)  -- get exposure counts AND times
+  local R, G, B, L, Re, Ge, Be, Le = unpack(controls.RGBL)  -- get exposure counts AND times
   if Re + Ge + Be + Le > 0 then                     -- use exposure times if available                        
     R, G, B, L = Re, Ge, Be, Le            
   end
@@ -150,7 +150,7 @@ function plugin: run(workflow, controls)
   local object = controls.object                -- object info including name, RA, DEC, possibly
   
   _log("getting unstretched mono image from stack [%dx%d]" % {image:getDimensions()})
-  image = mono_image(workflow)          -- get unstretched mono image from stack
+  image = mono_image(workflow, controls)          -- get unstretched mono image from stack
   _log ("converting image to FITS file:", fitsfile)
   fits.write(image, fitspath)
   

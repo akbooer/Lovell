@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.04.28",
+    VERSION = "2026.10.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -22,12 +22,13 @@ local _M = {
 -- 2026.03.29  change canvas precision from rgba16f to rgba16
 -- 2026.04.10  make thumbnail creation and star detection part of prestack processing
 -- 2026.04.28  calculate thumbnail statistics as proxy for full image
+-- 2026.10.24  control.zoom calculation moved to here from loadSession()
 
 
 local _log = require "logger" (_M)
 
 local controls  = require "controls"
-local newTimer  = require "utils" .newTimer
+local utils  = require "utils"
 
 local love = _G.love
 local lg = love.graphics
@@ -36,7 +37,7 @@ local lg = love.graphics
 local function prestack(workflows, frame)
   _log ''
   _log "PRESTACK"
-  local elapsed = newTimer()
+  local elapsed = utils.newTimer()
   local workflow = workflows.main
   
   local imageData = frame.imageData
@@ -46,16 +47,22 @@ local function prestack(workflows, frame)
   -- prestack control cluster
   local p = controls.prestack
   local do_dark, do_flat = p.do_dark.checked, p.do_flat.checked
-  local option = p.bayer_opt
-  local selected = option[option.selected]
+--  local option = p.bayer_opt
+--  local selected = option[option.selected]
 
   -- stacking control cluster
   local s = controls.stacking
-  local radius = s.radius.value   -- star peak search radius
   local maxstar = s.maxstar.value
   
-  local bayerpat = selected ~= "Auto" and selected or frame.bayer
-  frame.bayer = bayerpat
+--  local bayerpat = selected ~= "Auto" and selected or frame.bayer
+--  frame.bayer = bayerpat
+  local bayerpat = controls.BAYER
+  
+  -- screen control cluster
+  if frame.first then     -- ... otherwise it's whatever the user has set
+    local zoom = math.max(utils.calcScreenRatios(rawImage))     -- max size of full screen image
+    controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
+  end
   
   local ratio = p.badpixel.checked and p.badratio.value or 1e6   -- turn it on/off
 
@@ -70,8 +77,8 @@ local function prestack(workflows, frame)
   workflow: badpixel(bayerpat, ratio)           -- hot pixel removal is different if there's a Bayer matrix  
   workflow: debayer(bayerpat)                   -- debayer or replicate to R,G,B, and A channels
 
-  frame.thumb = workflow: thumbnail()                         -- store thumbnail
-  frame.stars = workflow: starfinder(radius, maxstar)         -- extract star positions and flux
+  frame.thumb = workflow: thumbnail()           -- store thumbnail
+  frame.stars = workflow: starfinder(maxstar)   -- extract star positions and flux
    
   rawImage: release()
   imageData: release()

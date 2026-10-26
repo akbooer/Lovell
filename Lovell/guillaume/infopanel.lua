@@ -18,11 +18,12 @@ local _M = {
 -- 2026.05.19  minor tidy, controls have own module
 -- 2026.06.11  use new stack object directly
 -- 2026.10.12  use controls.pixel_size()
+-- 2026.10.26  use controls.info for essential information
 
 
 require "logger" (_M)
 
-local stacking    = require "stacking"
+
 local controls    = require "controls"
 local dsos        = require "databases.dso"
 local GUIobjects  = require "guillaume.objects"
@@ -63,12 +64,13 @@ local Moptions = {align = "left", valign = "middle", color = bluetext}
 -- UPDATE annotation panel
 --
 
-function _M.update(self, screen)
+function _M.update(suit, image)
   local eyepiece = controls.eyepiece.checked
   local pin_info = controls.pin_info
-  local layout = self.layout
+  local layout = suit.layout
   local row, col = GUIobjects.rowcol(layout)
-  local stack = stacking.get () or empty
+--  local stack = stacking.get () or empty
+  local info = controls.info or empty
   
   -- search DSO database for object name, if necessary
   local obj = controls.object
@@ -78,58 +80,57 @@ function _M.update(self, screen)
     obj.OBJ, obj.RA, obj.DEC, obj.DIA = dsos.search(obj.text)  
   end
 
-  local w, h = getDimensions(screen)
+  local w, h = getDimensions(image)
   layout:reset(w - margin + 10, 10)    -- position the layout origin...
   layout:padding(10,10)                 -- ...and put extra pixels between cells in each direction
 
   layout: push (w - 30, 10)
-  self:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
+  suit:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
   layout: pop()
   
-  self:Input(controls.object, Ioptions, row(margin - 20, 30))
+  suit:Input(controls.object, Ioptions, row(margin - 20, 30))
 
-  self:Label("object", Loptions, row(margin - 60, 10))
+  suit:Label("object", Loptions, row(margin - 60, 10))
   
 --  local diam = obj.DIA and ", Ø" .. formatArcMinutes(obj.DIA) or ''
-  self:Label(obj.OBJ or '', Woptions, row(margin, 15))
+  suit:Label(obj.OBJ or '', Woptions, row(margin, 15))
   
-  self:Label("RA", Loptions, row(Wcol, 10))
-  self:Label("DEC", Loptions, col(Wcol, 10))
+  suit:Label("RA", Loptions, row(Wcol, 10))
+  suit:Label("DEC", Loptions, col(Wcol, 10))
   layout:left()
-  self:Label(formatRA(obj.RA or ''),   Woptions, row())
-  self:Label(formatDEC(obj.DEC or ''), Woptions, col())
+  suit:Label(formatRA(obj.RA or ''),   Woptions, row())
+  suit:Label(formatDEC(obj.DEC or ''), Woptions, col())
   layout:left()
   
   row()
   
-  local image = stack.image
-  local temp = stack.temperature
   local caminfo
   if image then
     local w, h = image: getDimensions()
-    caminfo = ("[%d x %d]  %s" % {w, h, stack.bayer or "Mono"})
+    caminfo = ("[%d x %d]  %s" % {w, h, controls.BAYER or "Mono"})
   end
-  local camera = stack.camera or image and caminfo  or ''
-  local tcam = temp and (" @ %sºC" % temp) or ''
+  local camera = info.camera or image and caminfo  or ''
+  local temp = tonumber(info.temperature)
+  local tcam = temp and (" @ %dºC" % temp) or ''
   
   -- telescope and camera 
   
   local telescope = controls.telescope.text
   
-  self:Label("date", Loptions, row(margin, 15))
-  self:Label(stack.date or '?', Woptions, row(margin, 10))
+  suit:Label("date", Loptions, row(margin, 15))
+  suit:Label(info.date or '?', Woptions, row(margin, 10))
   
-  self:Label("telescope", Loptions, row(margin, 15))
-  self:Label(telescope,   Woptions, row(margin, 15)) 
+  suit:Label("telescope", Loptions, row(margin, 15))
+  suit:Label(telescope,   Woptions, row(margin, 15)) 
   
-  self:Label("camera" .. tcam, Loptions, row(margin, 15))
-  self:Label(camera or '??', Woptions, row(margin, 15))
+  suit:Label("camera" .. tcam, Loptions, row(margin, 15))
+  suit:Label(camera or '??', Woptions, row(margin, 15))
 
   -- FOV
   
   local angle = formatDegrees(controls.rotate.value or 0, 1)    -- 1 decimal place
   local arcsize = controls.pixel_size()
-  local fov = '?'
+  local fov = ''
   if arcsize then
     arcsize = arcsize / controls.zoom.value                           -- screen pixel size
     local radius, w, h = Oculus.radius()
@@ -139,59 +140,59 @@ function _M.update(self, screen)
       fov = table.concat({formatAngle(w * arcsize), formatAngle(h * arcsize)}, " x\n")
     end
   end
-  self: Label("fov", Loptions, row(Wcol, 15))
-  self: Label("rotation", Loptions, col(Wcol, 15))
+  suit: Label("fov", Loptions, row(Wcol, 15))
+  suit: Label("rotation", Loptions, col(Wcol, 15))
   layout: left()
-  self: Label(fov, Woptions, row(Wcol, 15))
-  self: Label(angle, Woptions, col(Wcol, 15))
+  suit: Label(fov, Woptions, row(Wcol, 15))
+  suit: Label(angle, Woptions, col(Wcol, 15))
   layout: left()
   
-  row()
+  row()  
   
 --  self:Label("stacked ", Loptions, row(Wcol, 10))
   local so = controls.stackOptions
-  self:Label(so.displayname[so.selected] or '', Loptions, row(Wcol, 10))
-  self:Label("mm:ss", Loptions, col(Wcol, 10))
+  suit:Label(so.displayname[so.selected] or '', Loptions, row(Wcol, 10))
+  suit:Label("mm:ss", Loptions, col(Wcol, 10))
   layout:left()
-  local stacks = "%d/%d" % {stack.Nstack or 0, stack.subs and #stack.subs or 0}
-  self:Label(stacks, Woptions, row(Wcol, 15))
-  local exp = stack.exposure or 0
-  exp = [[%d:%02d]] % {math.floor(exp / 60), exp % 60}
-  self:Label(exp, Woptions, col(Wcol, 15))
-  layout:left()
+  local stacks = "%d/%d" % {info.Nstack or 0, info.subs and #info.subs or 0}
   
---  local RGBL = stacking.RGBL 
+  suit:Label(stacks, Woptions, row(Wcol, 15))
+  local exp = info.exposure or 0
+  exp = [[%d:%02d]] % {math.floor(exp / 60), exp % 60}
+  suit:Label(exp, Woptions, col(Wcol, 15))
+  layout:left()
 
-  local dark, flat = stack.dark_calibration and "dark ", stack.flat_calibration and "flat "
+  local dark, flat = info.dark_calibration and "dark ", info.flat_calibration and "flat "
   if dark or flat then
     local calib = "calibration: " .. (dark or '') .. (flat or'')
-    self: Label(calib, Loptions, row(margin - 20, 15))
+    suit: Label(calib, Loptions, row(margin - 20, 15))
   end
+  
   local obs_notes = controls.obs_notes.text
   if #obs_notes > 0 then
-    self:Label("observing notes", Loptions, row(margin, 15))
-    self:Label(obs_notes, Toptions, row(margin - 20, 50))
+    suit:Label("observing notes", Loptions, row(margin, 15))
+    suit:Label(obs_notes, Toptions, row(margin - 20, 50))
   end
   
   local ses_notes = controls.ses_notes.text
   if #ses_notes > 0 then
-    self:Label("session notes", Loptions, row(margin, 15))
-    self:Label(ses_notes, Toptions, row(margin - 20, 50))
+    suit:Label("session notes", Loptions, row(margin, 15))
+    suit:Label(ses_notes, Toptions, row(margin - 20, 50))
   end
 
   -- settings and time
  
   layout:reset(w - margin + 10, h - 125, 10, 10)             -- position the layout origin...
   layout: row(10, 10)
-  if self: Button("Settings", layout: row(margin - 20, 30)) .hit then
+  if suit: Button("Settings", layout: row(margin - 20, 30)) .hit then
     pager: push "settings"
   end
   layout: row(20, 50)
-  self: Label(os.date "%a  %H:%M", Moptions, layout: col(80,50))
+  suit: Label(os.date "%a  %H:%M", Moptions, layout: col(80,50))
   
   -- EXIT
   
-  if self:Button ("Exit", col(80, 50)) .hit then
+  if suit:Button ("Exit", col(80, 50)) .hit then
     love.event.push "quit"    
   end
  

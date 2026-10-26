@@ -116,9 +116,9 @@ end
 local coords = generate_mesh()    -- mesh size independent of image dimensions
 
 -- calculate input image gradients for RGB channels
-local function background_calc(self, input, quiet)             -- self is workflow
+local function background_calc(workflow, input, quiet)
   local elapsed = newTimer()
-  local channelCount = self: getChannelCount()
+  local channelCount = workflow: getChannelCount()
   if not quiet then 
     _log ("sampling %d image channels..." % channelCount)
   end

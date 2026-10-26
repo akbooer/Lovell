@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.12",
+    VERSION = "2026.10.23",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -21,13 +21,14 @@ local _M = {
 -- 2026.06.14  add GUI update/draw (previously in main module)
 -- 2026.07.24  create multiple workflows for pre-, stack, and post-processing
 -- 2026.10.12  add workflow profile reporting on shutdown
+-- 2026.10.23  loadSession() before prestack and stacking to access observation info (eg. forced Bayer)
 
 
 local _log = require "logger" (_M)
 
 local controls    = require "controls"
 
-local stacking    = require "stacking"
+local stack       = require "stacking"
 local prestack    = require "prestack"
 local poststack   = require "poststack"
 
@@ -56,6 +57,7 @@ local newFITSfile = love.thread.getChannel "newFITSfile"
 -- SESSION
 --
 
+
 do -- initialise
   controls: reset()   
   controls: load()      -- inititalise from saved settings
@@ -66,7 +68,6 @@ end
 function _M.new()
   saveSession()  
   controls: reset()
-  stacking: clear()
   workflows.main: clear "output"
 end
 
@@ -92,11 +93,11 @@ function _M.update(dt)
     
   if frame then  -- process new frame
 
-    prestack(workflows, frame)                         -- PRESTACK processing
-    
-    stacking.new(workflows, frame)                     -- STACKING
+    if frame.first then loadSession(frame) end          -- load relevant session info
 
-    if frame.first then loadSession() end             -- load relevant session info
+    prestack(workflows, frame)                          -- PRESTACK processing
+    
+    stack(workflows, frame)                             -- STACKING
   
   end
 
@@ -105,7 +106,7 @@ function _M.update(dt)
   
   local update = frame or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed)
   
-  if update then poststack(workflows) end                      -- POSTSTACK processing
+  if update then poststack(workflows) end               -- POSTSTACK processing
 
 end
 

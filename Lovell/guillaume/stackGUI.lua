@@ -27,10 +27,7 @@ require "logger" (_M)
 
 local suit = require "suit" .new()     -- make a new SUIT instance for ourselves
 
-
-local stack     = require "stacking"
 local controls  = require "controls"
-local vector    = require "lib.vector"
 
 local workflow  = require "workflow" .new {name = "thumbnails", format = "rgba16"}
 
@@ -39,7 +36,6 @@ local lg = love.graphics
 local lt = love.timer
 
 local empty = _G.READONLY {}
-local deg = 180 / math.pi
 
 local margin = 200
 
@@ -194,7 +190,7 @@ local function panel(subframe)
   if align then
     suit: Label("alignment", Loptions, row())
     suit: Label(xy: format(align[2], align[3]), Woptions, row())
-    suit: Label(theta % (align[1] * deg), Woptions, row())
+    suit: Label(theta % math.degrees(align[1]), Woptions, row())
   else
     suit: Label("not aligned", Aoptions, row())
     suit: Label('', row())    -- maintain spacing of epoch label below
@@ -293,7 +289,8 @@ local function tween()
 end
 
 
-function _M.update()
+function _M.update(dt, image)
+  local _ = dt                      -- unused at present
   local timenow = lt.getTime()
   if timenow > lasttime + 1 then    -- we've just arrived at this page...
     lastindex = nil
@@ -301,16 +298,15 @@ function _M.update()
   lasttime = timenow
   
   local layout = suit.layout
-  local stack = stack: get()
-  
-  if not stack then subs = nil return end
+--  local stack = stack: get()
+  subs = controls.subs
+  if not (subs and controls.subs[1]) then return end    -- at least one sub to show?
   
   W,H = lg.getDimensions()
   layout: reset(margin, 100, 10,10)
   
-  subs = stack.subs
   w,h = subs[1].thumb: getDimensions()  
-  local ws = stack.image: getDimensions()
+  local ws = image: getDimensions()
   scale = 0.70 * H / h          -- image is X % of screen height
   local n = #subs
   index = 1

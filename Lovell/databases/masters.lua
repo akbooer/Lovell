@@ -76,7 +76,7 @@ local cols = {
     {"Name",   w = 250, },
     {"Type", w = 60, align = "center", },
     {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
-    {"ºC", w = 50, format = function(t) return t and t .. 'º' or '' end, align = "center", type = "number", },
+    {"ºC", w = 50, format = function(t) return t and (t  - t%0.1) .. 'º' or '' end, align = "center", type = "number", },
     {"Gain", w = 60, format = function(g) return g and (g > 1 and "%.0f" or "%.3f") % g or '' end, align = "center", type = "number", },
     {"Offset", w = 60, format = function(o) return o and "%+d" % o or '' end, align = "center", type = "number", },
     {"Filter", w = 60, align = "center", },
@@ -320,7 +320,7 @@ function _M.new(file)
     _log(err)
   end
   
-  -- now index the calibration file metadata
+  -- TODO: now index the calibration file metadata
 --  _M.reload()
 
 end
@@ -332,22 +332,22 @@ end
 
 local Roptions
 
-function _M.update(self)
-  local layout = self.layout
+function _M.update(suit)
+  local layout = suit.layout
   local function row(...) return layout: row(...) end
   local function col(...) return layout: col(...) end
-  Roptions = Roptions or {align = "right",  color = {normal = {fg = self.theme.color.hovered.bg }}}   -- fixed labels
+  Roptions = Roptions or {align = "right",  color = {normal = {fg = suit.theme.color.hovered.bg }}}   -- fixed labels
 
   -- current values
   
   row(0, 0)
   if dark then
-    self: Label("current dark", Roptions, col(120, 20))
-    self: Label(dark[tag.Name], col(400, 20))
+    suit: Label("current dark", Roptions, col(120, 20))
+    suit: Label(dark[tag.Name], col(400, 20))
   end
   if flat then
-    self: Label("current flat", Roptions, col(120, 20))
-    self: Label(flat[tag.Name], col(400, 20))
+    suit: Label("current flat", Roptions, col(120, 20))
+    suit: Label(flat[tag.Name], col(400, 20))
   end
   
  --[[ 

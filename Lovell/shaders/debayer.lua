@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.07.31",
+    VERSION = "2026.10.23",
     AUTHOR = "Morgan McGuire / Rasmus Raag / AK Booer",
     DESCRIPTION = "Malvar-He-Cutler Bayer demosaic",
   }
@@ -21,6 +21,7 @@ local _log = require "logger" (_M)
 -- 2026.06.30  put BayerOptions here, and export
 -- 2026.07.04  use workflow: shadeWith() 
 -- 2026.07.31  swap BGGR / GBRG !
+-- 2026.10.23  add default selection to BayerOptions (so that reset works)
 
 
 -- see: https://casual-effects.com/research/McGuire2009Bayer/
@@ -229,7 +230,8 @@ vec4 effect( vec4 color, Image source, vec2 tp, vec2 _ ){
 
 ]]
 
-_M.BayerOptions = {"Auto", "RGGB", "GRBG", "BGGR", "GBRG", id = "Bayer pattern: "}
+_M.BayerOptions = {"Auto", "RGGB", "GRBG", "BGGR", "GBRG", 
+                      id = "Bayer pattern: ", selected = 1, default = 1}
 
 local pattern = {
     RGGB = {0, 0},

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.14",
+    VERSION = "2026.10.24",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – Report image statistics",
   }
@@ -12,6 +12,7 @@ local _M = {
 require "logger" (_M)
 
 -- 2026.10.14  Version 0
+-- 2026.10.24  correct R G B L title line!
 
 
 local plugin = {
@@ -30,11 +31,11 @@ MAD (Mean Absolute Deviation) is calculated as the median value of the the lower
 
 local line = {}
 local left = {align = "left"}
-local titles = table.concat({"name", 'R', 'B', 'G', 'L'}, (' '): rep(14))
+local titles = table.concat({"name", 'R', 'G', 'B', 'L'}, (' '): rep(14))
 local subs = {}
 
-function plugin: run(workflow)
-  local b = workflow.wstack.info.background    -- shouldn't have to dig this depp!
+function plugin: run(workflow, controls)
+  local b = controls.info.background
   if b then
     line = {
         {"mean",    unpack(b.Linear[1])},
@@ -43,7 +44,7 @@ function plugin: run(workflow)
         {"min",     unpack(b.MIN)},
         {"max",     unpack(b.MAX)},
       }
-    subs = {"#subs", unpack(workflow.RGBL)}
+    subs = {"#subs", unpack(controls.RGBL)}
   end
 end
 

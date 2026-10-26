@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2025.12.02",
+  VERSION = "2026.10.24",
   AUTHOR = "AK Booer",
   DESCRIPTION = "Image frame wrapper / reader for FITS files",
 }
@@ -15,6 +15,8 @@ local love = _G.love
 -- 2025.03.27  improve error returns for Lua io library reads (when reloading observations)
 -- 2025.05.15  add keyword OFFSET to frame (for calibration)
 -- 2025.11.26  fold frame subtype to lower case
+
+-- 2026.10.24  added k.FOCALLEN to frame
 
 
 local _log = require "logger" (_M)
@@ -113,6 +115,7 @@ function _M.read(folder, filename, mountpoint, skip_data)
     
     subtype = subtype: lower(),   -- bias, dark, light, flat, etc...
     filter = filter: upper(),     -- L, R, G, B, ...
+    focallen = tonumber(k.FOCALLEN),
 
     exposure =  k.EXPOSURE or k.EXPTIME or (k.EXPOINUS or 0) * 1e-6,    -- convert to seconds
     bayer = bayer, 

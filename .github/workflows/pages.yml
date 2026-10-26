@@ -1,0 +1,29 @@
+name: Deploy Documentation  # The name shown in your GitHub repository's "Actions" tab
+
+on:
+  push:
+    branches:
+      - main  # Tells GitHub: "Run this script automatically every time code is pushed to the 'main' branch"
+
+permissions:
+  contents: write  # Gives the automated script permission to write/update the published website files in your repo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  # Tells GitHub to spin up a fast, clean Linux cloud computer to do the building
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4  # Step 1: Downloads a copy of your repository code onto the cloud computer
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'  # Step 2: Installs Python on the cloud computer
+
+      - name: Install dependencies
+        run: |
+          pip install mkdocs-material  # Step 3: Installs the MkDocs Material theme just like you did locally
+
+      - name: Build and deploy docs
+        run: |
+          mkdocs gh-deploy --force  # Step 4: Compiles your Markdown into HTML and pushes it live to GitHub Pages

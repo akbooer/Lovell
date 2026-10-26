@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.09.21",
+  VERSION = "2026.10.24",
   AUTHOR = "AK Booer",
   DESCRIPTION = "star detection",
 }
@@ -26,6 +26,7 @@ local _M = {
 -- 2026.09.01  5x5 patch to measure flux and FWHM more carefully
 --
 -- 2026.09.21  complete re-write with integrated detector / centroid and flux / candidate selection funnel
+-- 2026.10.24  remove unused star alignment parameters
 
 
 local _log = require "logger" (_M)
@@ -268,7 +269,7 @@ local twoD = lg.newCanvas(1,1)      -- just a dummy to start with
 -- note that this doesn't disrupt the workflow, 
 -- as it restores original workflow output before returning
 -- NB: the alpha channel may not be unity (could be replicated monochrome image) hence BlendMode
-local function starfinder(workflow, span, maxstar)
+local function starfinder(workflow, maxstar)
   local channel = 0       -- use the red channel (maybe just monochrome anyway)
   local scale = 1 / TILESIZE
   local elapsed = newTimer()

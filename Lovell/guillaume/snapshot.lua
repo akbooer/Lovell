@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.18",
+    VERSION = "2026.10.25",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -21,13 +21,13 @@ local _M = {
 -- 2026.06.14  remove dependency on session module
 -- 2026.10.14  use controls.pixel_size(), add OPTION-click for full-size PNG
 -- 2026.10.18  use controls.option to detect option key(s)
+-- 2026.10.25  use controls.subs rather than access to stack
 
 
 local _log = require "logger" (_M)
 
 
 local controls  = require "controls"
-local stacking  = require "stacking"
 local utils     = require "utils"
 
 local formatRA          = utils.formatRA
@@ -42,7 +42,6 @@ local moveXY = Objects.moveXY
 
 local love = _G.love
 local lg = love.graphics
-local lk = love.keyboard
 
 local path = "snapshots/%s_%s_%x.png"   -- target, session, current epoch in hexadecimal
 
@@ -88,7 +87,7 @@ local canvas    -- the snapshot image itself
 local function get_annotations(image)
 
   local eyepiece = controls.eyepiece.checked
-  local stack = stacking.get() or {}
+  local frame = controls.subs and controls.subs[1] or {}
     
   local obj = controls.object
   Object = obj.text
@@ -98,19 +97,18 @@ local function get_annotations(image)
   Diam = formatArcMinutes(obj.DIA)
   Diam = Diam ~= '' and ("Ø: " .. Diam) or ''
   
-  local temp = stack.temperature
   local caminfo
   if image then
     local w, h = image: getDimensions()
-    caminfo = ("[%d x %d]  %s" % {w, h, stack.bayer or "Mono"})
+    caminfo = ("[%d x %d]  %s" % {w, h, controls.BAYER or "Mono"})
   end
-  Camera = stack.camera or image and caminfo  or ''
-  Ctemp = temp and (" @ %sºC" % temp) or ''
-  Gain = tonumber(stack.gain) and ("gain: %d" % stack.gain) or ''
-  
+  Camera = frame.camera or image and caminfo  or ''
+  local temp = tonumber(frame.temperature)
+  Ctemp = temp and (" @ %dºC" % temp) or ''
+  Gain = tonumber(frame.gain) and ("gain: %d" % frame.gain) or ''
   
   Telescope = controls.telescope.text
-  Date = stack.date or ''
+  Date = frame.date or ''
 
   -- FOV
   
@@ -127,16 +125,19 @@ local function get_annotations(image)
     end
   end
   
-  local T = stack.exposure or 0
-  Exposure = T / stack.Nstack     -- average per sub
+  local RGBL = controls.RGBL 
+--  local T = stack.exposure or 0
+  local T = RGBL and RGBL: dot {0,0,0,0, 1,1,1,1} or 0            -- sum the exposures
+--  local Nstack = RGBL and RGBL: dot {1,1,1,1, 0,0,0,0} or 1e-6
+  local Nstack = controls.info.Nstack
+  Exposure = T / Nstack     -- average per sub
   local so = controls.stackOptions
   local stackname = so.displayname[so.selected]   -- get stacking type
   
-  Stacks = "%s: %d/%d x %ds" % {stackname, stack.Nstack or 0, stack.subs and #stack.subs or 0, Exposure}
+  Stacks = "%s: %d/%d x %ds" % {stackname, frame.Nstack or 0, frame.subs and #frame.subs or 0, Exposure}
   Total = "total exposure: %d:%02d" % {math.floor(T / 60), T % 60}
   
-  local RGBL = stacking.RGBL 
-  Filters = (RGBL and not stack.bayer) and "%dR %dG %dB %dL" % RGBL or nil
+  Filters = controls.BAYER or RGBL and "%dR %dG %dB %dL" % RGBL or nil
   
   -- session and observation notes
   
