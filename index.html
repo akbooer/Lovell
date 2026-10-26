@@ -1,0 +1,633 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="User documentation for astronomical live-stacking and processing.">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Lovell User Manual</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#welcome-to-lovell" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Lovell User Manual" class="md-header__button md-logo" aria-label="Lovell User Manual" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Lovell User Manual
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Lovell User Manual" class="md-nav__button md-logo" aria-label="Lovell User Manual" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Lovell User Manual
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick tour
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick tour">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main display
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dso-observation-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSO / Observation list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#view-stacksubs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        View stack/subs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acknowledgements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acknowledgements
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick tour
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick tour">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main display
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dso-observation-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSO / Observation list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#view-stacksubs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        View stack/subs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acknowledgements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acknowledgements
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="welcome-to-lovell">Welcome to Lövell</h1>
+<h2 id="overview">Overview</h2>
+<p>Lövell is an application for <strong>Electronically-Assisted Visual Astronomy</strong>.</p>
+<p>It is built on the <a href="https://love2d.org/">LÖVE 2D</a> platform, using <a href="https://www.lua.org/">Lua</a> as a scripting language running under <a href="https://luajit.org/">LuaJit</a>.</p>
+<p>Lövell owes its existence to the amazing application <a href="https://github.com/MartinCooke/jocular">Jocular</a>, by @MartinCooke, and, to some extent, its successor, Canisp.  The main display looks a bit like Canisp, the DSO and observations catalogues are lifted almost directly from Jocular (translated from Python to Lua.)</p>
+<p>The novel thing about Lövell is that the image processing workflow is performed almost entirely within the GPU using code written in Open GL Shader Language.  This makes it fast... most post-stack operations are performed within one video frame update (typically 1/60 second) so all interactive adjustments intensity / colour / filtering happen almost instantly.</p>
+<h2 id="installation">Installation</h2>
+<ul>
+<li>download the appropriate (Mac or PC) image of LÖVE (https://love2d.org/#download)</li>
+<li>install it, per the relevant instructions</li>
+<li>download the Lövell.love file from this repository</li>
+</ul>
+<h2 id="quick-tour">Quick tour</h2>
+<ul>
+<li>click on the Lövell.love file (or drop onto the LÖVE app) to run it</li>
+<li>drop a folder containing raw 16-bit FITS files onto the app window</li>
+</ul>
+<h3 id="main-display">Main display</h3>
+<p>The main display shows a stacked image with controls for adjustments and an information panel.  Most buttons are drop-down menus (which remain pinned if clicked rather than hovered.)</p>
+<p><img width="1274" height="736" alt="Screenshot 2026-08-29 at 17 33 18" src="https://github.com/user-attachments/assets/20bda6ac-a61a-40e7-8b2d-c4b6a58ab4e8" /></p>
+<ul>
+<li><strong>Channel: LRGB</strong> menu views LRGB / Mono / Inverted / Red / Green / Blue channels individually</li>
+<li><strong>Hyper</strong> is one of several stretch functions MidTone / Asinh / Hyper / Linear / Log / Gamma / ...</li>
+<li><strong>Luminance</strong> menu drops down to show additional gradient / vignette / white point sliders</li>
+<li><strong>background / stretch</strong> are the main luminance controls (right- or shift- click set to default)</li>
+<li><strong>RGB</strong>* menu also includes Hubble (SHO) and possibly other colour processing options</li>
+<li><strong>Chroma</strong> menu drops down to show additional tint / SCNR (green) sliders</li>
+<li><strong>saturation / temperature</strong> are the main chrominance controls for the RGB option</li>
+<li><strong>SynthL / Balance / Bilateral / Sharpen / CLAHE / etc.</strong>  are controls for optional processing plugins</li>
+<li><strong>Prestack / Stack</strong> menus give options for those stages of processing</li>
+<li><strong>Databases</strong> (shown dropped down) gives access to various catalogs, etc.</li>
+<li>mouse wheel / trackpad scroll zooms the display</li>
+<li>click and drag moves the display</li>
+<li>click on <strong>Eyepiece..</strong> to switch to <strong>Landscape..</strong> display, and <em>vice versa</em></li>
+<li>hover over eyepiece ring to activate image rotation, click and drag to change</li>
+<li>enter object name in field on top right to search DSO catalogue</li>
+</ul>
+<h3 id="dso-observation-list">DSO / Observation list</h3>
+<p>Some 40,000 objects of interest.
+Close button returns to main display.  </p>
+<p><img width="1273" alt="Screenshot 2025-03-06 at 15 46 15" src="https://github.com/user-attachments/assets/96b90ada-c3d0-4e6a-8850-85f0bbff6f71" /></p>
+<ul>
+<li>click on column names to sort</li>
+<li>text or numeric expressions in filter boxes to select subsets</li>
+<li>click, shift-click, option/control-click to (de)select multiple items</li>
+<li>right click on image to show pop-up menu of <strong>DSO / Observations / Watch list / View stack</strong></li>
+<li>scroll control to forward time by up to 24 hours, updating object positions in Az, Alt, etc...</li>
+</ul>
+<h3 id="view-stacksubs">View stack/subs</h3>
+<p>View all the subs in sequence, show detected and matched stars.
+Close button returns to main display.  </p>
+<p><img width="1272" height="735" alt="Screenshot 2026-08-29 at 17 34 34" src="https://github.com/user-attachments/assets/65dc9906-1d0b-4bb9-ac98-78b3d34c1db4" /></p>
+<ul>
+<li>mouse wheel / trackpad to scroll through subs</li>
+<li><strong>Stretch</strong> applies a variable screen stretch to the display</li>
+<li><strong>Play</strong> button animates sequence of subs</li>
+<li><strong>rate</strong> control changes speed</li>
+<li><strong>Blink</strong> toggles between adjacent subs</li>
+<li><strong>Show stars</strong> indicates detected stars (in blue) and those matched for alignment (orange)</li>
+</ul>
+<h2 id="plugin-architecture">Plugin architecture</h2>
+<p>Most processing steps have been implemented in a modular plugin architecture which allows for (relatively) easy extensions.  Each plugin is a classic MVC (model-view-control) structure containing its own controls, GUI, processing (probably implemented as a GLSL shader plus Lua code), and brief documentation.</p>
+<p><img width="1270" height="729" alt="image" src="https://github.com/user-attachments/assets/27f81b20-9b80-4e96-a71d-335c230aae29" /></p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<ul>
+<li>Martin Cooke, of course, for Jocular and Canisp.</li>
+<li>Matthias Richter for the impeccably written libraries <a href="https://github.com/vrld/suit">SUIT</a> and <a href="https://github.com/vrld/moonshine/">Moonshine</a></li>
+<li><a href="https://stanford.edu/class/ee367/reading/Demosaicing_ICASSP04.pdf">Malvar-He-Cutler</a> Bayer demosaic <a href="https://casual-effects.com/research/McGuire2009Bayer/">McGuire</a> and <a href="https://github.com/rasmus25/debayer-rpi/tree/master">Rasmus25</a></li>
+<li>Fast Global Registration <a href="https://link.springer.com/chapter/10.1007/978-3-319-46475-6_47">Qian-Yi Zhou, Jaesik Park &amp; Vladlen Koltun</a></li>
+<li><a target="_blank" href="https://icons8.com/icon/VbQAZ9BeRzB0/gps-antenna">GPS Antenna</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a></li>
+<li><a href="https://love2d.org/">LÖVE 2D</a></li>
+<li><a href="https://www.lua.org/">Lua</a></li>
+<li><a href="https://luajit.org/">LuaJit</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": [], "search": "assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
