@@ -2,7 +2,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.08.20",
+    VERSION = "2026.10.30",
     AUTHOR = "AK Booer",
     DESCRIPTION = "vector arithmetic",
 
@@ -17,6 +17,7 @@ local _M = {
 -- 2026.07.28  add :mean() 
 -- 2026.08.02  add :ones() and :zeros()
 -- 2026.08.20  add .new(...)  [make a new vector]
+-- 2026.10.30  add .compare(op, vec) for '<', '=', and '>'
 
 
 local _log = require "logger" (_M)
@@ -33,6 +34,10 @@ local function div(a,b) return a / b end
 local function mod(a,b) return a % b end
 local function pow(a,b) return a ^ b end
 local function unm(a)   return   - a end
+
+local function lt(a,b)  print(a,b) return a < b end
+local function gt(a,b)  return a > b end
+local function eq(a,b)  return a == b end
 
 local function vector(a)
   return setmetatable(a or {}, meta)    -- allow v = vector()
@@ -96,7 +101,13 @@ function fct.mean(a) return fct.sum(a) / #a end
 
 function fct.zeros(a) return fill(a, 0) end
 function fct.ones(a)  return fill(a, 1) end
-  
+
+-- a: compare('<', b)
+local ops = {['<'] = lt, ['='] = eq, ['>'] = gt}
+function fct.compare(a, op, b)
+  local f = ops[op] or error("invalid operator: " .. op, 2)
+  return map(f, a, b)
+end
 
 local index =             -- name index for GLSL-type component access and swizzles
   {
@@ -123,11 +134,7 @@ end
 
 function meta:__index(swizzle)
   
-  if fct[swizzle] then 
-    return function (a, b) 
-      return fct[swizzle] (a, b) 
-    end
-  end
+  if fct[swizzle] then return fct[swizzle] end              -- known functions
   
   if index[swizzle] then return self[index[swizzle]] end    -- fast track scalars
   
@@ -172,6 +179,7 @@ function _M.test()
   p {["V:dot(V)"] = V: dot(V)}  
   p {["V:ones()"] = V: ones()}
   p {["V:zeros()"] = V: zeros()}
+  p {["V:compare('<', {2,2,2,2})"] = V: compare('<', {2,2,2,2})}
 
   p {["abgr"] = {V.a, V.b, V.g, V.r}}
   p {["V.rgbaxyzwstpquv"] = V.rgbaxyzwstpquv}

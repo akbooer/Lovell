@@ -22,7 +22,7 @@ local _M = {
 -- 2026.07.24  create multiple workflows for pre-, stack, and post-processing
 -- 2026.10.12  add workflow profile reporting on shutdown
 -- 2026.10.23  loadSession() before prestack and stacking to access observation info (eg. forced Bayer)
-
+-- 2026.11.05  add 
 
 local _log = require "logger" (_M)
 
@@ -50,6 +50,8 @@ workflows.main.wstack = workflows.wstack    -- allow main workflow to access sta
 local love = _G.love
 
 local newFITSfile = love.thread.getChannel "newFITSfile"
+local target = love.thread.getChannel "target"
+local reader = love.thread.getChannel "reader"
 
 
 -------------------------------
@@ -57,20 +59,17 @@ local newFITSfile = love.thread.getChannel "newFITSfile"
 -- SESSION
 --
 
-
 do -- initialise
   controls: reset()   
   controls: load()      -- inititalise from saved settings
 end
 
-
--- start a new observation, by saving metadata from the old one
-function _M.new()
+-- save metadata from the previous observation
+local function save()
   saveSession()  
   controls: reset()
   workflows.main: clear "output"
 end
-
 
 -- shut down the session on application close
 function _M.close()
@@ -82,6 +81,32 @@ end
 
 -------------------------------
 --
+-- OBSERVER 
+--            listen to the target thread for change of target
+--            talk to the reader thread to tell it where to look
+--            listen for new observational data
+--            save the data in the session
+--
+
+-- start a new observation, by saving metadata from the old one
+-- called directly by the main module when folder dropped
+function _M.new(path)
+  save()                      -- save the current observation metadata
+  reader: push(path)          -- pass it on to the reader thread
+end
+
+local function observe()
+  local new = target: pop()
+  if new then
+    save()                    -- save the current observation metadata
+    reader: push(new)         -- pass it on to the reader thread
+  end
+  return newFITSfile: pop()   -- return any new image
+ 
+end
+
+-------------------------------
+--
 -- UPDATE / DRAW
 --
 
@@ -89,22 +114,22 @@ function _M.update(dt)
   
   GUI.update(dt, workflows.main.output)
   
-  local frame = newFITSfile: pop()
+  local observation = observe()                               -- look at the sky
     
-  if frame then  -- process new frame
+  if observation then
 
-    if frame.first then loadSession(frame) end          -- load relevant session info
+    if observation.first then loadSession(observation) end    -- load relevant session info
 
-    prestack(workflows, frame)                          -- PRESTACK processing
+    prestack(workflows, observation)                          -- PRESTACK processing
     
-    stack(workflows, frame)                             -- STACKING
+    stack(workflows, observation)                             -- STACKING
   
   end
 
   -- if new frame, or we're looking at the main display
   -- and things have changed, then apply latest processing
   
-  local update = frame or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed)
+  local update = observation or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed)
   
   if update then poststack(workflows) end               -- POSTSTACK processing
 

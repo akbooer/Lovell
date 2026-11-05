@@ -173,7 +173,6 @@ local function distinct(xyfw, minDistance)
     
     for i = 1, #xyfw do
         local star = xyfw[i]
-        local keep = true
 
         -- Scan backwards through already accepted stars
         for j = #unique, 1, -1 do
@@ -256,6 +255,7 @@ local function recoverCoordinates2d(coords, fullWidth, fullHeight, border)
   N[4] = #best4
   N[5] = #some
   
+--  _log(pretty(some))
   return some, N
 end
 
@@ -265,10 +265,15 @@ local TILESIZE = 16;
 local twoD = lg.newCanvas(1,1)      -- just a dummy to start with
 
 
+-------------------------------
+--
+-- STARFINDER
+--
 -- detects stars, returning array 'xyl' of {x, y, flux} tuples
 -- note that this doesn't disrupt the workflow, 
 -- as it restores original workflow output before returning
 -- NB: the alpha channel may not be unity (could be replicated monochrome image) hence BlendMode
+--
 local function starfinder(workflow, maxstar)
   local channel = 0       -- use the red channel (maybe just monochrome anyway)
   local scale = 1 / TILESIZE
@@ -277,7 +282,7 @@ local function starfinder(workflow, maxstar)
   --
   -- configure 2D canvas, 16x16 smaller than raw image and full 32-bit FP
   --
-  
+
   local w,h = workflow: getDimensions()
   local w2, h2 = math.floor(w * scale), math.floor(h* scale)  
   if w2 ~= twoD: getWidth() or h2 ~= twoD: getHeight() then

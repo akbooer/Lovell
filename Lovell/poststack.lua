@@ -39,7 +39,7 @@ local plugins   = require "plugins"
 local function poststack(workflows)
   local workflow = workflows.main
   
-  if not controls.info.subs then return end
+  if not (controls.info.subs and controls.RGBL) then return end
   
   -- get LRGB composite image from stack
   

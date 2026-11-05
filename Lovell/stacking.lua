@@ -32,18 +32,6 @@ local newTimer  = require "utils" .newTimer
 -- RGBL calculations to track number of exposures of each filter
 --
 
-local t, f = true, false
-
-local rgb_filter = {
-          R   = {t,f,f,f}, 
-          G   = {f,t,f,f}, 
-          B   = {f,f,t,f}, 
-          H   = {t,f,f,f}, 
-          S   = {f,t,f,f}, 
-          O   = {f,f,t,f}, 
-          L   = {f,f,f,t},    -- Luminance is stored in alpha channel
-          RGB = {t,t,t,f},
-        }
 
 local rgb_count = {
           R   = {1,0,0,0}, 
@@ -53,7 +41,15 @@ local rgb_count = {
           S   = {0,1,0,0}, 
           O   = {0,0,1,0}, 
           L   = {0,0,0,1}, 
-          RGB = {1,1,1,0},
+          RGB = {1,1,1,0},    -- for OSC cameras (Bayer matrix)
+        }
+
+-- TODO: add separate buffer within wstack for HSO filters
+local hso_count = {
+          H   = {1,0,0,0}, 
+          S   = {0,1,0,0}, 
+          O   = {0,0,1,0}, 
+          L   = {0,0,0,1}, 
         }
         
         
@@ -63,10 +59,11 @@ local function stacking(workflow, filter, bayer, exposure)
   
   filter = filter:upper()
   _log("filter type: ", filter)
-  local filterChans = bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
+--  local filterChans = bayer and rgb_filter.RGB or rgb_filter[filter] or {f,f,f,t}
   local countChans  = bayer and rgb_count.RGB or rgb_count[filter] or {0,0,0,0}
   countChans = vector(countChans)
-    
+local filterChans = countChans: compare ('=', {1,1,1,1})
+
   local RGBL = controls.RGBL or 
           vector {0,0,0,0,  0,0,0,0}      -- initalise stack counts, and exposures
   

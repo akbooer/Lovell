@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.24",
+    VERSION = "2026.11.03",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -32,6 +32,7 @@ local _log = require "logger" (_M)
 -- 2026.10.20  add settings.split_plugins to save and restore menu appearance
 -- 2026.10.22  don't override user reset() in control clusters
 -- 2026.10.24  remove unused star alignment parameters
+-- 2026.11.03  add RELOAD button to prestack menu, automatic RESTACK if stack mode changed
 
 
 local json = require "lib.json"
@@ -39,16 +40,20 @@ local json = require "lib.json"
 json.float ="%0.3"
 
 local suitable = require "guillaume.suitable"     -- for access to reset flag
+--local obsessions = require "databases.obsessions"
 local plugins  = require "plugins"                -- load all the plugins
 
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
 local stackOptions    = require "shaders.stacker"   .stackOptions
 local BayerOptions    = require "shaders.debayer"   .BayerOptions
-    
+ 
+ 
 local paletteOptions  = {"RGB", "Hubble", '-––––––––––', "-SHO", "-HOO", "-HSO", 
                           id = "Palette: ", selected = 1, default = 1, size = {100, 20}}
 
-local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
+
+local pager  = love.thread.getChannel "pager"      -- a way for non-GUI components to change display page
+local target = love.thread.getChannel "target"    -- for RELOAD/RESTACK button
 
 
 -------------------------------
@@ -176,6 +181,10 @@ controls = {
         
         suit: Checkbox(self.badpixel, sl:row())
         suit: Slideable(self.badratio, sl:row (W, 15))
+        
+        if suit: Button("Reload", sl: row(W, 25)) .hit then
+          target: push "RELOAD"
+        end
       end,
 
     },
@@ -187,7 +196,7 @@ controls = {
       align = {align = "left"},
       stack_opt = stackOptions,
       
-      -- max # stars to find, peak search radius, limit to between-frame shifts
+      -- max # stars to find
       maxstar = {id = "#stars", value =  30, default =   30, min = 10, max = 40,  format = "%3d", style = "inline"},
       
       draw = function(self, suit)
@@ -198,10 +207,18 @@ controls = {
         if suit: Button("View Stack...", sl:row(W - 30, Hb)) .hit then 
           pager: push "stack" 
         end 
-        suit: Choosable(self.stack_opt, sl:row(W))  
+        
+        local mode = self.stack_opt
+        local old = mode.selected
+        suit: Choosable(mode, sl:row(W)) 
+        if mode.selected ~= old then
+          target: push "RELOAD"
+        end
+        
         suit: Label("Alignment", self.align, sl:row(W, 20))
         suit: Slideable(self.maxstar, sl:row(W, 10))
         suit: Label('', self.align, sl:row(W, 20))
+      
       end,
     },
   

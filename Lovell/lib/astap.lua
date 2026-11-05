@@ -69,7 +69,7 @@ function _M.run(info)
   -- Open process via popen to capture stdout
   local handle = io.popen(cmd .. " 2>&1") -- 2>&1 merges stderr into stdout if needed
   if not handle then
-    _log "Error: Failed to open process pipe"
+    _log "ERROR: Failed to open process pipe"
     return nil
   end
 
@@ -90,7 +90,7 @@ function _M.run(info)
   end
 
   if not file then
-    _log "Error: Solution file not generated."
+    _log "ERROR: Solution file not generated."
     return nil
   end
   

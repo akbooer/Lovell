@@ -20,6 +20,7 @@ local _M = {
 -- 2026.10.11  add "Go to Folder" for selected object
 -- 2026.10.22  add focal_length and pixelsize to observation data, add Bayer pattern column (was hidden filter)
 -- 2026.10.24  remove zoom adjustment (no image now that loadSession() is called before prestack)
+-- 2026.10.27  add sorter for size column, using total number of pixels
 
 
 local _log, _err = require "logger" (_M)
@@ -37,8 +38,8 @@ local lf = love.filesystem
 
 local empty = _G.READONLY {}
 
-local reloadFolder = love.thread.getChannel "reloadFolder"
-local pager = love.thread.getChannel "pager"   -- another way to change display page
+local target = love.thread.getChannel "target"    -- select new target
+local pager  = love.thread.getChannel "pager"     -- a way to change display page
 
 -----
 
@@ -50,6 +51,16 @@ local observations = {
 --      titles = {"Object", "Session", "Telescope", "Notes"} ,  -- , "Path"}
     }
 
+-- sorting function for image size using total number of pixels...
+-- ...only a few variants of 'm x n' here, so cache decoded product value
+local sizeSorter do  
+  local product = _G.MEMOIZE(
+    function(x) 
+      local a, b = x: match "(%d+)%D+(%d+)"
+      return a and a * b or 0
+    end)
+  function sizeSorter(a,b) return (product(a) < product(b))end
+end
 
 local cols = {
         {"Name",      w = 200, sort = utils.alphanumeric_sort, },   -- to get things like Messier 51 into correct order
@@ -60,7 +71,7 @@ local cols = {
         {"Frames",    w =  40, align = "center", type = "number", label = '#'},
         {"Expo",      w =  70, align = "center", type = "number", format = utils.formatSeconds, },
         {"Bayer",     w =  60, align = "center", },
-        {"Size",      w = 100, align = "center", },
+        {"Size",      w = 100, align = "center", sort = sizeSorter, },
         {"Telescope", w = 200, },
         {"Notes",     w = 300, },
         {"Path",      w = 300, },   -- not shown on screen
@@ -156,7 +167,7 @@ end
 function _M.saveSession()
   
   local stack = controls.info
-  if not controls.subs then return end
+  if not controls.subs then return end         -- no data to save
   
   local sesID, obsID, path = getInfo(stack)
    _log("saving metadata for session", sesID)
@@ -276,8 +287,8 @@ function _M.update(suit)
   
   layout: reset(550,20, 10,10)
   if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
-    reloadFolder: push(current)       -- send the whole metadata
-    pager: push "main"                -- switch to main display
+    target: push {"READ", current}      -- send the whole metadata
+    pager: push "main"                  -- switch to main display
     DOUBLE = false
   end
   

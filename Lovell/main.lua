@@ -2,7 +2,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.10.26",
+  VERSION = "2026.11.05",
   DESCRIPTION = "Lövell - Electronically Assisted Astronomy app built on the LÖVE framework", 
   COPYRIGHT = "Copyright (c) 2024-2026 AK Booer",
   LICENCE = [[  
@@ -40,10 +40,11 @@ local _log = logger(_M)
 
 -- 2026.06.14  remove GUI dependency
 -- 2026.10.12  add platesolve directory
+-- 2026.11.02  combine watcher and reloader threads into a single reader
+-- 2026.11.05  move filesystem mount logic to reader thread
 
 
 local jit  = _G.jit
---jit.off()
 
 local love = _G.love
 
@@ -60,59 +61,29 @@ do -- log system info before other modules loaded
   _log ("%s, %d processors, %s, %s" % {OS, processorCount, renderer, luajit})
 end
 
--- these requires come AFTER initial info logged above...
+-- these requires come AFTER initial info logged above..
 local session = require "session"
 local masters = require "databases.masters"
 
 -------------------------
 --
--- LOGFILE THREAD
+-- THREADS
 --
 
 lt.newThread "threads/logfile.lua" :start "logfile"
-
--------------------------
---
--- WATCHER THREAD
---
-
-lt.newThread "threads/watcher.lua" :start "watcher"
-
-local newWatchFolder = lt.getChannel "newWatchFolder"
-
--------------------------
---
--- RELOADER THREAD
---
-
-lt.newThread "threads/reloader.lua" :start "reloader"
-
-local reloadFolder = love.thread.getChannel "reloadFolder"
+lt.newThread "threads/reader.lua" :start "reader"
 
 -------------------------
 --
 -- FILE/FOLDER DROPPED
 --
 
-local mountpoint = "watched/"
-local folder      -- current watched folder
-
 -- start watching a new folder, the beginning of a new (or old) observation
 function love.directorydropped(path)
+  _log ''
   _log "------------------------"
   _log("folder dropped '%s'" % path)
-  if folder then 
-    lf.unmount(folder) 
-    folder = nil
-  end
-  local mount = lf.mount(path, mountpoint)
-  if mount then 
-    folder = path
-  else
-    _log "mount failed" 
-  end
-  session.new(folder)
-  newWatchFolder: push(path)      -- tell the watcher we're looking somewhere else
+  session.new(path)
 end
 
 -- dropped file should be a calibration file: BIAS, DARK, FLAT, ...
@@ -121,24 +92,24 @@ function love.filedropped(file)
   _log("file dropped " .. name)
   masters.new(file)
 end
---]]
 
 -------------------------
 --
--- UPDATE / DRAW / QUIT
+-- LOAD
 --
 
 function love.load(arg)
+  local _ = arg              -- command line arguments not used
 
   io.stdout:setvbuf "line"   -- let print work immediately (for debugging, etc.)
   
   love.window.setDisplaySleepEnabled(true) 
   
-  lf.createDirectory "snapshots"   -- located in the app's SAVE folder
-  lf.createDirectory "settings"    -- ditto, for sundry settings
+  lf.createDirectory "snapshots"    -- located in the app's SAVE folder
+  lf.createDirectory "settings"     -- ditto, for sundry settings
   lf.createDirectory "sessions"
   lf.createDirectory "masters"
-  lf.createDirectory "platesolve" -- platesolving and annotation
+  lf.createDirectory "platesolve"   -- platesolving and annotation
   
 --[[
   local info = {
@@ -152,13 +123,17 @@ function love.load(arg)
 
 end
 
+-------------------------
+--
+-- UPDATE / DRAW / QUIT
+--
+
 love.update = session.update
 
 love.draw = session.draw
 
 function love.quit()
   session.close()                   -- save current session
-  reloadFolder: push "EXIT"
   _log "Lövell – system exit"
   logger.close()                    -- close the log file
 end

@@ -47,15 +47,10 @@ local function prestack(workflows, frame)
   -- prestack control cluster
   local p = controls.prestack
   local do_dark, do_flat = p.do_dark.checked, p.do_flat.checked
---  local option = p.bayer_opt
---  local selected = option[option.selected]
 
   -- stacking control cluster
   local s = controls.stacking
-  local maxstar = s.maxstar.value
-  
---  local bayerpat = selected ~= "Auto" and selected or frame.bayer
---  frame.bayer = bayerpat
+  local maxstar = s.maxstar.value  
   local bayerpat = controls.BAYER
   
   -- screen control cluster

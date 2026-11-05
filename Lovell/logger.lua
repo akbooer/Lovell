@@ -21,6 +21,7 @@ local _M = {
 -- 2026.07.20  require "table.new" (FFI extension to pre-allocate tables)
 -- 2026.10.09  add math.asinh()
 -- 2026.10.16  add math.radians(), math.degrees()
+-- 2026.10.17  add _G.MEMOIZE()
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -73,6 +74,19 @@ end
 
 function _G.READONLY(tbl)
   return setmetatable({}, {__index = tbl, __newindex = newindex})
+end
+
+-------------------------
+--
+-- MEMOIZE 
+--
+function _G.MEMOIZE(f)
+  local mem = {} -- cache table
+  setmetatable(mem, {__mode = "kv"}) -- make weak keys/values if needed
+  return function(x)
+    mem[x] = mem[x] or f(x)
+    return mem[x]
+  end
 end
 
 -------------------------

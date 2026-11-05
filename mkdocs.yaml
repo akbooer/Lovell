@@ -1,4 +1,4 @@
-site_name: Lovell User Manual
+site_name: Lövell User Manual
 site_description: User documentation for astronomical live-stacking and processing.
 
 theme:
@@ -8,3 +8,5 @@ theme:
 
 nav:
   - Home: index.md
+  - Keyboard Shortcuts: shortcuts.md
+    
