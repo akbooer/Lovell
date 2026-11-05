@@ -91,17 +91,18 @@ end
 -- start a new observation, by saving metadata from the old one
 -- called directly by the main module when folder dropped
 function _M.new(path)
-  save()                      -- save the current observation metadata
-  reader: push(path)          -- pass it on to the reader thread
+  save()                            -- save the current observation metadata
+  reader: push{"WATCH", path}       -- pass it on to the reader thread
 end
 
 local function observe()
   local new = target: pop()
   if new then
-    save()                    -- save the current observation metadata
-    reader: push(new)         -- pass it on to the reader thread
+    save()                          -- save the current observation metadata
+--    reader: push{"READ", new}       -- pass it on to the reader thread
+    reader: push(new)       -- pass it on to the reader thread
   end
-  return newFITSfile: pop()   -- return any new image
+  return newFITSfile: pop()         -- return any new image
  
 end
 

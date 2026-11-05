@@ -153,8 +153,6 @@ do
 
   function Reader: read()
     
-    if frame then return end                      -- already have one of those
-    
     local i = dir.i + 1
     if i > #dir then return end                   -- we've read them all
     dir.i = i
@@ -251,8 +249,6 @@ do
   
   function Watcher: read()
     
-    if frame then return end                      -- haven't sent the previous one
-    
     while dir.i < #dir do                         -- directory is rescanned every DELAY seconds
       dir.i = dir.i + 1
       local file = dir[dir.i]
@@ -317,6 +313,7 @@ function mode: directory(path)
 end
 
 function mode: read()
+  if frame then return end                      -- haven't sent the previous one
   self[self.MODE] :read()
 end
 
