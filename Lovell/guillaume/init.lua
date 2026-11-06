@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.18",
+    VERSION = "2026.11.06",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
@@ -21,9 +21,10 @@ local _M = {
 -- 2026.06.14  add pager control to here (from session module)
 -- 2026.09.27  add six dot pattern from draggables
 -- 2026.10.18  check for special key presses in update()
+-- 2026.11.06  add control.reload, checked on page change in pageSet()
 
 
-local _log = require "logger" (_M)
+require "logger" (_M)
 
 local suit      = require "suit"
 local controls  = require "controls"
@@ -38,6 +39,7 @@ require "guillaume.suitable"    -- add our own SUIT extensions
 local layout  = suit.layout
 
 local pager = love.thread.getChannel "pager"   -- a way for components to change display page
+local target = love.thread.getChannel "target"   -- a way for components to change display page
 
 
 -------------------------------
@@ -73,7 +75,7 @@ controls.page = "main"
 do
   local imgData = love.image.newImageData "resources/mac-cmd.png"
 
-  imgData: mapPixel(function (x, y, r,g,b,a)
+  imgData: mapPixel(function (_,_, _,_,_,a)   -- (x,y, r,g,b,a)
                       return 1,1,1, a   -- for some reason, it's all in the alpha channel
                     end)
 
@@ -96,6 +98,11 @@ local function pageSet(page)
     local DBnames = controls.DBnames
     local lookup = DBnames.lookup
     DBnames.selected = lookup[s] or 1
+  end
+  
+  if controls.reload then
+    controls.reload = false
+    target: push "RELOAD"
   end
 end
 

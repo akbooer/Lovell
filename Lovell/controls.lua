@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.03",
+    VERSION = "2026.11.06",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -33,6 +33,8 @@ local _log = require "logger" (_M)
 -- 2026.10.22  don't override user reset() in control clusters
 -- 2026.10.24  remove unused star alignment parameters
 -- 2026.11.03  add RELOAD button to prestack menu, automatic RESTACK if stack mode changed
+-- 2026.11.05  add controls.reload flag to force a stack reload on page change
+-- 2026.11.06  remove RELOAD button... now automatic on dark/flat/bad checkbox changes
 
 
 local json = require "lib.json"
@@ -51,7 +53,7 @@ local BayerOptions    = require "shaders.debayer"   .BayerOptions
 local paletteOptions  = {"RGB", "Hubble", '-––––––––––', "-SHO", "-HOO", "-HSO", 
                           id = "Palette: ", selected = 1, default = 1, size = {100, 20}}
 
-
+-- CHANNELS
 local pager  = love.thread.getChannel "pager"      -- a way for non-GUI components to change display page
 local target = love.thread.getChannel "target"    -- for RELOAD/RESTACK button
 
@@ -105,7 +107,9 @@ local controls      -- most of these are SUIT widgets, or PLUGINS (containing SU
 
 controls = {
     
-    page = "main",    -- display page 
+    page = "main",      -- display page 
+    
+    reload = false,     -- flag to force a reload on page change
       
     gammaOptions = gammaOptions,
     
@@ -157,38 +161,6 @@ controls = {
       
       },
         
-    -- PRESTACK
-  
-    prestack = control_cluster {
-      id = "Prestack",
-      bayopt = {size = {100, 20}},
-      do_dark   = {checked = true, default = true, text = "dark calibration"},
-      do_flat   = {checked = true, default = true, text = "flat calibration"},
-      badpixel  = {checked = true, default = true, text = "bad pixel removal"},
-      badratio  = {id = "ratio", value = 2.5, default = 2.5, min = 1, max = 5, format = "%.1f", style = "inline" },
-      bayer_opt = BayerOptions,
-      
-      draw = function (self, suit)  
-        local sl = suit.layout
-        local W, Hb = 180, 25
-        if suit: Button("View Masters...", sl:row(W - 30, Hb)) .hit then 
-          pager: push "database, calibration" 
-        end 
-        suit: Choosable(self.bayer_opt, self.bayopt, sl:row(W, Hb))   -- narrow menu because short option names
-        
-        suit: Checkbox(self.do_dark, sl:row (W, 20))
-        suit: Checkbox(self.do_flat, sl:row ())
-        
-        suit: Checkbox(self.badpixel, sl:row())
-        suit: Slideable(self.badratio, sl:row (W, 15))
-        
-        if suit: Button("Reload", sl: row(W, 25)) .hit then
-          target: push "RELOAD"
-        end
-      end,
-
-    },
-      
     -- STACKING
     
     stacking = control_cluster {

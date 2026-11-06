@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.23",
+    VERSION = "2026.11.05",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -22,15 +22,16 @@ local _M = {
 -- 2026.07.24  create multiple workflows for pre-, stack, and post-processing
 -- 2026.10.12  add workflow profile reporting on shutdown
 -- 2026.10.23  loadSession() before prestack and stacking to access observation info (eg. forced Bayer)
--- 2026.11.05  add 
+-- 2026.11.05  add observer functions to save metadata before new WATCH / READ / RELOAD target commands
+
 
 local _log = require "logger" (_M)
 
 local controls    = require "controls"
 
 local stack       = require "stacking"
-local prestack    = require "prestack"
-local poststack   = require "poststack"
+local prestack    = require "prestacking"
+local poststack   = require "poststacking"
 
 local obsessions  = require "databases.obsessions"
 local saveSession = obsessions.saveSession
@@ -92,15 +93,14 @@ end
 -- called directly by the main module when folder dropped
 function _M.new(path)
   save()                            -- save the current observation metadata
-  reader: push{"WATCH", path}       -- pass it on to the reader thread
+  reader: push{"WATCH", path}       -- tell the reader thread to WATCH the path
 end
 
 local function observe()
   local new = target: pop()
   if new then
     save()                          -- save the current observation metadata
---    reader: push{"READ", new}       -- pass it on to the reader thread
-    reader: push(new)       -- pass it on to the reader thread
+    reader: push(new)               -- tell the reader to READ new, or RELOAD current path
   end
   return newFITSfile: pop()         -- return any new image
  
@@ -127,7 +127,7 @@ function _M.update(dt)
   
   end
 
-  -- if new frame, or we're looking at the main display
+  -- if new observation, or we're looking at the main display
   -- and things have changed, then apply latest processing
   
   local update = observation or controls.page == "main" and (controls.anyChanges() and not controls.rotate.changed)

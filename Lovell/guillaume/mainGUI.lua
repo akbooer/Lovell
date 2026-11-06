@@ -44,8 +44,6 @@ local lg = love.graphics
 local lk = love.keyboard
 
 
---local suit = suit.new() 
-
 local margin = 250          -- margin width for left- and right-hand panels
 
 local pin_controls = controls.pin_controls
@@ -70,6 +68,15 @@ local arrow = love.mouse.getSystemCursor "arrow"    -- TODO: does not seem to wo
 local ALPHA = 1   -- tweened for visual feedback of snapshot
 
 function _M.update(dt, image) 
+  
+--    -- Pull hardware coordinates directly from LÖVE right now
+--    local mx, my = love.mouse.getPosition()
+--    local isLeftDown = love.mouse.isDown(1)
+    
+--    -- Directly feed ONLY the current frame's position local suit instance
+--    suit: updateMouse(mx, my, isLeftDown)
+  
+  
   dt = dt
   love.mouse.setCursor(arrow)
   

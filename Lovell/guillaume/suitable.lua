@@ -120,6 +120,7 @@ end
 
 local function rightClick(state)
   local hit, hovered = state.hit, state.hovered
+  -- TODO: need to debounce the isDown(2) option
   local rclick = hovered and lm.isDown(2) or hit and shiftKey()
   return rclick
 end

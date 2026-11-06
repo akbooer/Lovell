@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.09.02"
+  _M.VERSION = "2026.11.06"
   _M.DESCRIPTION = "GUI - stack, view each frame"
 
 -- 2025.01.22  Version 0
@@ -20,6 +20,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2026.06.11  access stack object directly
 -- 2026.07.24  lazy calculation of subframe gradients
 -- 2026.09.02  always show count of found and matched stars
+-- 2026.11.06  -- force a stack reload if any change to omitted subs
 
 
 require "logger" (_M)
@@ -183,6 +184,7 @@ local function panel(subframe)
   local reject, name = controls.reject, subframe.name
   rejected.checked = reject[name]
   if suit: Checkbox(rejected, row(w, 20)) .hit then
+    controls.reload = true              -- force a stack reload if any change to omitted subs
     reject[name] = rejected.checked
   end
   

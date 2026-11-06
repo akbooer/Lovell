@@ -170,7 +170,7 @@ function _M.saveSession()
   if not controls.subs then return end         -- no data to save
   
   local sesID, obsID, path = getInfo(stack)
-   _log("saving metadata for session", sesID)
+  _log("saving metadata for session", sesID)
  
   -- update info from controls
   info.session.notes = non_blank(controls.ses_notes.text)
@@ -210,6 +210,7 @@ function _M.loadSession(frame)
 --  if not stack then return end
 
   local sesID, obsID, path = getInfo(frame)
+  _log ''
   _log("loading metadata for session", sesID)
   info = json.read(path) or {}
   info.session = {ID = sesID}

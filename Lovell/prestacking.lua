@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.24",
+    VERSION = "2026.11.06",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -23,6 +23,8 @@ local _M = {
 -- 2026.04.10  make thumbnail creation and star detection part of prestack processing
 -- 2026.04.28  calculate thumbnail statistics as proxy for full image
 -- 2026.10.24  control.zoom calculation moved to here from loadSession()
+-- 2026.11.06  move workflow processing to prestack plugin
+
 
 
 local _log = require "logger" (_M)
@@ -43,34 +45,22 @@ local function prestack(workflows, frame)
   local imageData = frame.imageData
   _log ("creating image %s[%sx%s]" % {imageData:getFormat(), imageData: getDimensions()})
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
-  
-  -- prestack control cluster
-  local p = controls.prestack
-  local do_dark, do_flat = p.do_dark.checked, p.do_flat.checked
 
   -- stacking control cluster
   local s = controls.stacking
   local maxstar = s.maxstar.value  
-  local bayerpat = controls.BAYER
   
   -- screen control cluster
   if frame.first then     -- ... otherwise it's whatever the user has set
+    -- TODO: move elsewhere for that RELOAD doesn't change zoom (or offset)
     local zoom = math.max(utils.calcScreenRatios(rawImage))     -- max size of full screen image
     controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
   end
-  
-  local ratio = p.badpixel.checked and p.badratio.value or 1e6   -- turn it on/off
 
   -------------------------------
-  --
-  -- PRESTACK
-  --
   
   workflow: newInput(rawImage)
-  
-  workflow: calibrate(frame, do_dark, do_flat)
-  workflow: badpixel(bayerpat, ratio)           -- hot pixel removal is different if there's a Bayer matrix  
-  workflow: debayer(bayerpat)                   -- debayer or replicate to R,G,B, and A channels
+  workflow: plugin("prestack", frame, controls.BAYER)
 
   frame.thumb = workflow: thumbnail()           -- store thumbnail
   frame.stars = workflow: starfinder(maxstar)   -- extract star positions and flux
