@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.06",
+    VERSION = "2026.11.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -24,6 +24,7 @@ local _M = {
 -- 2026.04.28  calculate thumbnail statistics as proxy for full image
 -- 2026.10.24  control.zoom calculation moved to here from loadSession()
 -- 2026.11.06  move workflow processing to prestack plugin
+-- 2026.11.08  move screen zoom calculation to loadSession()
 
 
 
@@ -43,20 +44,14 @@ local function prestack(workflows, frame)
   local workflow = workflows.main
   
   local imageData = frame.imageData
+  -- TODO: consider using replacePixels() rather than creating new rawImage
   _log ("creating image %s[%sx%s]" % {imageData:getFormat(), imageData: getDimensions()})
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
 
   -- stacking control cluster
   local s = controls.stacking
   local maxstar = s.maxstar.value  
-  
-  -- screen control cluster
-  if frame.first then     -- ... otherwise it's whatever the user has set
-    -- TODO: move elsewhere for that RELOAD doesn't change zoom (or offset)
-    local zoom = math.max(utils.calcScreenRatios(rawImage))     -- max size of full screen image
-    controls.zoom.value = math.min(1, zoom)     -- limit initial showing to 1:1 with screen dimensions
-  end
-
+ 
   -------------------------------
   
   workflow: newInput(rawImage)

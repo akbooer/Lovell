@@ -8,5 +8,6 @@ theme:
 
 nav:
   - Home: index.md
+  - Plugins: plugins.md
   - Keyboard Shortcuts: shortcuts.md
     

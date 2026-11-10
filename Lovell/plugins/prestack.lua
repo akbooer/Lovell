@@ -4,22 +4,22 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.04",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – Prestack processing options",
   }
 
 require "logger" (_M)
 
--- 2026.11.06  Version 0
+-- 2026.11.06  Version 0 (extracted from prestacking.lua)
+-- 2026.11.08  added bespoke reset() function
+-- 2026.11.09  use love.event rather than target and pager threads
+
 
 local love = _G.love
+local le = love.event
 
 local BayerOptions    = require "shaders.debayer"   .BayerOptions
-
--- CHANNELS
-local pager  = love.thread.getChannel "pager"      -- a way for non-GUI components to change display page
-local target = love.thread.getChannel "target"    -- for RELOAD/RESTACK button
 
 
 local plugin = {
@@ -50,16 +50,15 @@ Automatically reloads the stack if any of these prestack options (Bayer pattern 
 
 -- RESET
 
---TODO: need to debounce SUIT-able's reset before enabling this
----- explicit reset function to ensure that RELOAD happens when plugin reset
---function plugin: reset()
---  self.do_dark.checked = self.do_dark.default
---  self.do_flat.checked = self.do_flat.default
---  self.badpixel.checked = self.badpixel.default
---  self.badratio.value = self.badratio.default
---  self.bayer_opt.value = self.bayer_opt.default
---  target: push "RELOAD"
---end
+-- explicit reset function to ensure that RELOAD happens when plugin reset
+function plugin: reset()
+  self.do_dark.checked = self.do_dark.default
+  self.do_flat.checked = self.do_flat.default
+  self.badpixel.checked = self.badpixel.default
+  self.badratio.value = self.badratio.default
+  self.bayer_opt.value = self.bayer_opt.default
+  le.push("target", "RELOAD")
+end
 
 -- RUN and DRAW methods
 
@@ -77,7 +76,7 @@ function plugin: draw(suit)
   local sl = suit.layout
   local W, Hb = 180, 25
   if suit: Button("View Masters...", sl:row(W - 30, Hb)) .hit then 
-    pager: push "database, calibration" 
+    le.push ("page", "database, calibration")
   end 
   
   local hit = false
@@ -93,7 +92,7 @@ function plugin: draw(suit)
   end
   
   if hit then
-    target: push "RELOAD"
+    le.push ("target", "RELOAD")
   end
 end
 

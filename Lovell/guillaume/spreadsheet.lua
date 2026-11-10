@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.09",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
 
@@ -16,6 +16,7 @@ local _M = {
 -- 2025.05.18  change Table widget parameters to align with those of spreadsheet
 
 -- 2026.06.09  refactor sorting and filtering, allowing user-defined function for any column
+-- 2026.11.09  clear filter input field on right click
 
 
 local _log = require "logger" (_M)
@@ -237,7 +238,9 @@ function _M.new(self, cat, x,y, w,h)
     col.input = col.input or {text = ''}                    -- Input widget for filter text
     local input = col.input
     local x,y, w,h = layout:col(col.w or Wdefault, 25)
-    self: Input(input, x,y, w,h)
+    if self: Input(input, x,y, w,h) .hit == "right" then   -- clear field on right click
+      input.text = ''
+    end
     local text = input.text: gsub("[%%%[%]]", '')    -- remove invalid Lua search string items: %  [ ]
     input.text = text
     if text ~= input.previous or sorted then

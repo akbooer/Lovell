@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.10.08"
+  _M.VERSION = "2026.11.09"
   _M.DESCRIPTION = "GUI - settings, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -22,6 +22,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2026.06.05  use database page for viewing FITS headers
 -- 2026.08.26  add button to go to plugins page
 -- 2026.10.08  add default stretch setting
+-- 2026.11.09  use love.event rather than pager thread
 
 
 local _log = require "logger" (_M)
@@ -32,6 +33,7 @@ local suit = require "suit" .new()
 local controls  = require "controls"
 
 local love = _G.love
+local le = love.event
 local lg = love.graphics
 
 local settings = controls.settings
@@ -44,7 +46,6 @@ local stretch_default = {selected = 1, id = "Default stretch: ", unpack(controls
 local retainControls = {text = "retain controls"}
 local Lalign = {align = "left"}
 
-local pager = love.thread.getChannel "pager"   -- a way for non-GUI components to change display page
 
 -------------------------
 --
@@ -199,7 +200,7 @@ local function buttons()
   end
   
   if suit:Button("configure plugins", col()) .hit then
-    pager: push "process"
+    le.push ("page", "process")
   end 
   
 end

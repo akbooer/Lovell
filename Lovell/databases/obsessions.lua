@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.24",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -21,6 +21,8 @@ local _M = {
 -- 2026.10.22  add focal_length and pixelsize to observation data, add Bayer pattern column (was hidden filter)
 -- 2026.10.24  remove zoom adjustment (no image now that loadSession() is called before prestack)
 -- 2026.10.27  add sorter for size column, using total number of pixels
+-- 2026.11.08  save/restore screen X, Y, and zoom settings
+-- 2026.11.09  use love.event rather than target and pager threads
 
 
 local _log, _err = require "logger" (_M)
@@ -34,18 +36,17 @@ local utils = require "utils"
 local newTimer = utils.newTimer
 
 local love = _G.love
+local le = love.event
 local lf = love.filesystem
 
 local empty = _G.READONLY {}
-
-local target = love.thread.getChannel "target"    -- select new target
-local pager  = love.thread.getChannel "pager"     -- a way to change display page
 
 -----
 
 local Nsess = 0
 
 local tally = {}          -- {name = count, name2 = count2, ...},   used by observing list
+local folder_index = {}   -- used to identify new observations (unique folder names)
 
 local observations = {
 --      titles = {"Object", "Session", "Telescope", "Notes"} ,  -- , "Path"}
@@ -59,7 +60,7 @@ local sizeSorter do
       local a, b = x: match "(%d+)%D+(%d+)"
       return a and a * b or 0
     end)
-  function sizeSorter(a,b) return (product(a) < product(b))end
+  function sizeSorter(a,b) return (product(a) < product(b)) end
 end
 
 local cols = {
@@ -87,6 +88,24 @@ local widget = {cols = cols, col_index = col_index, tally = tally}    -- SUIT-ab
 -- LOADER - sessions and observations
 --
 
+-- add another observation row to the database
+local function obs_row(session, folder, name, obs)
+  observations[#observations + 1] = {
+            name, 
+            'ot',
+            'con',
+            session,
+            obs.time or '',
+            obs.frames or '',     -- number of frames
+            obs.exposure or '',
+            obs.bayer or '',
+            obs.size,
+            obs.telescope or '', 
+            obs.notes or '',
+            folder,
+          }
+end
+  
 function _M.load()
   
   if widget.data then return widget end     -- data already loaded 
@@ -108,31 +127,19 @@ function _M.load()
       -- for each observation
       --
       for folder, obs in pairs(session.observations) do
+        folder_index[folder] = true
         local name = obs.object or '?'
         tally[name] = (tally[name] or 0) + 1
-        observations[#observations + 1] = {
-            name, 
-            'ot',
-            'con',
-            sess_name,
-            obs.time or '',
-            obs.frames or '',     -- number of frames
-            obs.exposure or '',
-            obs.bayer or '',
-            obs.size,
-            obs.telescope or '', 
-            obs.notes or '',
-            folder,
-          }
+        obs_row(sess_name, folder, name, obs)
       end
     end
   end
   
   local Nobs = #observations
-  for _ in pairs(tally) do
-    Nobs = Nobs + 1
-  end
-  tally.n = Nobs
+--  for _ in pairs(tally) do
+--    Nobs = Nobs + 1
+--  end
+--  tally.n = Nobs
     
   _log(elapsed("%.3f ms, loaded %d observations from %d sessions", Nobs, Nsess))
   widget = {cols = cols, col_index = col_index, tally = tally, data = observations}
@@ -161,7 +168,7 @@ local function getInfo(frame)
 end
 
 local function non_blank(text)
-  return #text > 0 and text or nil
+  return (type(text) == "string" and #text > 0) and text or nil
 end
 
 function _M.saveSession()
@@ -176,20 +183,24 @@ function _M.saveSession()
   info.session.notes = non_blank(controls.ses_notes.text)
   local obs = info.observations[obsID or '']
   obs.object = non_blank(controls.object.text)
---  controls.object.cursor = 1                  -- put the cursor at the start (looks better)
   obs.notes = non_blank(controls.obs_notes.text)
-  obs.flipUD = controls.flipUD.checked or nil
-  obs.flipLR = controls.flipLR.checked or nil
   obs.time = os.date("%H:%M", stack.epoch)
   obs.frames = stack.subs and #stack.subs or 0
   obs.exposure = stack.subs and stack.exposure / #stack.subs or 0   -- AVERAGE exposure per sub (seconds)
   obs.size = "%dx%d" % {stack.image: getDimensions()}
-  obs.rotate = controls.rotate.value ~= 0 and tonumber("%.5f" % controls.rotate.value) or nil  -- radians
   obs.telescope = non_blank(controls.telescope.text)
   obs.focal_length = non_blank(controls.focal_len.text)
   obs.pixelsize = non_blank(controls.pixelsize.text)
   obs.reducer = tonumber(controls.reducer.text) and controls.reducer.text or nil
   obs.bayer = controls.BAYER
+
+  -- screen settings
+  obs.flipUD = controls.flipUD.checked or nil
+  obs.flipLR = controls.flipLR.checked or nil
+  obs.rotate = controls.rotate.value ~= 0 and tonumber("%.5f" % controls.rotate.value) or nil  -- radians
+  obs.X = controls.X ~= 0 and math.floor(controls.X) or nil
+  obs.Y = controls.Y ~= 0 and math.floor(controls.Y) or nil
+  obs.zoom = ("%0.3f") % controls.zoom.value
   
   local reject
   for name, yes in pairs(controls.reject or empty) do
@@ -202,6 +213,20 @@ function _M.saveSession()
   info.observations[obsID] = obs
   json.write(path,  info)
   info = nil
+  
+  -- update observation tally if new observation (unique folder name)
+  if not folder_index[path] then
+    folder_index[path] = true
+    local name = obs.object or '?'
+    tally[name] = (tally[name] or 0) + 1
+    -- add another row to observations    
+    obs_row(sesID, path, obs.object, obs)
+--    local ridx = widget.ridx or {}
+--    ridx[#ridx + 1] = #observations
+--    ridx.n = (ridx.n or 0) + 1
+--    widget.ridx = ridx
+  end
+  
 end
 
 function _M.loadSession(frame)
@@ -220,20 +245,6 @@ function _M.loadSession(frame)
   _log("observation ID:", obsID)
   obs[obsID]= thisObs
   info.observations = obs
-
-  -- scale pixel size by binning
-  local pix do
-    pix = frame.keywords.XPIXSZ
---[[
-
-NOT SURE IF THIS IS RIGHT THING TO DO?
-
-if pix then
-      local bin = frame.keywords.XBINNING or 1
-      pix = pix * bin
-    end
---]]
-end
   
   -- choose correct Bayer pattern:
   -- menu selection takes priority, then observation data, then image file.
@@ -246,19 +257,24 @@ end
   controls.object.text    = frame.object or thisObs.object or ''
   controls.telescope.text = scope
   controls.reducer.text   = thisObs.reducer or ''
-  controls.pixelsize.text = pix and tostring(pix) or thisObs.pixelsize or ''
+  controls.pixelsize.text = thisObs.pixelsize or frame.keywords.XPIXSZ or ''
   controls.ses_notes.text = info.session.notes or ''
   controls.obs_notes.text = thisObs.notes or ''
-  controls.flipUD.checked = thisObs.flipUD or false
-  controls.flipLR.checked = thisObs.flipLR or false
-  
-  controls.rotate.value   = thisObs.rotate or 0
   controls.focal_len.text = thisObs.focal_length 
                               or frame.focallen
                               or telescopes: focal_length(controls.telescope.text) 
                               or controls.focal_len.text
   
-  controls.X, controls.Y = 0, 0
+ 
+  -- screen control cluster
+  local default_zoom = math.max(utils.calcScreenRatios(frame.imageData))    -- max size of full screen image
+  controls.zoom.value = thisObs.zoom or math.min(1, default_zoom)           -- limit to 1:1 with screen dimensions
+  controls.flipUD.checked = thisObs.flipUD or false
+  controls.flipLR.checked = thisObs.flipLR or false
+  controls.rotate.value   = thisObs.rotate or 0
+  controls.X = thisObs.X or 0
+  controls.Y = thisObs.Y or 0
+  
   
   -- get filenames of rejected subs
   local reject = {} 
@@ -288,8 +304,8 @@ function _M.update(suit)
   
   layout: reset(550,20, 10,10)
   if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
-    target: push {"READ", current}      -- send the whole metadata
-    pager: push "main"                  -- switch to main display
+    le.push ("target", {"READ", current})     -- send the whole metadata
+    le.push ("page", "main" )                 -- switch to main display
     DOUBLE = false
   end
   

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.05",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Session manager",
   }
@@ -23,6 +23,7 @@ local _M = {
 -- 2026.10.12  add workflow profile reporting on shutdown
 -- 2026.10.23  loadSession() before prestack and stacking to access observation info (eg. forced Bayer)
 -- 2026.11.05  add observer functions to save metadata before new WATCH / READ / RELOAD target commands
+-- 2026.11.09  add love.handlers.target() rather than use thread to change target
 
 
 local _log = require "logger" (_M)
@@ -50,8 +51,7 @@ workflows.main.wstack = workflows.wstack    -- allow main workflow to access sta
 
 local love = _G.love
 
-local newFITSfile = love.thread.getChannel "newFITSfile"
-local target = love.thread.getChannel "target"
+local newObservation = love.thread.getChannel "newObservation"
 local reader = love.thread.getChannel "reader"
 
 
@@ -80,30 +80,18 @@ function _M.close()
   _log "closed"
 end
 
--------------------------------
---
--- OBSERVER 
---            listen to the target thread for change of target
---            talk to the reader thread to tell it where to look
---            listen for new observational data
---            save the data in the session
---
+-- switch to a new (or old) target, or reload
+-- invoked from anywhere with love.event.push("target", new)
+function love.handlers.target(new)
+  save()                          -- save the current observation metadata
+  reader: push(new)               -- tell the reader to READ new, or RELOAD current path
+end
 
 -- start a new observation, by saving metadata from the old one
 -- called directly by the main module when folder dropped
 function _M.new(path)
   save()                            -- save the current observation metadata
   reader: push{"WATCH", path}       -- tell the reader thread to WATCH the path
-end
-
-local function observe()
-  local new = target: pop()
-  if new then
-    save()                          -- save the current observation metadata
-    reader: push(new)               -- tell the reader to READ new, or RELOAD current path
-  end
-  return newFITSfile: pop()         -- return any new image
- 
 end
 
 -------------------------------
@@ -115,7 +103,7 @@ function _M.update(dt)
   
   GUI.update(dt, workflows.main.output)
   
-  local observation = observe()                               -- look at the sky
+  local observation = newObservation: pop()                   -- look for a new image
     
   if observation then
 

@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.21",
+    VERSION = "2026.11.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -31,6 +31,7 @@ local _M = {
 -- 2026.10.10  add option key to Slideable to control rate asymptotically
 -- 2026.10.17  add pin checkbox to Controllable, whether ticked or not
 -- 2026.10.21  make platesolve a static plugin
+-- 2026.11.08  improve right-click processing [by modifiying mouse handling, see new()]
 
 
 local _log = require "logger" (_M)
@@ -121,7 +122,8 @@ end
 local function rightClick(state)
   local hit, hovered = state.hit, state.hovered
   -- TODO: need to debounce the isDown(2) option
-  local rclick = hovered and lm.isDown(2) or hit and shiftKey()
+--  local rclick = hovered and lm.isDown(2) or hit and shiftKey()
+  local rclick = hit == "left" and shiftKey() or hit == "right"
   return rclick
 end
 
@@ -460,13 +462,11 @@ local Controllable do
     
       -- add pin to popup (needs to survive several frames, so store in info)
       local pin = core: Checkbox(info._pin, x+w-25, y+5, 20,20)
---      local pin = core: Checkbox(info._pin, x+w-20, y+5, 16,16)
-      if pin.hit then
+      if pin.hit == "left" then
         info.active = false
       end
       if pin.hovered then       -- tool tip
         core: Label("pin/unpin", x+w-100, y+7, 80, 16)
---        core: Label("pin/unpin", x+w-100, y+4, 80, 16)
       end
   
     end
@@ -487,7 +487,7 @@ local Controllable do
 
     if hovered then info.active = {x,y, w,h} end
     -- check for pin
-    if button.hit and not (optionKey() or shiftKey()) then
+    if button.hit == "left" and not (optionKey() or shiftKey()) then
       info._pin.checked = not info._pin.checked 
     end      
     
@@ -884,6 +884,54 @@ end
 
 -------------------------------
 --
+-- MODIFY MOUSE HANDLING ... to denote hit as "left" or "right" button
+--
+-- these are slightly modified versions of SUIT's core library functions of the same name
+--
+
+-- state update
+local function enterFrame(self)
+	if not self.mouse_button_down then
+		self.active = nil
+	elseif self.active == nil then
+--		self.active = NONE
+		self.active = empty
+	end
+
+	self.hovered_last, self.hovered = self.hovered, nil
+  -- modify SUIT code to report which button was hit
+  local left = love.mouse.isDown(1)
+  local right = love.mouse.isDown(2)
+  local button = left and "left" or right and "right" or false
+	self:updateMouse(love.mouse.getX(), love.mouse.getY(), button)
+  --
+	self.key_down, self.textchar = nil, ""
+--	self:grabKeyboardFocus(NONE)
+	self:grabKeyboardFocus(empty)
+	self.hit = nil
+end
+
+-- mouse update
+local function updateMouse(self, x, y, button_down)
+	self.mouse_x, self.mouse_y = x,y
+	if button_down ~= nil then
+		self.previous_button = self.mouse_button_down
+		self.mouse_button_down = button_down
+	end
+end
+
+-- mouse release
+local function mouseReleasedOn(self, id)
+	if not self.mouse_button_down and self:isActive(id) and self:isHovered(id) then
+		self.hit = id
+--		return true
+		return self.previous_button 
+	end
+	return false
+end
+
+-------------------------------
+--
 -- INIT
 --
 
@@ -891,7 +939,11 @@ local new = suit.new      -- save parent's new()
 
 function suit.new(theme)
   local instance = new(theme)
-
+  
+  instance.enterFrame = enterFrame
+  instance.updateMouse = updateMouse
+  instance.mouseReleasedOn = mouseReleasedOn
+  
   instance.optionKey = optionKey
   instance.shiftKey = shiftKey   
    

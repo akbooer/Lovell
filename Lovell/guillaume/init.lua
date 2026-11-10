@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.06",
+    VERSION = "2026.11.09",
     DESCRIPTION = "GUI Library for Lövell App Using Minimal Effort (built on SUIT)",
   }
 
@@ -22,6 +22,7 @@ local _M = {
 -- 2026.09.27  add six dot pattern from draggables
 -- 2026.10.18  check for special key presses in update()
 -- 2026.11.06  add control.reload, checked on page change in pageSet()
+-- 2026.11.09  use love.event rather than target and pager threads
 
 
 require "logger" (_M)
@@ -30,6 +31,7 @@ local suit      = require "suit"
 local controls  = require "controls"
 
 local love = _G.love
+local le = love.event
 local lg = love.graphics
 local lf = love.filesystem
 local lk = love.keyboard
@@ -37,9 +39,6 @@ local lk = love.keyboard
 require "guillaume.suitable"    -- add our own SUIT extensions
 
 local layout  = suit.layout
-
-local pager = love.thread.getChannel "pager"   -- a way for components to change display page
-local target = love.thread.getChannel "target"   -- a way for components to change display page
 
 
 -------------------------------
@@ -102,9 +101,19 @@ local function pageSet(page)
   
   if controls.reload then
     controls.reload = false
-    target: push "RELOAD"
+    le.push("target", "RELOAD")
   end
 end
+
+
+-------------
+--
+-- PAGE EVENT - switch to a new page
+--              invoked from anywhere with love.event.push("page", new)
+--
+
+love.handlers.page = pageSet
+
 
 -------------
 --
@@ -112,12 +121,6 @@ end
 --
 
 function _M.update(dt, ...) 
-  
-  -- handle external (non-GUI) page change requests
-  local newpage = pager: pop()
-  if newpage then 
-    pageSet(newpage)   -- split into page and subpage parameters
-  end
     
   if controls.page ~= "main" then   -- add close button for window
     layout: reset(10,10, 10, 10)

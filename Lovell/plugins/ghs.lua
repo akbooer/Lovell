@@ -197,16 +197,18 @@ D (Stretch Factor): Controls the magnitude of the localized contrast boost aroun
 b (Local Intensity): Controls how rapidly the gain drops off moving away from SP (b>0).
 
 SP (Symmetry point): The pixel intensity value where contrast amplification is centered and maximal (0≤SP≤1).
+ 
+D, b, and SP are visible at the top level if drop-down menu is split.
+
+]]
+
+--[[
 
 HP (Protect highlights): Controls the tapering of contrast near bright regions to prevent clipping stars (HP≥0).
 
 LP (Protect shadows): Tapers contrast near deep shadows to avoid amplifying background noise (LP≥0).
 
 BP (Black point): Standard linear offset applied to reset the black background floor (BP in [0,1]).
-
- 
-D, b, and SP are visible at the top level if drop-down menu is split.
-
 ]]
 
 

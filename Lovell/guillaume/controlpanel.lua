@@ -5,15 +5,16 @@
 local _M = require "guillaume.objects" .GUIobject(...)
 
   _M.NAME = ...
-  _M.VERSION = "2026.10.18"
+  _M.VERSION = "2026.11.09"
   _M.DESCRIPTION = "control panel for main display"
 
-local _log = require "logger" (_M)
+require "logger" (_M)
 
 
 -- 2026.05.19  split from mainGUI and redesign control layout using new Suitable widgets
 -- 2026.09.25  use plugins.process_sequence() iterator
 -- 2026.10.18  use controls.option to detect option key(s)
+-- 2026.11.09  use love.event rather than pager thread
 
 
 local controls  = require "controls"
@@ -21,8 +22,8 @@ local snapshot  = require "guillaume.snapshot"
 local plugins   = require "plugins"
 
 local love = _G.love
+local le = love.event
 local lg = love.graphics
-local lk = love.keyboard
 
 local margin = 240          -- margin width for panel
 local Hb = 25               -- button height
@@ -33,7 +34,6 @@ local ocular = {[true] = "Eyepiece...", [false] = "Landscape..."}
 
 local layout      -- set in update()
 
-local pager = love.thread.getChannel "pager"   -- a way for components to change display page
 
 local function row(...) return layout:row(...) end
 --local function col(...) return layout:col(...) end
@@ -59,7 +59,6 @@ function _M.update(suit, controls, image)
   suit:Checkbox(pin_controls, layout:row(20, 20))
   
   local W = margin - 40
-  local Wn = W - 20   -- narrow
   local Wh = W / 2   -- half
   local H = lg.getHeight()
 
@@ -114,7 +113,7 @@ function _M.update(suit, controls, image)
   
   x,y, w,h = row(W/2 - 2, Hb)
   if suit: Choosable(controls.DBnames, {title = "Databases"}, x,y, w,h) .hit then
-    pager: push "database"
+    le.push ("page", "database")
   end
   suit: Controllable(controls.stacking, x + Wh + 2, y, w, h)
 

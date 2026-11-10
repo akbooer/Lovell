@@ -22,8 +22,6 @@ Command- or Ctrl- depending on operating system:
 
 ## Page-dependent Shortcuts
 
-### Main Page
-
 | ⌘-Key | Action |
 | :----: | -------- | 
 | T | Toggle between Eyepiece and Landscape mode |

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.16",
+    VERSION = "2026.11.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "logging utility",
   }
@@ -22,6 +22,7 @@ local _M = {
 -- 2026.10.09  add math.asinh()
 -- 2026.10.16  add math.radians(), math.degrees()
 -- 2026.10.17  add _G.MEMOIZE()
+-- 2026.11.08  add math.nan and math.isnan
 
 
 local gettime = require "socket" .gettime   -- sub-millisecond resolution
@@ -35,7 +36,7 @@ local logChannel = love.thread.getChannel "logChannel"
 
 -------------------------
 --
--- Lua is missing functions
+-- Lua missing math functions
 --
 
 local to_degrees = 180 / math.pi
@@ -51,6 +52,12 @@ end
 
 function math.asinh(x)
   return math.log(x + math.sqrt(x * x + 1.0))
+end
+
+math.nan = math.abs(0/0)
+
+function math.isnan(x) 
+  return x ~= x 
 end
 
 -------------------------

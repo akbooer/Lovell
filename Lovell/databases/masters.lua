@@ -373,7 +373,7 @@ function _M.update(suit)
   layout: reset(550,20, 10,10)
   if self: Button("Apply Selected Masters", layout: col(220, 30)) .hit then
 --    reloadFolder: push(current)       -- send the whole metadata
---    pager: push "main"                -- switch to main display
+--    le.push ("page", "main")          -- switch to main display
   end
 
   layout: reset(1120, 10, 10,10)

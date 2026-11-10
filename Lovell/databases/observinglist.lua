@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.06.10",
+    VERSION = "2026.11.08",
     AUTHOR = "AK Booer",
     DESCRIPTION = "DSO table and observing list manager (translated from Jocular)",
 
@@ -19,11 +19,13 @@ local _log = require "logger" (_M)
 
 -- 2026.05.25  change time slider format to hh:mm
 -- 2026.06.10  allow right-click to reset time offset slider
+-- 2026.11.08  remove math.nan and math.isnan (now declared as part of the math library)
+
 
 -- Handles DSO table and observing list management, including alt-az/transit computations.
 
-local dsos  = require "databases.dso"
-local obsess   = require "databases.obsessions"
+local dsos    = require "databases.dso"
+local obsess  = require "databases.obsessions"
 
 local controls = require "controls"
 
@@ -45,10 +47,6 @@ local lt = love.timer
 local sun_altitude = calcs.sun_altitude
 
 local sun_time  = {id='', value = 0, min = 0, max = 24}      -- slider for sun position
-
-local math = math
-      math.nan = math.abs(0/0)
-      math.isnan = function(x) return x ~= x end
 
 local int  = math.floor
 local rads = math.pi / 180
@@ -130,7 +128,7 @@ local Name, Obs, Added = 1, 14, 15
 local RA, Dec = 2, 3
 local Quadrant, Az, Alt = 9, 10 ,11
 
-local widget = {cols = cols, col_index = col_index, data = {}}    -- SUIT-able Table widget
+local widget = {cols = cols, col_index = col_index, data = {}, tally = {}}    -- SUIT-able Table widget
 
 local function select_all()
   local ridx = widget.row_index 
@@ -298,7 +296,11 @@ local function compute_altaz()
   
   local objs = _M.objects
   for i = 1, #objs do
-    alt_az_quad(objs[i])
+    local v = objs[i]
+    alt_az_quad(v)
+    -- whilst we're here, update number of observations (may have made a new one)
+    -- the latest count is in widget.tally
+    v[Obs] = widget.tally[v[Name]] or v[Obs]
   end
 end
 
@@ -350,7 +352,7 @@ function _M.load()
   if #widget.data > 0 then return widget end     -- only load data once
   
   local data = dsos.load()       -- get the basic DSOs
-  _M.objects = data     -- TODO: WHO USES _M.objects?
+  _M.objects = data     -- TODO: WHO USES _M.objects?  ONLY INTERNAL ??
 
   -- initialise Lat and Long NOTE: that these don't get update during a session if changed on settings page
   _M.longitude = tonumber(settings.longitude.text) or 0
@@ -378,7 +380,7 @@ function _M.load()
       
   local prevobs = obsess.load()
   local previous = prevobs.tally
-  _log ("%d unique previous observations found" % previous.n)
+--  _log ("%d unique previous observations found" % previous.n)
 
 
   -- augment/combine DSO info
@@ -397,7 +399,7 @@ function _M.load()
   _log(elapsed "%0.3f ms, ALT / AZ calculations")
   compute_transits()
   
-  widget = {cols = cols, col_index = col_index, data = data}
+  widget = {cols = cols, col_index = col_index, data = data, tally = previous}
   return widget
 end
 

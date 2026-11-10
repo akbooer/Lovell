@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.12",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "info panel for main display",
   }
@@ -19,6 +19,8 @@ local _M = {
 -- 2026.06.11  use new stack object directly
 -- 2026.10.12  use controls.pixel_size()
 -- 2026.10.26  use controls.info for essential information
+-- 2026.11.08  clear object name field on right-click
+-- 2026.11.09  use love.event rather than pager thread
 
 
 require "logger" (_M)
@@ -36,8 +38,7 @@ local getDimensions = require "utils" .getDimensions
 local Oculus = GUIobjects.Oculus
 
 local love = _G.love
-
-local pager = love.thread.getChannel "pager"   -- a way for components to change display page
+local le = love.event
 
 local margin = 220          -- margin width for left- and right-hand panels
 local Wcol = margin/2 - 30  -- column width for narrower fields
@@ -88,7 +89,9 @@ function _M.update(suit, image)
   suit:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
   layout: pop()
   
-  suit:Input(controls.object, Ioptions, row(margin - 20, 30))
+  if suit:Input(controls.object, Ioptions, row(margin - 20, 30)) .hit == "right" then
+    controls.object.text = ''   -- clear the input field
+  end
 
   suit:Label("object", Loptions, row(margin - 60, 10))
   
@@ -185,7 +188,7 @@ function _M.update(suit, image)
   layout:reset(w - margin + 10, h - 125, 10, 10)             -- position the layout origin...
   layout: row(10, 10)
   if suit: Button("Settings", layout: row(margin - 20, 30)) .hit then
-    pager: push "settings"
+    le.push ("page", "settings")
   end
   layout: row(20, 50)
   suit: Label(os.date "%a  %H:%M", Moptions, layout: col(80,50))

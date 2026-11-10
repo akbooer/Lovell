@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.06",
+    VERSION = "2026.11.09",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC)",
   }
@@ -35,6 +35,7 @@ local _log = require "logger" (_M)
 -- 2026.11.03  add RELOAD button to prestack menu, automatic RESTACK if stack mode changed
 -- 2026.11.05  add controls.reload flag to force a stack reload on page change
 -- 2026.11.06  remove RELOAD button... now automatic on dark/flat/bad checkbox changes
+-- 2026.11.09  use love.event rather than target and pager threads
 
 
 local json = require "lib.json"
@@ -42,7 +43,6 @@ local json = require "lib.json"
 json.float ="%0.3"
 
 local suitable = require "guillaume.suitable"     -- for access to reset flag
---local obsessions = require "databases.obsessions"
 local plugins  = require "plugins"                -- load all the plugins
 
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
@@ -53,9 +53,9 @@ local BayerOptions    = require "shaders.debayer"   .BayerOptions
 local paletteOptions  = {"RGB", "Hubble", '-––––––––––', "-SHO", "-HOO", "-HSO", 
                           id = "Palette: ", selected = 1, default = 1, size = {100, 20}}
 
--- CHANNELS
-local pager  = love.thread.getChannel "pager"      -- a way for non-GUI components to change display page
-local target = love.thread.getChannel "target"    -- for RELOAD/RESTACK button
+
+local love = _G.love
+local le = love.event
 
 
 -------------------------------
@@ -177,14 +177,14 @@ controls = {
         local W = 180
         
         if suit: Button("View Stack...", sl:row(W - 30, Hb)) .hit then 
-          pager: push "stack" 
+          le.push ("page", "stack")
         end 
         
         local mode = self.stack_opt
         local old = mode.selected
         suit: Choosable(mode, sl:row(W)) 
         if mode.selected ~= old then
-          target: push "RELOAD"
+          le.push("target", "RELOAD")
         end
         
         suit: Label("Alignment", self.align, sl:row(W, 20))

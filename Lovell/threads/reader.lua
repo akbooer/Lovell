@@ -4,7 +4,7 @@
 
 local _M = {
   NAME = ...,
-  VERSION = "2026.11.05",
+  VERSION = "2026.11.10",
   AUTHOR = "AK Booer",
   DESCRIPTION = "THREAD watches or reloads FITS file folders",
 }
@@ -29,6 +29,7 @@ local _M = {
 -- 2026.11.01  renamed "reader", complete rewrite, combining "watcher" and "reloader" threads
 -- 2026.11.03  add RELOAD function foro both READ and WATCH modes
 -- 2026.11.05  move filesystem mount logic to here from main module
+-- 2026.11.10  reset wait time to zero on RELOAD
 
 
 local _log = require "logger" (_M)
@@ -46,8 +47,8 @@ local love = _G.love
 local lf = love.filesystem
 local lt = require "love.timer"
 
-local reader      = love.thread.getChannel "reader"         -- command input
-local newFITSfile = love.thread.getChannel "newFITSfile"    -- data output
+local reader          = love.thread.getChannel "reader"         -- command input
+local newObservation  = love.thread.getChannel "newObservation"    -- data output
 
 local IDLE  = 1 / 10    -- limit idle cycles to ten per second
 local DELAY = 2         -- interval (seconds) to rescan watched folder for new files
@@ -108,8 +109,8 @@ end
 
 local function send_frame()
   if not frame then return end
-  if newFITSfile: getCount() == 0 then            -- wait for previous to be processed
-    newFITSfile: push(frame)
+  if newObservation: getCount() == 0 then            -- wait for previous to be processed
+    newObservation: push(frame)
     frame = nil                                   -- say we're done with it
   end
 end
@@ -281,6 +282,7 @@ do
   
   function Watcher: reload()
     files = {first = true}                  -- say we haven't seen any yet
+    wakeup = 0                              -- don't wait to wake up
   end
 
 end
