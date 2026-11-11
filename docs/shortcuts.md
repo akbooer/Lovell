@@ -4,7 +4,7 @@ There are keyboard shortcuts for a number of different actions.  Some of them wo
 ## Global Shortcuts
 
 !!! note
-ESC key returns to the main display from any page
+    ESC key returns to the main display from any page
 
 Command- or Ctrl- depending on operating system:
 
