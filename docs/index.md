@@ -10,6 +10,8 @@ Lövell owes its existence to the amazing application [Jocular](https://github.c
 
 The novel thing about Lövell is that the image processing workflow is performed almost entirely within the GPU using code written in Open GL Shader Language.  This makes it fast... most post-stack operations are performed within one video frame update (typically 1/60 second) so all interactive adjustments intensity / colour / filtering happen almost instantly.
 
+Lövell doesnt cotrols cameras, or mounts, or filterwheels, or the like – there are plenty of applications out there which do this, such as APT, NINA, Sharpcap, SG Pro, ASI Studio, etc... 
+What it does do is watch a folder for one such application to drop raw FITS image files into, and then processes them.  The modus operandi is for each new set of observation files to be stored in a signel unique, folder. 
 ## Installation
 
 * download the appropriate (Mac or PC) image of LÖVE (https://love2d.org/#download)
