@@ -4,11 +4,14 @@
 
 Lövell is an application for **Electronically-Assisted Visual Astronomy**.
 
-It is built on the [LÖVE 2D](https://love2d.org/) platform, using [Lua](https://www.lua.org/) as a scripting language running under [LuaJit](https://luajit.org/).
-
 Lövell owes its existence to the amazing application [Jocular](https://github.com/MartinCooke/jocular), by @MartinCooke, and, to some extent, its successor, Canisp.  The main display looks a bit like Canisp, the DSO and observations catalogues are lifted almost directly from Jocular (translated from Python to Lua.)
 
 The novel thing about Lövell is that the image processing workflow is performed almost entirely within the GPU using code written in Open GL Shader Language.  This makes it fast... most post-stack operations are performed within one video frame update (typically 1/60 second) so all interactive adjustments intensity / colour / filtering happen almost instantly.
+
+The philosophy of Jocular, that just about everything aside from the framing of the individual incoming subs, can be changed on the fly, remains central to the design: preprocessing steps like hot pixel removal, applying calibration masters, and de-Bayering; stacking options of averaging or minimimum variance; post-stack processing for luminance, chrominance, smoothing and sharpening... all may be changed or updated whilst the new data continues to be acquired.
+
+!!! note
+    Lövell is built on the [LÖVE 2D](https://love2d.org/) platform, using [Lua](https://www.lua.org/) as a scripting language running under [LuaJit](https://luajit.org/).  This explains the umlaut (ö) in the name, giving a nod to its software foundation, but also Sir Bernard Lovell, the creator and director of the Jodrell Bank radio telescope, which you can't deny is EAA on a grand scale, albeit with radio waves rather than visible ones.  It also explains why the app's icon is a radio telescope, and not an optical one.  There are also other famous Lovells, Jim, for example, of Apollo 8 and 13 fame.  Using German pronunciation, Lövell sounds like the astronomer Percival Lowell, who founded the observatory in Flagstaff, AZ, and became infamous for sketching the Martian 'canals'.
 
 ## Installation
 
@@ -16,10 +19,15 @@ The novel thing about Lövell is that the image processing workflow is performed
 * install it, per the relevant instructions
 * download the Lövell.love file from this repository
 
+!!! note
+    The LÖVE runtime image is tiny by modern standards – around 25 Mbytes - and the Lövell package itself is remarkably only about 1 Mbyte.  Of course, when running, considerable CPU/GPU memory may be used to store images.
+
+
 ## Quick tour
 
 * click on the Lövell.love file (or drop onto the LÖVE app) to run it
-* drop a folder containing raw 16-bit FITS files onto the app window
+* drop a folder containing raw 16-bit FITS files onto the app window...
+* ...the folder is continuously watched for new FITS files appearing.
 
 ### Main display
 
