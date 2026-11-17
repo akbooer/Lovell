@@ -13,6 +13,8 @@ markdown_extensions:
   
 nav:
   - Home: index.md
+  - Installation: installation.md
+  - Quick Tour: quicktour.md
   - Plugins: plugins.md
   - Keyboard Shortcuts: shortcuts.md
     
