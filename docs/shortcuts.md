@@ -3,15 +3,15 @@ There are keyboard shortcuts for a number of different actions.  Some of them wo
 
 ## Global Shortcuts
 
-The user interface components are somwhat different from the standard ones used, so to augment their functionality there are some mouse/key based shortcuts:
+The user interface components are somewhat different from the standard ones used, so to augment their functionality there are some mouse/key based shortcuts:
 
   * right-click on any text input field clears any current text
   * right-click (or shift-click) resets slider or menu controls to their default
   
 For spreadsheet tables:
 
-  * left-click selected an item
-  * shift click selectes a contiguous set of items between cursor and previous selection
+  * left-click selects an item
+  * shift click selects a contiguous set of items between cursor and previous selection
   * command-click adds or removes single selecterd item from the current selection
   * double-click generally performs some table-specific action
   

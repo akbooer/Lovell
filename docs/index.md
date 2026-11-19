@@ -8,7 +8,7 @@ Lövell owes its existence to the amazing application [Jocular](https://github.c
 
 The novel thing about Lövell is that the image processing workflow is performed almost entirely within the GPU using code written in Open GL Shader Language.  This makes it fast... most post-stack operations are performed within one video frame update (typically 1/60 second) so all interactive adjustments intensity / colour / filtering happen almost instantly.
 
-Lövell does not control cameras, mounts, filter wheels, or similar equipment; plenty of applications do this, such as APT, NINA, SharpCap, SG Pro, and ASI Studio. Instead, it watches a folder for one of these applications to drop raw FITS image files into, then processes them. The usual workflow is to store each new set of observation files in its own unique folder.  Lövell maintains a database of previous observations so that they can be returned to and reprocessed with just the click of button.
+Lövell does not control cameras, mounts, filter wheels, or similar equipment; plenty of other applications do this, such as APT, NINA, SharpCap, SG Pro, and ASI Studio. Instead, it watches a folder for one of these applications to drop raw FITS image files into, then processes them. The usual workflow is to store each new set of observation files in its own unique folder.  Lövell maintains a database of previous observations so that they can be returned to and reprocessed with just the click of button.
 
 The philosophy of Jocular — that just about everything aside from the exposure and framing of the individual incoming subs can be changed on the fly — remains central to the design: 
 
@@ -20,13 +20,6 @@ The philosophy of Jocular — that just about everything aside from the exposure
 
 !!! note
     Lövell is built on the [LÖVE 2D](https://love2d.org/) platform, using [Lua](https://www.lua.org/) as a scripting language running under [LuaJit](https://luajit.org/). This explains the umlaut (ö) in the name, giving a nod to its software foundation, but also Sir Bernard Lovell, the creator and director of the Jodrell Bank radio telescope, which you can't deny is EAA on a grand scale, albeit with radio waves rather than visible ones. It also explains why the app's icon is a radio telescope, and not an optical one. There are also other famous Lovells, Jim, for example, of Apollo 8 and 13 fame. Using German pronunciation, Lövell sounds like the astronomer Percival Lowell, who founded the observatory in Flagstaff, AZ, and became infamous for sketching the Martian 'canals'.
-
-
-## Plugin architecture
-
-Most processing steps have been implemented in a modular plugin architecture which allows for (relatively) easy extensions.  Each plugin is a classic MVC (model-view-control) structure containing its own controls, GUI, processing (probably implemented as a GLSL shader plus Lua code), and brief documentation.
-
-<img width="1270" height="729" alt="image" src="https://github.com/user-attachments/assets/27f81b20-9b80-4e96-a71d-335c230aae29" />
 
 
 

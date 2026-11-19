@@ -2,6 +2,13 @@
 
 Much of Lövell's functionality is implemented as separate processing modules called plugins.  There are of two types: Static or Dynamic.  There is a separate [Plugin workflow editor](workflow.md) page, which allows dynamic plugins to be (de)selected and placed in order into the post-stack workflow, appearing as dropdown menus on the main display page.
 
+!!! note
+
+    The modular plugin architecture allows for (relatively) easy processing extensions to be added to Lövell.  Each plugin is a classic MVC (model-view-control) structure containing its own controls, GUI, processing (probably implemented as a GLSL shader plus Lua code), and brief documentation.
+
+<img width="1270" height="729" alt="image" src="https://github.com/user-attachments/assets/27f81b20-9b80-4e96-a71d-335c230aae29" />
+
+
 ## Static Plugins
 
 Static plugins are part of the system workflow and, as such, are permanently installed 

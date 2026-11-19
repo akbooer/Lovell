@@ -1,4 +1,4 @@
-
+#Quick Tour
 
 * click on the Lövell.love file (or drop onto the LÖVE app) to run it
 * drop a folder containing raw 16-bit FITS files onto the app window...
