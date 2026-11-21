@@ -19,7 +19,7 @@ The philosophy of Jocular — that just about everything aside from the exposure
 ...can all be changed or updated while new data continues to be acquired.
 
 !!! note
-    Lövell is built on the [LÖVE 2D](https://love2d.org/) platform, using [Lua](https://www.lua.org/) as a scripting language running under [LuaJit](https://luajit.org/). This explains the umlaut (ö) in the name, giving a nod to its software foundation, but also Sir Bernard Lovell, the creator and director of the Jodrell Bank radio telescope, which you can't deny is EAA on a grand scale, albeit with radio waves rather than visible ones. It also explains why the app's icon is a radio telescope, and not an optical one. There are also other famous Lovells, Jim, for example, of Apollo 8 and 13 fame. Using German pronunciation, Lövell sounds like the astronomer Percival Lowell, who founded the observatory in Flagstaff, AZ, and became infamous for sketching the Martian 'canals'.
+    Lövell is built on the [LÖVE 2D](https://love2d.org/) platform, using [Lua](https://www.lua.org/) as a scripting language running under the [LuaJit](https://luajit.org/) compiler. This explains the umlaut (ö) in the name, giving a nod to its software foundation, but also Sir Bernard Lovell, the creator and director of the Jodrell Bank radio telescope, which you can't deny is EAA on a grand scale, albeit with radio waves rather than visible ones. It also explains why the app's icon is a radio telescope, and not an optical one. There are also other famous Lovells, Jim, for example, of Apollo 8 and 13 fame. Using German pronunciation, Lövell sounds like the astronomer Percival Lowell, who founded the observatory in Flagstaff, AZ, and became infamous for sketching the Martian 'canals'.
 
 
 

@@ -149,7 +149,9 @@ This includes pure mono, one-shot colour (OSC), separate R G B filters, (or H S 
 
 On arrival of each new image, a mix of channels is updated to create a synthetic luminance for the composite image.  The criteria used to combine the channels is based on the number of images in each channel, their exposures (if available), and possibly the signal-to-noise ratios (variances / MAD).
 
-The auto settings may subsequently be over-ridden by the manual controls for Red : Green+Blue ratio, and Green : Blue ratio.  Additionally, if both synthetic luminance from any RGB channels and a separately measured luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
+The auto settings may subsequently be over-ridden by the manual controls for Red : Green+Blue ratio, and Green : Blue ratio.  
+
+Additionally, if both synthetic luminance from any RGB channels and a separately measured luminance channel are available, then the balance between these may be changed with the Lum:Synth slider control.
 
 Together these parameters provide complete control of the composite image luminance.
 ]],

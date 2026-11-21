@@ -74,8 +74,10 @@ end
  
 function plugin: draw(suit)  
   local sl = suit.layout
-  local W, Hb = 180, 25
-  if suit: Button("View Masters...", sl:row(W - 30, Hb)) .hit then 
+  local W, Hb = 160, 25
+  
+  sl: row(0,0)
+  if suit: Button("View Masters...", sl:row(W, Hb)) .hit then 
     le.push ("page", "database, calibration")
   end 
   

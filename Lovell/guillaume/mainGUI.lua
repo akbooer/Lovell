@@ -134,11 +134,7 @@ function _M.draw(screenImage)
   if screenImage then
     final = screenImage
     lg.setColor(1,1,1, ALPHA)
-    
---    lg.setShader(gammaShader)
     lg.draw(screenImage, W/2,  H/2, moveXY(final))   
---    lg.setShader()
-    
     lg.setBlendMode "alpha"
   end
 

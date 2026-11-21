@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.25",
+    VERSION = "2026.11.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "compose and save snapshots",
   }
@@ -22,6 +22,7 @@ local _M = {
 -- 2026.10.14  use controls.pixel_size(), add OPTION-click for full-size PNG
 -- 2026.10.18  use controls.option to detect option key(s)
 -- 2026.10.25  use controls.subs rather than access to stack
+-- 2026.11.12  correct exposure annotation
 
 
 local _log = require "logger" (_M)
@@ -126,16 +127,15 @@ local function get_annotations(image)
   end
   
   local RGBL = controls.RGBL 
---  local T = stack.exposure or 0
-  local T = RGBL and RGBL: dot {0,0,0,0, 1,1,1,1} or 0            -- sum the exposures
---  local Nstack = RGBL and RGBL: dot {1,1,1,1, 0,0,0,0} or 1e-6
-  local Nstack = controls.info.Nstack
-  Exposure = T / Nstack     -- average per sub
+  local info = controls.info
+  local exp = info.exposure or 0
+  local Nstack = info.Nstack
+  Exposure = exp / Nstack     -- average per sub
   local so = controls.stackOptions
   local stackname = so.displayname[so.selected]   -- get stacking type
   
-  Stacks = "%s: %d/%d x %ds" % {stackname, frame.Nstack or 0, frame.subs and #frame.subs or 0, Exposure}
-  Total = "total exposure: %d:%02d" % {math.floor(T / 60), T % 60}
+  Stacks = "%s: %d/%d x %ds" % {stackname, info.Nstack or 0, info.subs and #info.subs or 0, Exposure}
+  Total = "total exposure: %d:%02d" % {math.floor(exp / 60), exp % 60}
   
   Filters = controls.BAYER or RGBL and "%dR %dG %dB %dL" % RGBL or nil
   
@@ -215,6 +215,7 @@ local function portrait(image, W, H)
       -- Top Right
       Rtext(Date, 10, 1.4)
       Rtext(Signature, 35, 1.2)
+      Rtext(Obs_notes, 60, 1.2)
     end  
   lg.setCanvas()
 end

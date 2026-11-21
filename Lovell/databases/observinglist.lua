@@ -5,12 +5,12 @@
 --
 
 local _M = {
-    NAME = ...,
-    VERSION = "2026.11.08",
-    AUTHOR = "AK Booer",
-    DESCRIPTION = "DSO table and observing list manager (translated from Jocular)",
+  NAME = ...,
+  VERSION = "2026.11.14",
+  AUTHOR = "AK Booer",
+  DESCRIPTION = "DSO table and observing list manager (translated from Jocular)",
 
-  }
+}
 
 local _log = require "logger" (_M)
 
@@ -20,6 +20,8 @@ local _log = require "logger" (_M)
 -- 2026.05.25  change time slider format to hh:mm
 -- 2026.06.10  allow right-click to reset time offset slider
 -- 2026.11.08  remove math.nan and math.isnan (now declared as part of the math library)
+-- 2026.11.12  add observing list name Input, and widen spreadsheet column
+-- 2026.11.14  double click on object switches to observation page filtered by that object name
 
 
 -- Handles DSO table and observing list management, including alt-az/transit computations.
@@ -52,8 +54,8 @@ local int  = math.floor
 local rads = math.pi / 180
 
 local np = math                     -- for source compatibility with Python
-      np.arcsin = math.asin
-      np.arctan2 = math.atan2
+np.arcsin = math.asin
+np.arctan2 = math.atan2
 
 local settings = controls.settings
 
@@ -96,30 +98,32 @@ end
 --
 -- DATA
 --
- 
+
 local cols = {  -- reflects the actual order of the source database
-        {"Name", w = 210, sort = utils.alphanumeric_sort, },   -- to get things like Messier 51 into correct order
-        {"RA",   w = 75, format = formatRA, align = "right",  type = "number", filter = filterRA},  -- scale, HH to DEG
-        {"DEC",  w = 85, format = formatDEC, align = "right", type = "number", },
-        {"Con",  w = 40, },
-        {"OT ",  w = 40, },
-        {"Mag",  w = 50, format = formatMag, type = "number", align = "center", },
-        {"Diam", w = 50, format = formatArcMinutes, type = "number", align = "center", },
-        {"Other",w = 240, },
-        
-        -- the following columns computed dynamically in update()
-        {"Loc",     w = 40, align = "center", format = formatAltAzQuad, },
-        {"Az",      w = 40, align = "right",  type = "number", },
-        {"Alt",     w = 40, align = "right",  type = "number", },
-        
-        -- these values are static and computed once after loading
-        {"Max",     w = 40, align = "center", label = "Max"},    -- max altitude
-        {"Transit", w = 60, align = "center", format = formatHM, type = "number"},
-        
-        -- the following added from the observing watch list
-        {"#Obs", w = 50, align = "center", type = "number", },
-        {"List", w = 55, },
-        }
+  {"Name", w = 210, 
+    input = {text = ''},                  -- search box input    
+    sort = utils.alphanumeric_sort, },    -- to get things like Messier 51 into correct order
+  {"RA",   w = 75, format = formatRA, align = "right",  type = "number", filter = filterRA},  -- scale, HH to DEG
+  {"DEC",  w = 85, format = formatDEC, align = "right", type = "number", },
+  {"Con",  w = 40, },
+  {"OT ",  w = 40, },
+  {"Mag",  w = 50, format = formatMag, type = "number", align = "center", },
+  {"Diam", w = 50, format = formatArcMinutes, type = "number", align = "center", },
+  {"Other",w = 240, },
+
+  -- the following columns computed dynamically in update()
+  {"Loc",     w = 40, align = "center", format = formatAltAzQuad, },
+  {"Az",      w = 40, align = "right",  type = "number", },
+  {"Alt",     w = 40, align = "right",  type = "number", },
+
+  -- these values are static and computed once after loading
+  {"Max",     w = 40, align = "center", label = "Max"},    -- max altitude
+  {"Transit", w = 60, align = "center", format = formatHM, type = "number"},
+
+  -- the following added from the observing watch list
+  {"#Obs", w = 50, align = "center", type = "number", },
+  {"List", w = 75, align = "center", },
+}
 
 local col_index = {1,5,4,2,3, 9,10,11, 12,13, 6,7, 14,15, 8}    -- displayed order of columns
 
@@ -175,17 +179,18 @@ local function update_list()
   deselect_all()
 end
 
-local function add_to_observing_list()
+local function add_to_observing_list(label)
   local sel = widget.highlight
   local data = widget.data
   local date = os.date "%d %b"  -- day month
+  label = #label > 0 and label or date
   local n = 0
   for i in pairs(sel) do
     local object = data[i]
     if object then
       n = n + 1
-      object[Added] = date
-      observing_list[object[Name]] = date
+      object[Added] = label
+      observing_list[object[Name]] = label
     end
   end
   update_list()
@@ -207,6 +212,7 @@ local function remove_from_observing_list()
   update_list()
   _log("removed %d objects" % n)
 end
+
 
 --[=[
 
@@ -268,18 +274,18 @@ end
 
 -- update Alt, Az, Loc for a single object
 function alt_az_quad(v)
-    local ra, dec = v[RA], v[Dec] * rads
-    local sinlat, coslat = _M.sinlat, _M.coslat
-    
-    local H = (-utc_offset  * 15 + _M.local_sidereal_time - ra) * rads
-    local sinH, cosH = np.sin(H), np.cos(H)
-    local az, alt
-    az = 180 + (np.arctan2(sinH, cosH * sinlat - np.tan(dec) * coslat) / rads)
-    alt = np.arcsin(sinlat * np.sin(dec) + coslat * np.cos(dec) * cosH) / rads
+  local ra, dec = v[RA], v[Dec] * rads
+  local sinlat, coslat = _M.sinlat, _M.coslat
 
-    v[Az] = math.isnan(az) and math.nan or int(az)
-    v[Alt] = math.isnan(alt) and math.nan or int(alt)
-    v[Quadrant] = math.isnan(az) and '' or quadrant(az)
+  local H = (-utc_offset  * 15 + _M.local_sidereal_time - ra) * rads
+  local sinH, cosH = np.sin(H), np.cos(H)
+  local az, alt
+  az = 180 + (np.arctan2(sinH, cosH * sinlat - np.tan(dec) * coslat) / rads)
+  alt = np.arcsin(sinlat * np.sin(dec) + coslat * np.cos(dec) * cosH) / rads
+
+  v[Az] = math.isnan(az) and math.nan or int(az)
+  v[Alt] = math.isnan(alt) and math.nan or int(alt)
+  v[Quadrant] = math.isnan(az) and '' or quadrant(az)
 end
 
 -- periodic update (every REFRESH seconds) of object locations
@@ -291,9 +297,9 @@ local function compute_altaz()
       return
     end
   end
-   last_time_changed = t
+  last_time_changed = t
   widget.filter = true          -- force re-application of all filters
-  
+
   local objs = _M.objects
   for i = 1, #objs do
     local v = objs[i]
@@ -306,17 +312,17 @@ end
 
 local function compute_transits()
   --from ch 15 of Meeus
-  
+
   local RA, Dec = 2, 3
   local MaxAlt, Transit = 12, 13
   local elapsed = newTimer()
-  
+
   --  apparent sidereal time at Greenwich at 0hUT
   local datetime, gst_0
   datetime = os.date "!*t"
   datetime.hour, datetime.min, datetime.sec = 0, 0, 0
   gst_0 = local_sidereal_time(datetime, 0)
-    
+
   local objs = _M.objects
   local lat, long = _M.latitude, _M.longitude
   for i = 1, #objs do
@@ -348,23 +354,23 @@ end
 --
 
 function _M.load()
-  
+
   if #widget.data > 0 then return widget end     -- only load data once
-  
+
   local data = dsos.load()       -- get the basic DSOs
   _M.objects = data     -- TODO: WHO USES _M.objects?  ONLY INTERNAL ??
 
   -- initialise Lat and Long NOTE: that these don't get update during a session if changed on settings page
   _M.longitude = tonumber(settings.longitude.text) or 0
   _M.latitude  = tonumber(settings.latitude.text) or 51.5      -- defaults are approximation to Greenwich
-        
+
   local lat = _M.latitude * rads
   _M.sinlat, _M.coslat = np.sin(lat), np.cos(lat)
 
   -- load observing list (maps names to date added)
   observing_list = json.read "observing_list.json" or {}
   _log "observing list loaded"
-  
+
 --[[
 
         # load observing notes
@@ -377,7 +383,7 @@ function _M.load()
 --]]
 
   -- load previous observations if necc and count previous
-      
+
   local prevobs = obsess.load()
   local previous = prevobs.tally
 --  _log ("%d unique previous observations found" % previous.n)
@@ -398,7 +404,7 @@ function _M.load()
   compute_altaz()    
   _log(elapsed "%0.3f ms, ALT / AZ calculations")
   compute_transits()
-  
+
   widget = {cols = cols, col_index = col_index, data = data, tally = previous}
   return widget
 end
@@ -409,41 +415,50 @@ end
 -- UPDATE GUI
 --
 
-function _M.update(suit)
-  
+local obsListName = {text = ''}
+
+function _M.update(suit, status)
+
   if #widget.data == 0 then return end
-  
+
   local layout = suit.layout
   local function row(...) return layout: row(...) end
   local function col(...) return layout: col(...) end
-   
-  local ridx = widget.row_index 
+
   local sel = widget.highlight or {}
   widget.highlight = sel
+
+  if status.hit == "double" then
+    local name = (widget.data[widget.row_index[sel.anchor]] or {})[1] or ''
+    obsess.show_observations(name)
+    return
+  end
 
   compute_altaz(_M)    
 
   -- observing list buttons
-  
+
   if suit: Button("Select all", row(120, 30)) .hit then
     select_all()
   end
-  col(15, 30)
+  col(10, 30)
   if suit: Button("Deselect all", col(120, 30)) .hit then
     deselect_all()
   end
 
-  col(50, 30)
+  col(40, 30)
   if suit: Button("Add to Watchlist", col(170, 30)) .hit then
-    add_to_observing_list()
+    add_to_observing_list(obsListName.text)
   end
-  col(15, 30)
+  col(10, 30)
+  suit: Typeable(obsListName, col(75, 30))
+  col(10, 30)
   if suit: Button("Delete from Watchlist", col(170, 30)) .hit then
     remove_from_observing_list()
   end
 
   -- time control widget
-  col(50, 30)
+  col(40, 30)
   local now = os.time()
   local hour_offset = sun_time.value
   local offset = 3600 * hour_offset
@@ -452,26 +467,26 @@ function _M.update(suit)
   _M.local_sidereal_time = local_sidereal_time(datetime, _M.longitude)
   local sun_elev = sun_altitude(datetime, _M.latitude, _M.longitude)
   suit: Label("sun: %.0fº" % sun_elev, col(100, 30))
-  
+
   local x,y,w,h = col(220, 30)    -- position for slider
   suit: Label(os.date("%d %b %H:%M", when), col(150, 30))
   -- user moves time slider
   local time_slider = suit: Slider(sun_time, x,y+10, w,14) 
   local t = lt.getTime()
-  
+
   if rightClick(time_slider) then  
     sun_time.value = 0
   end
-  
+
   if time_slider.hovered then
     suit: Label('+' .. utils.formatHM(hour_offset), Loptions, x - 17 + w * hour_offset /24, y - 15, 50, h)
-     last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
-  
+    last_time_changed = t - REFRESH + 0.1  -- update soon after leaving
+
   end
   if time_slider.hit then
-     last_time_changed = 0  -- update immediately
+    last_time_changed = 0  -- update immediately
   end
-  
+
   local current = controls.object
   layout: reset(550,20, 10,10)     -- go back to top and insert button to set current object
   if suit: Button("Set Current Object", col(150, 30)) .hit then

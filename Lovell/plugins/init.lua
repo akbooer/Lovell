@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.20",
+    VERSION = "2026.11.20",
     DESCRIPTION = "Plugin Library for processing: model, view, control (MVC)",
   }
 
@@ -14,11 +14,13 @@ local _M = {
 -- 2026.10.05  change plugin default configuration to include GHS (NB. filename is 'ghs')
 -- 2026.10.12  add performance profiling
 -- 2026.10.20  add process_sequence: get_splits() and set_splits() for plugin menus
+-- 2026.11.20  move generic plugin reset here from controls
 
 
-local _log = require "logger" (_M)
+require "logger" (_M)
 
-local profiler    = require "utils" .profiler
+local suitable = require "guillaume.suitable"     -- for access to reset flag
+local profiler = require "utils" .profiler
 
 local love = _G.love
 local lf = love.filesystem
@@ -43,6 +45,27 @@ local function menu_split(self, suit)
   end
 end
 
+-- GENERIC PLUGIN RESET
+
+-- reset() method for SUITABLE widgets and control clusters
+local function reset (self)
+  suitable.reset = true               -- flag the change
+  for name in pairs(self) do
+    local x = self[name]
+    if type(x) == "table" then
+      local dtype = type(x.default)
+      if dtype == "string" then                           -- label
+        x.text = x.default or x.text or ''
+      elseif x.selected then                              -- option list
+        x.selected = x.default or x.selected or 1
+      elseif dtype == "number" then                       -- slider
+        x.value = x.default or x.value or 0
+      elseif dtype == "boolean" then                      -- checkbox
+        x.checked = x.default or x.value or false
+      end
+    end
+  end
+end
 
 -- LOAD
 
@@ -63,6 +86,7 @@ for _, file in ipairs(dir) do
       p._extras = p.extras      -- save user-defined additional menu
       p.extras = menu_split
       p._split = {checked = p.split }   -- initialise to user requirement
+      p.reset = p.reset or reset
       plugins[name] = p
     end
   end

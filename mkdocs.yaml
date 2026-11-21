@@ -12,11 +12,13 @@ markdown_extensions:
   - pymdownx.superfences
   
 nav:
-  - Welcome: index.md
+  - Introduction: introduction.md
   - Installation: installation.md
   - Quick Tour: quicktour.md
   - Databases: databases.md
+  - Stack Viewer: stackview.md
   - Plugins: plugins.md
+  - Plate Solving: platesolving.md
   - Settings: settings.md
   - Keyboard Shortcuts: shortcuts.md
     

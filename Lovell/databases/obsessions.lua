@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.09",
+    VERSION = "2026.11.14",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -23,6 +23,8 @@ local _M = {
 -- 2026.10.27  add sorter for size column, using total number of pixels
 -- 2026.11.08  save/restore screen X, Y, and zoom settings
 -- 2026.11.09  use love.event rather than target and pager threads
+-- 2026.11.12  add show_observations(name) to set object filter name
+-- 2026.11.14  use "double" hit on spreadsheet to load observation
 
 
 local _log, _err = require "logger" (_M)
@@ -64,7 +66,9 @@ local sizeSorter do
 end
 
 local cols = {
-        {"Name",      w = 200, sort = utils.alphanumeric_sort, },   -- to get things like Messier 51 into correct order
+        {"Name",      w = 200, 
+              input = {text = ''},                  -- search box input    
+              sort = utils.alphanumeric_sort, },    -- to get things like Messier 51 into correct order
         {"OT",        w =  40, },
         {"Con",       w =  50, },
         {"Session",   w =  90, align = "center", },
@@ -81,6 +85,17 @@ local cols = {
 local col_index = {1, --[[2,3,]] 4,5,6,7, 8, 9, 10, 11}   -- which columns to show
 
 local widget = {cols = cols, col_index = col_index, tally = tally}    -- SUIT-able Table widget
+
+
+-------------------------
+--
+-- EVENTS
+--
+
+function _M.show_observations(name)
+  cols[1].input.text = name                       -- set the search name...
+  le.push ("page", "database, observations")      -- ... and switch to this page
+end
 
 
 -------------------------
@@ -134,14 +149,8 @@ function _M.load()
       end
     end
   end
-  
-  local Nobs = #observations
---  for _ in pairs(tally) do
---    Nobs = Nobs + 1
---  end
---  tally.n = Nobs
-    
-  _log(elapsed("%.3f ms, loaded %d observations from %d sessions", Nobs, Nsess))
+      
+  _log(elapsed("%.3f ms, loaded %d observations from %d sessions", #observations, Nsess))
   widget = {cols = cols, col_index = col_index, tally = tally, data = observations}
   return widget
 end
@@ -221,10 +230,10 @@ function _M.saveSession()
     tally[name] = (tally[name] or 0) + 1
     -- add another row to observations    
     obs_row(sesID, path, obs.object, obs)
---    local ridx = widget.ridx or {}
+--    local ridx = widget.row_index or {}
 --    ridx[#ridx + 1] = #observations
 --    ridx.n = (ridx.n or 0) + 1
---    widget.ridx = ridx
+--    widget.row_index = ridx
   end
   
 end
@@ -291,10 +300,9 @@ end
 -- UPDATE GUI
 --
 
-local DOUBLE    -- double click
 local Loptions = {align = "left"}
 
-function _M.update(suit)
+function _M.update(suit, status)    -- status of the spreadsheet widget
   local layout = suit.layout
   local ridx = widget.row_index 
   local sel = widget.highlight or {}
@@ -303,10 +311,10 @@ function _M.update(suit)
   local name, folder = current[1] or '', current[12] or ''
   
   layout: reset(550,20, 10,10)
-  if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
+--  if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
+  if suit: Button("Load Observation", layout: col(150, 30)) .hit or status.hit == "double" then
     le.push ("target", {"READ", current})     -- send the whole metadata
     le.push ("page", "main" )                 -- switch to main display
-    DOUBLE = false
   end
   
   local h = love.graphics.getHeight()
@@ -318,16 +326,6 @@ function _M.update(suit)
     suit: Label(folder, Loptions, 220, h - 50, 550, 30)
   end
 
-end
-
-
--------------------------------
---
--- MOUSE
---
-
-function _M.mousereleased(_,_,_,_, presses) -- x, y, button, istouch, presses )
-  DOUBLE = presses == 2
 end
 
 

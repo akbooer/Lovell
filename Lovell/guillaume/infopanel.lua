@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.09",
+    VERSION = "2026.11.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "info panel for main display",
   }
@@ -21,6 +21,7 @@ local _M = {
 -- 2026.10.26  use controls.info for essential information
 -- 2026.11.08  clear object name field on right-click
 -- 2026.11.09  use love.event rather than pager thread
+-- 2026.11.12  use new Typeable object (for input text clear)
 
 
 require "logger" (_M)
@@ -89,9 +90,7 @@ function _M.update(suit, image)
   suit:Checkbox(pin_info, {id = "pin_info"}, row(20, 20))
   layout: pop()
   
-  if suit:Input(controls.object, Ioptions, row(margin - 20, 30)) .hit == "right" then
-    controls.object.text = ''   -- clear the input field
-  end
+  suit:Typeable(controls.object, Ioptions, row(margin - 20, 30))
 
   suit:Label("object", Loptions, row(margin - 60, 10))
   
@@ -152,7 +151,6 @@ function _M.update(suit, image)
   
   row()  
   
---  self:Label("stacked ", Loptions, row(Wcol, 10))
   local so = controls.stackOptions
   suit:Label(so.displayname[so.selected] or '', Loptions, row(Wcol, 10))
   suit:Label("mm:ss", Loptions, col(Wcol, 10))

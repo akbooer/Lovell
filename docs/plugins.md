@@ -15,25 +15,14 @@ Static plugins are part of the system workflow and, as such, are permanently ins
 
 ###Luminance
 
-Luminance processing for both one-shot colour (OSC) and mono images (filtered or otherwise).
-
-A number of different classical stretch functions are available from the strtch menu.
-
-Background level and Stretch are visible at the top level if drop-down menu is split.
-
-Gradient, Vignetting, and White point controls are available on the drop-down menu.
-
-Vignetting adjustment is particularly valuable for wide-angle (short F-ratio) systems when a master flat is not available.
+![Luminance](images/Luminance.png)
 
 ###Chroma
 
 ####RGB
 
-RGB processing for both one-shot colour (OSC) and filtered mono images.
+![RGB](images/RGB.png)
 
-Saturation and Temperature (Blue : Yellow balance) are visible at the top level if drop-down menu is split.
-
-Tint (Green : Magenta balance) and SCNR (Subtractive Chromatic Noise Reduction - Green) controls are available on the drop-down menu.
 
 ####Hubble
 
@@ -43,22 +32,36 @@ This treats RGB channels as HSO and swizzles them to be SHO ordered.
 
 The controls are specfic to his process and more details can be found online, but feel free to experiment, the names are fairly self-explanatory.
 
+###Synthetic Luminance
+
+![SynthL](images/SynthL.png)
+
+###Prestack
+
+![Prestack menu](images/Prestack.png)
+
 ##Dynamic Plugins
 
-Dynamic plugins may be picked to appear in the post-stack wrofklow processing chain.
+Dynamic plugins may be picked to appear in the post-stack workflow processing chain.  Simply drag and drop into a blank location in the post-processing chain column.  Valid locations are highlighted as you drag.  To remove a plugin from the processing workflow, simply drag and drop it away from the workflow column and it will snap back to its reserved location in the plugin list.
+
+
 
 ###Generalised Hyperbolic Stretch (GHS)
 
-* D (Stretch Factor): Controls the magnitude of the localized contrast boost around SP (D≥0).
-* b (Local Intensity): Controls how rapidly the gain drops off moving away from SP (b>0).
-* SP (Symmetry point): The pixel intensity value where contrast amplification is centered and maximal (0≤SP≤1).
-* D, b, and SP are visible at the top level if drop-down menu is split.
+An altogether better way of stretching images.
 
+This stretch is applied after any of the built-in stretches.
+
+![GHS menu](GHS.png)
 
 ###Contrast Limited Adaptive Histogram Enhancement (CLAHE)
 
-Contrast Limited Adaptive Histogram Equalisation.  
+Another way to effectively sharpen an image by increasing its contrast in different areas,
 
-This is a multi-scale implementation with individual strength and contrast limits.  
+![CLAHE](CLAHE.png)
 
-The three scales correspond to structures of around 4, 8, and 32 pixels.]]
+###Sharpen
+
+Sharpening method based on the ideas of APF-R
+
+![Sharpen](images/Sharpen.png)

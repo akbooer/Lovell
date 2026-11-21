@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.08",
+    VERSION = "2026.11.20",
     AUTHOR = "AK Booer",
     DESCRIPTION = "prestack processing (bad pixel, debayer, ...)",
   }
@@ -25,6 +25,7 @@ local _M = {
 -- 2026.10.24  control.zoom calculation moved to here from loadSession()
 -- 2026.11.06  move workflow processing to prestack plugin
 -- 2026.11.08  move screen zoom calculation to loadSession()
+-- 2026.11.20  use controls.stack plugin for maxstar
 
 
 
@@ -49,7 +50,7 @@ local function prestack(workflows, frame)
   local rawImage = lg.newImage(imageData, {dpiscale=1, linear = true})  
 
   -- stacking control cluster
-  local s = controls.stacking
+  local s = controls.stack
   local maxstar = s.maxstar.value  
  
   -------------------------------

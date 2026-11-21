@@ -115,7 +115,8 @@ function _M.update(suit, controls, image)
   if suit: Choosable(controls.DBnames, {title = "Databases"}, x,y, w,h) .hit then
     le.push ("page", "database")
   end
-  suit: Controllable(controls.stacking, x + Wh + 2, y, w, h)
+--  suit: Controllable(controls.stacking, x + Wh + 2, y, w, h)
+  suit: Plugin ("stack", x + Wh + 2, y, w, h)
 
   -- orientation and snapshot
  

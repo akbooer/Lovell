@@ -6,7 +6,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.08",
+    VERSION = "2026.11.12",
     AUTHOR = "AK Booer",
     DESCRIPTION = "SUIT-able, extensions to the SUIT library",
   }
@@ -32,6 +32,7 @@ local _M = {
 -- 2026.10.17  add pin checkbox to Controllable, whether ticked or not
 -- 2026.10.21  make platesolve a static plugin
 -- 2026.11.08  improve right-click processing [by modifiying mouse handling, see new()]
+-- 2026.11.12  add Typeable, an Input where right-click clears the text
 
 
 local _log = require "logger" (_M)
@@ -48,7 +49,7 @@ local lt = love.timer
 local sin, cos = math.sin, math.cos
 local max, min, floor = math.max, math.min, math.floor
 
-local empty = _G.READONLY {}
+local NONE = _G.READONLY {}
 
 -- add our own colour extensions
 local bluetext = {normal = {fg = suit.theme.color.hovered.bg }}
@@ -143,6 +144,23 @@ end
 --  return suit.anyActive()
 --end
   
+ 
+-------------------------------
+--
+-- Typeable - Input box with extra functionality
+--
+-- right-click clear text input
+--
+-- TODO: add cut/paste/...
+--
+ 
+local function Typeable(core, widget, ...)
+  local input = core: Input(widget, ...)
+  if input.hit == "right" then
+    widget.text = ''
+  end
+  return input
+end
  
 -------------------------------
 --
@@ -275,6 +293,15 @@ local Slideable do
 
 
   Slideable = function (core, control, ...)
+    
+--    do -- special mouse handling to get latest slide position (rather than buffered)
+--      local mx, my = love.mouse.getPosition()
+--      local left = love.mouse.isDown(1)
+--      local right = love.mouse.isDown(2)
+--      local button = left and "left" or right and "right" or false
+--      core: updateMouse(mx, my, button)
+--    end
+        
     local opt, x,y, w,h = core.getOptionsAndSize(...)
     local style = opt.style or control.style
         
@@ -765,12 +792,12 @@ local function index(info, opt)
   local cidx = opt.col_index
   local cols = opt.cols
   local nr = ridx and (ridx.n or #ridx) or data.n or #data        -- number of rows
-  local nc = cidx and (cidx.n or #cidx) or #(data[1] or empty)    -- number of columns
+  local nc = cidx and (cidx.n or #cidx) or #(data[1] or NONE)    -- number of columns
   
-  ridx = ridx or empty                        -- allow indexing anyway   
-  cidx = cidx or empty
+  ridx = ridx or NONE                        -- allow indexing anyway   
+  cidx = cidx or NONE
   
-  local highlight = opt.highlight or empty
+  local highlight = opt.highlight or NONE
   local H = opt.font:getHeight() * 1.5
 
   local function get(r, c)
@@ -894,8 +921,7 @@ local function enterFrame(self)
 	if not self.mouse_button_down then
 		self.active = nil
 	elseif self.active == nil then
---		self.active = NONE
-		self.active = empty
+		self.active = NONE
 	end
 
 	self.hovered_last, self.hovered = self.hovered, nil
@@ -906,8 +932,7 @@ local function enterFrame(self)
 	self:updateMouse(love.mouse.getX(), love.mouse.getY(), button)
   --
 	self.key_down, self.textchar = nil, ""
---	self:grabKeyboardFocus(NONE)
-	self:grabKeyboardFocus(empty)
+	self:grabKeyboardFocus(NONE)
 	self.hit = nil
 end
 
@@ -954,6 +979,7 @@ function suit.new(theme)
   instance.Rotatable    = Rotatable 
   instance.Slideable    = Slideable
   instance.Table        = Table
+  instance.Typeable     = Typeable
   
   return instance
 end

@@ -7,7 +7,7 @@ This really is _very_ easy .  The Lövell install consists of two parts:
 * Lövell app – written in the Lua language.
 
 !!! note
-    The LÖVE runtime image is tiny by modern standards – around 25 Mbytes - and the Lövell package itself is remarkably only about 1 Mbyte.  Of course, when running, considerable CPU/GPU memory may be used to store images.
+    The LÖVE runtime image is tiny by modern standards – around 25 Mbytes – and the Lövell package itself is, remarkably, only about 1 Mbyte.  Of course, when running, considerable CPU/GPU memory may be used to store images.
 
 ## Download LÖVE application
 
@@ -19,7 +19,7 @@ Install it, per the relevant instructions, which places it in your Applications 
 
 ## Download Lövell
 
-Download the Lövell.love file from this repository.
+Download the Lövell.love file from this repository, and put it in a suitably appropriate place.  You may need to click on it or drop a folder onto it to start the appluication.
 
 !!!note
     [LÖVE 2D](https://love2d.org/) packages the LuaJit interpreter/compiler and a compiler for OpenGL Shader Language (GLSL) which gives access to the GPU for image processing operations.
@@ -35,9 +35,9 @@ Download the Lövell.love file from this repository.
 
 ### The LÖVE environment
 
-LÖVE is, by design, a framework for running interactive 2D games which must, inherently, handle fast graphics and a very flexible  user interface.  The design choice to use it for Lövell arises from its support of both the Lua language, and the OpenGL Shader Language, giving integrated access to the platform's Graphic Processing Unit (GPU).  
+LÖVE is, by design, a framework for running interactive 2D games which must, inherently, handle fast graphics and a very flexible user interface.  The design choice to use it for Lövell arises from its support of both the Lua language, and the OpenGL Shader Language (GLSL), giving integrated access to the platform's Graphic Processing Unit (GPU).  
 
-The LÖVE environment generally discourages reading or writing arbitrary parts of the user's file system, reserving a very specific set of locations for these actions.  Using the LÖVE filesystem, the only files or folders that may be read are those which have been actively dropped onto the running application, and the only folder which may be written is system specific:
+The LÖVE environment generally discourages reading or writing arbitrary parts of the user's file system, reserving a very specific set of locations for these actions.  Using the LÖVE filesystem, the only external files or folders that may be read are those which have been actively dropped onto the running application, and the only folder which may be written is system specific:
 
 | System | The SAVE directory |
 | :---: | --- |
@@ -65,3 +65,5 @@ Lövell creates a set of files and folders in the SAVE Directory to hold its met
 | settings.json | current Lövell application defaults
 | Lövell.log    | logfile for the current (or previous) session
 
+!!! tip
+    The Settings page in Lövell gives easy shortcuts to some of these folders which can be browsed by the usual utilities (Preview, Finder, ...)

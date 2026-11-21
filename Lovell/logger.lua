@@ -113,7 +113,7 @@ end
 
 local function log(name, msg, ...)
   local t = formatted_time "%Y-%m-%d %H:%M:%S"      -- use space delimeter, rather than 'T'
-  msg = #msg > 0 and table.concat ({t, name, msg, ...}, ' ') or ''
+  msg = msg and #msg > 0 and table.concat ({t, name, msg, ...}, ' ') or ''
   logChannel: push (msg)
 end
 

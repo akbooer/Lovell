@@ -4,9 +4,9 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.09",
+    VERSION = "2026.11.19",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "spreadsheet wrapper to virtualize table indexing",
+    DESCRIPTION = "spreadsheet wrapper for tables",
 
   }
 
@@ -17,6 +17,9 @@ local _M = {
 
 -- 2026.06.09  refactor sorting and filtering, allowing user-defined function for any column
 -- 2026.11.09  clear filter input field on right click
+-- 2026.11.12  use new Typeable widget to clear text input
+-- 2026.11.14  added double-click detection
+-- 2026.11.19  correct pattern.number() with 0 as a reference to match ''
 
 
 local _log = require "logger" (_M)
@@ -29,8 +32,11 @@ local min, max = math.min, math.max
 
 local love = _G.love
 local lk = love.keyboard
+local lt = love.timer
 
 local Wdefault = 100      -- default column width
+
+local DOUBLE_CLICK_INTERVAL = 0.5 -- 500 milliseconds
 
 -------------------------
 --
@@ -71,6 +77,14 @@ local function reset_sort_index(cat)
   for i = 1, #data do
     sidx[i] = i         -- original ordering
   end
+end
+
+-- called if widget has been hit to determine if it is a double-click
+local function is_double(widget)
+  local t = lt.getTime()
+  local last = widget.last_hit or 0
+  widget.last_hit = t
+  return (t - last) < DOUBLE_CLICK_INTERVAL and "double"
 end
 
 -------------------------
@@ -118,7 +132,7 @@ local filter = {
 
 }
 
-_M.filter = filter    -- make available externally (for user-defined filters)
+_M.filter = filter    -- make available externally (so user-defined filters can be added)
 
 local pattern = {
   
@@ -127,8 +141,8 @@ local pattern = {
   end,
   
   number = function(text)
-    local inequality, reference = text: match "([<>])%s*([%+%-]?%d+%.?%d*)"
-    reference = tonumber(reference)
+    local inequality, reference = text: match "([<>]?)%s*([%+%-]?%d+%.?%d*)"
+    reference = tonumber(reference) or 0
     return inequality, reference                -- search template can be '>n' or '<n' or just 'n' (for equality) 
   end,
    
@@ -238,9 +252,7 @@ function _M.new(self, cat, x,y, w,h)
     col.input = col.input or {text = ''}                    -- Input widget for filter text
     local input = col.input
     local x,y, w,h = layout:col(col.w or Wdefault, 25)
-    if self: Input(input, x,y, w,h) .hit == "right" then   -- clear field on right click
-      input.text = ''
-    end
+    self: Typeable(input, x,y, w,h)
     local text = input.text: gsub("[%%%[%]]", '')    -- remove invalid Lua search string items: %  [ ]
     input.text = text
     if text ~= input.previous or sorted then
@@ -270,7 +282,10 @@ function _M.new(self, cat, x,y, w,h)
   layout: reset(x + 5, top + 65)
   local grid = cat.grid
   
-  if self: Table(grid, cat, layout:row(w - 30, h * 0.75)) .hit then
+  local status = self: Table(grid, cat, layout:row(w - 30, h * 0.75)) 
+  
+  if status.hit then
+    status.hit = is_double(cat) or status.hit   -- previous time is stored in widget itself, not the status
   
     --
     -- row selection
@@ -305,6 +320,7 @@ function _M.new(self, cat, x,y, w,h)
   --
   
   tween(cat.row_index.n, grid.scroll)
+  return status
   
 end
 

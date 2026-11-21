@@ -69,13 +69,14 @@ function _M.calibrate(workflow, frame, do_dark, do_flat)
     flat = nil
   end
   
+  -- TODO refactor all this
   if do_dark or do_flat then
     local b, d, f = masters.search(frame)    -- get catalogue entries for matching bias / dark / flat
-    if do_dark and d ~= current_dark then
+    if do_dark and d and d ~= current_dark then
       dark = masters.read(d)
       current_dark = d
     end
-    if do_flat and f ~= current_flat then
+    if do_flat and f and f ~= current_flat then
       flat, midpoint = masters.read(f)
       current_flat = f
     else 

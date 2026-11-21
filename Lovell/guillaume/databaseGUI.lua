@@ -83,9 +83,9 @@ function _M.update()
   
   suit: Label("%d of %d " % {db.row_index and db.row_index.n or 0, #db.data}, Loptions, col(155, 30))
  
-  spreadsheet(suit, db, 10, 70, W,H)  
+  local status = spreadsheet(suit, db, 10, 70, W,H)  
  
-  if cat.update then cat.update(suit) end         -- apply any database updates
+  if cat.update then cat.update(suit, status) end         -- apply any database updates
   
 end
 
@@ -103,12 +103,7 @@ end
 function _M.wheelmoved(...)
   spreadsheet.wheelmoved(...)
 end
-
-function _M.mousereleased(...) -- x, y, button, istouch, presses )
-  if cat.mousereleased then
-    cat.mousereleased(...)    -- for double click to load data
-  end
-end
+  
   
 -------------------------
 --

@@ -5,7 +5,7 @@
 local _M = require "guillaume.objects" .GUIobject()
 
   _M.NAME = ...
-  _M.VERSION = "2026.11.09"
+  _M.VERSION = "2026.11.12"
   _M.DESCRIPTION = "GUI - settings, session and observation info"
 
 -- 2024.11.28  Version 0
@@ -23,6 +23,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2026.08.26  add button to go to plugins page
 -- 2026.10.08  add default stretch setting
 -- 2026.11.09  use love.event rather than pager thread
+-- 2026.11.12  use new Typeable widget to clear text input
 
 
 local _log = require "logger" (_M)
@@ -62,7 +63,7 @@ local function widget(info, ...)
   elseif info.selected then
     sw = suit.Choosable
   elseif info.cursor then
-    sw = suit.Input
+    sw = suit.Typeable
   else
     sw = suit.Checkbox
   end
@@ -212,9 +213,8 @@ local function lat_long_api()
   suit: Label("longitude", Lalign, layout: col())
   
   layout: reset(120, 530, 20, 0)
-  suit: Input(settings.latitude, layout: row(120, 30))
-  suit: Input(settings.longitude, layout: col())
---  suit: Input(settings.apikey, layout: col())
+  suit: Typeable(settings.latitude, layout: row(120, 30))
+  suit: Typeable(settings.longitude, layout: col())
   
 end
 
@@ -224,7 +224,7 @@ local function signature()
   local w,h = lg.getDimensions()
   layout: reset(w - 300, h - 150)
   suit:Label("signature (for images)", {align = "left"}, row(250, 30))
-  suit:Input(sig, {id = "signature", align = "left"}, row())
+  suit: Typeable(sig, {id = "signature", align = "left"}, row())
   layout: down()
   suit:Label("version " .. _G.VERSION, layout: row())
 end

@@ -4,9 +4,9 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.09",
+    VERSION = "2026.11.20",
     AUTHOR = "AK Booer",
-    DESCRIPTION = "Control settings: model, view, control (MVC)",
+    DESCRIPTION = "Control settings: model, view, control (MVC) plugins",
   }
 
 local _log = require "logger" (_M)
@@ -36,13 +36,14 @@ local _log = require "logger" (_M)
 -- 2026.11.05  add controls.reload flag to force a stack reload on page change
 -- 2026.11.06  remove RELOAD button... now automatic on dark/flat/bad checkbox changes
 -- 2026.11.09  use love.event rather than target and pager threads
+-- 2026.10.20  move stacking and alignment controls to the 'stack' plugin
 
 
 local json = require "lib.json"
 
 json.float ="%0.3"
 
-local suitable = require "guillaume.suitable"     -- for access to reset flag
+--local suitable = require "guillaume.suitable"     -- for access to reset flag
 local plugins  = require "plugins"                -- load all the plugins
 
 local gammaOptions    = require "shaders.stretcher" .gammaOptions
@@ -52,10 +53,6 @@ local BayerOptions    = require "shaders.debayer"   .BayerOptions
  
 local paletteOptions  = {"RGB", "Hubble", '-––––––––––', "-SHO", "-HOO", "-HSO", 
                           id = "Palette: ", selected = 1, default = 1, size = {100, 20}}
-
-
-local love = _G.love
-local le = love.event
 
 
 -------------------------------
@@ -70,31 +67,6 @@ do
   stackOptions.get    = get
   BayerOptions.get    = get
   paletteOptions.get  = get
-end
-
--- reset() method for SUITABLE widgets and control clusters
-local function reset (self)
-  suitable.reset = true               -- flag the change
-  for name in pairs(self) do
-    local x = self[name]
-    if type(x) == "table" then
-      local dtype = type(x.default)
-      if dtype == "string" then                           -- label
-        x.text = x.default or x.text or ''
-      elseif x.selected then                              -- option list
-        x.selected = x.default or x.selected or 1
-      elseif dtype == "number" then                       -- slider
-        x.value = x.default or x.value or 0
-      elseif dtype == "boolean" then                      -- checkbox
-        x.checked = x.default or x.value or false
-      end
-    end
-  end
-end
-
-local function control_cluster(spec)    -- factory method for groups of controls (with reset function)
-  spec.reset = spec.reset or reset      -- don't override user-defined reset()
-  return spec
 end
 
 
@@ -112,9 +84,7 @@ controls = {
     reload = false,     -- flag to force a reload on page change
       
     gammaOptions = gammaOptions,
-    
     palette = paletteOptions, 
-     
     stackOptions = stackOptions,
     
     reject = {},      -- list of rejected frame filenames (TODO: move to frame?)
@@ -161,38 +131,6 @@ controls = {
       
       },
         
-    -- STACKING
-    
-    stacking = control_cluster {
-      id = "Stack",
-      align = {align = "left"},
-      stack_opt = stackOptions,
-      
-      -- max # stars to find
-      maxstar = {id = "#stars", value =  30, default =   30, min = 10, max = 40,  format = "%3d", style = "inline"},
-      
-      draw = function(self, suit)
-        local sl = suit.layout
-        local Hb = 25
-        local W = 180
-        
-        if suit: Button("View Stack...", sl:row(W - 30, Hb)) .hit then 
-          le.push ("page", "stack")
-        end 
-        
-        local mode = self.stack_opt
-        local old = mode.selected
-        suit: Choosable(mode, sl:row(W)) 
-        if mode.selected ~= old then
-          le.push("target", "RELOAD")
-        end
-        
-        suit: Label("Alignment", self.align, sl:row(W, 20))
-        suit: Slideable(self.maxstar, sl:row(W, 10))
-        suit: Label('', self.align, sl:row(W, 20))
-      
-      end,
-    },
   
   }
 
@@ -249,6 +187,7 @@ function controls: load()
   if f then
     for n,v in pairs(f) do SET[n] = v end
   end
+  SET.apikey = nil
   SEQ: set(SET.process_sequence)              -- update process sequence
   SEQ: set_splits(SET.split_plugins)
   
@@ -257,7 +196,7 @@ function controls: load()
   _log (f and "settings loaded" or "failed to load: ", err)
   
   for name, plugin in pairs(plugins) do
-    controls[name] = control_cluster (plugin)
+    controls[name] = plugin
   end
   
   

@@ -108,7 +108,7 @@ function love.load(arg)
   lf.createDirectory "snapshots"    -- located in the app's SAVE folder
   lf.createDirectory "settings"     -- ditto, for sundry settings
   lf.createDirectory "sessions"
-  lf.createDirectory "masters"
+  lf.createDirectory "masters"      -- calibration files
   lf.createDirectory "platesolve"   -- platesolving and annotation
   
 --[[

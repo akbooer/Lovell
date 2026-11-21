@@ -8,8 +8,7 @@
 
 The main display shows a stacked image with controls for adjustments and an information panel.  Most buttons are drop-down menus (which remain pinned if clicked rather than hovered.)
 
-<img width="1274" height="736" alt="Screenshot 2026-08-29 at 17 33 18" src="https://github.com/user-attachments/assets/20bda6ac-a61a-40e7-8b2d-c4b6a58ab4e8" />
-
+![Mainscreen](images/Eyepiece.png)
 
 * **Channel: LRGB** menu views LRGB / Mono / Inverted / Red / Green / Blue channels individually
 * **Hyper** is one of several stretch functions MidTone / Asinh / Hyper / Linear / Log / Gamma / ...
@@ -32,9 +31,7 @@ The main display shows a stacked image with controls for adjustments and an info
 Some 40,000 objects of interest.
 Close button returns to main display.  
 
-
-<img width="1273" alt="Screenshot 2025-03-06 at 15 46 15" src="https://github.com/user-attachments/assets/96b90ada-c3d0-4e6a-8850-85f0bbff6f71" />
-
+![DSOs](images/DSOs.png)
 
 * click on column names to sort
 * text or numeric expressions in filter boxes to select subsets
@@ -47,8 +44,7 @@ Close button returns to main display.
 View all the subs in sequence, show detected and matched stars.
 Close button returns to main display.  
 
-<img width="1272" height="735" alt="Screenshot 2026-08-29 at 17 34 34" src="https://github.com/user-attachments/assets/65dc9906-1d0b-4bb9-ac98-78b3d34c1db4" />
-
+![Viewstack](images/Veiwstack.png)
 
 * mouse wheel / trackpad to scroll through subs
 * **Stretch** applies a variable screen stretch to the display

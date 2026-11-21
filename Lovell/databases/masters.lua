@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.10.22",
+    VERSION = "2026.11.14",
     DESCRIPTION = "Calibration masters database - bias, darks, flats, ...",
   }
 
@@ -17,7 +17,10 @@ local _M = {
 
 -- 2026.06.07  update catalog structure return from load()
 -- 2026.10.22  relax filename check for dropped files... just look for FITS extensions
+-- 2026.11.14  add Bayer pattern to discriminate between mono and colour camera variants
 
+
+-- TODO: add list of masters to session files.  add UI to select relevant ones.
 
 local _log = require "logger" (_M)
 
@@ -71,20 +74,29 @@ local bias_dark_flat = "[bdf][ial][ar][skt]"    -- bias / dark / flat
 
 --]]
 
+local function format_gain(x)
+  return x and (x > 1 and "%.0f" or "%.3f") % x or ''
+end
+
+local function format_temp(t) 
+  return t and (t  - t%0.1) .. 'º' or '' 
+end
 
 local cols = {
     {"Name",   w = 250, },
     {"Type", w = 60, align = "center", },
     {"Exposure", w = 90, type = "number", align = "center", format = formatSeconds, },
-    {"ºC", w = 50, format = function(t) return t and (t  - t%0.1) .. 'º' or '' end, align = "center", type = "number", },
-    {"Gain", w = 60, format = function(g) return g and (g > 1 and "%.0f" or "%.3f") % g or '' end, align = "center", type = "number", },
+    {"ºC", w = 50, format = format_temp, align = "center", type = "number", },
+    {"Gain", w = 60, format = format_gain, align = "center", type = "number", },
     {"Offset", w = 60, format = function(o) return o and "%+d" % o or '' end, align = "center", type = "number", },
     {"Filter", w = 60, align = "center", },
     {"Date", w = 100, type = "number", format = function(t) return t and os.date("%Y%m%d", t) or '' end},
     {"Size", w = 100, align = "center", },
-    {"Bits", w = 50, align = "center", },
+    {"Bayer", w =  60, align = "center", },
+    {"Bits", w = 50, align = "center", type = "number"},
     {"Nsubs", w = 60, align = "right", type = "number", },
     {"Camera", w = 200},
+    
     {"Filename", },
   }
 
@@ -136,7 +148,7 @@ end
 -- read metatdata, not image
 local function read_meta(fname)
   local skip_data = true
-  local f = iframe.read(nil, fname, PATH, skip_data)
+  local f = iframe.read(nil, fname, PATH, skip_data)    -- only read the headers
   
 --  _log (table.concat (f.headers, '\r'))   -- * * * * *
 --  _log("GAIN", f.gain, f.keywords.GAIN)
@@ -158,9 +170,14 @@ local function read_meta(fname)
 
   return {
       f.name: match(file_pattern), mtype, f.exposure,
-      f.temperature, f.gain, f.offset,
-      filter, f.epoch,
-      imageSize % {naxis1, naxis2}, math.abs(bitpix),
+      f.temperature, 
+      f.gain, 
+      f.offset,
+      filter, 
+      f.epoch,
+      imageSize % {naxis1, naxis2}, 
+      f.bayer,
+      math.abs(bitpix),
       nsubs, f.camera,
       fname,              -- full filename is last column
     }
@@ -238,6 +255,7 @@ end
 --
  
 function _M.read(info)
+  if not info then return end
   local filename = info[tag.Filename]
   _log("reading", info[tag.Type], filename)
   local frame = iframe.read(nil, filename, PATH)
@@ -362,12 +380,12 @@ function _M.update(suit)
 --  end
 
   col(50, 30)
---  if self: Button("Add to Watchlist", col(170, 30)) .hit then
---    add_to_observing_list()
+--  if self: Button("Add to Session", col(170, 30)) .hit then
+--    add_to_session()
 --  end
 --  col(15, 30)
---  if self: Button("Delete from Watchlist", col(170, 30)) .hit then
---    remove_from_observing_list()
+--  if self: Button("Delete from Session", col(170, 30)) .hit then
+--    remove_from_session()
 --  end
   
   layout: reset(550,20, 10,10)
