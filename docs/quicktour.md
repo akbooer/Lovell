@@ -44,7 +44,7 @@ Close button returns to main display.
 View all the subs in sequence, show detected and matched stars.
 Close button returns to main display.  
 
-![Viewstack](images/Veiwstack.png)
+![Viewstack](images/Viewstack.png)
 
 * mouse wheel / trackpad to scroll through subs
 * **Stretch** applies a variable screen stretch to the display

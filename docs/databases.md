@@ -39,14 +39,14 @@ A further feature is provision for observing watchlists.  The number of recorded
 The final function of this database is to provide an observation planner.  The combination of watchlists, dynamic parameters of azimuth and elevation (and octant) and column filters, allow you to plan and organise a viewing session.  For example, you could select the objects on a particular watchlist which are above 45 degrees elevation, in an easterly direction, and ordered in transit time, making it very easy to pick them off one by one with a minimum of mount movement.  One powerful extra tool here is the horizontal slider which allows up to 24 hours to be added to the current time, so that you can plan in advance of an evening's session where the targets will be at the time you plan to observe.  The dynamic parameters are instantly recomputed for the set time, and also the elevation of the sun.  A right-click on this slider resets its value to zero, hence back the current time.
 
 !!! tip
-    As a bonus 'Easter egg', double-clicking on an object which has at least one recorded observation will take you to the Observations database showing just those observations...
+    As a bonus 'Easter Egg', double-clicking on an object which has at least one recorded observation will take you to the Observations database showing just those observations...
 
 !!! note
     If you've used Jocular, then this should seem very familiar, because 95% of the implementation code has been ported directly from there, with just a few tiny additional enhancements.
 
 ## Observations 
 
-A list of previous observations.  It includes the session number (date in YYYMMDD format) and local time, number of exposures and average exposure, Bayer pattern (if an OSC camera with a CFA) and image size, name of the telescope, if known, and any observation notes you may have added.
+A list of previous observations.  It includes the session number (date in YYYYMMDD format) and local time, number of exposures and average exposure, Bayer pattern (if an OSC camera with a CFA) and image size, name of the telescope, if known, and any observation notes you may have added.
 
 ![Observations](images/Observations.png)
 

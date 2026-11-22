@@ -15,6 +15,7 @@ nav:
   - Introduction: introduction.md
   - Installation: installation.md
   - Quick Tour: quicktour.md
+  - Main Display: maindisplay.md
   - Databases: databases.md
   - Stack Viewer: stackview.md
   - Plugins: plugins.md

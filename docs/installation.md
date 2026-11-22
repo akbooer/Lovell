@@ -19,7 +19,7 @@ Install it, per the relevant instructions, which places it in your Applications 
 
 ## Download Lövell
 
-Download the Lövell.love file from this repository, and put it in a suitably appropriate place.  You may need to click on it or drop a folder onto it to start the appluication.
+Download the Lövell.love file from this repository, and put it in a suitable place.  You may need to click on it or drop a folder onto it to start the application.
 
 !!!note
     [LÖVE 2D](https://love2d.org/) packages the LuaJit interpreter/compiler and a compiler for OpenGL Shader Language (GLSL) which gives access to the GPU for image processing operations.
