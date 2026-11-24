@@ -1,8 +1,8 @@
 # Plate Solving
 
-Plster solving is the action of locating the exact coordinates (such as right ascension and declination) of an astronomical image, by matching it to known star locations.  Additionaly, the image scale, and camera orientation may be solved.  Given a camera with known pixel size, the exact focal length of the optical system may be determined.  This is often done as a prelude to annotating the image with known deep space object identifiers.
+Plate solving is the action of locating the exact coordinates (such as right ascension and declination) of an astronomical image, by matching it to known star locations.  Additionaly, the image scale, and camera orientation may be solved.  Given a camera with known pixel size, the exact focal length of the optical system may be determined.  This is often done as a prelude to annotating the image with known deep space object identifiers.
 
-In Lövell, plate solving is achieved through an external program called ASTAP, hich has to be installed separately.
+In Lövell, plate solving is achieved through an external program called ASTAP, which has to be installed separately.
 
 ##ASTAP Installation
 

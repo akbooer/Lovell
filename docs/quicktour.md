@@ -36,7 +36,7 @@ Close button returns to main display.
 * click on column names to sort
 * text or numeric expressions in filter boxes to select subsets
 * click, shift-click, option/control-click to (de)select multiple items
-* right click on image to show pop-up menu of **DSO / Observations / Watch list / View stack**
+* hover over menu button 'DB: ...' to show menu of other dabases: **DSO / Observations / Watch list / ...**
 * scroll control to forward time by up to 24 hours, updating object positions in Az, Alt, etc...
 
 ## View stack/subs

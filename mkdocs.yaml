@@ -16,10 +16,12 @@ nav:
   - Installation: installation.md
   - Quick Tour: quicktour.md
   - Main Display: maindisplay.md
+  - Snapshots: snapshots.md
   - Databases: databases.md
   - Stack Viewer: stackview.md
-  - Plugins: plugins.md
   - Plate Solving: platesolving.md
   - Settings: settings.md
+  - Process Editor: workflow.md
+  - Plugins: plugins.md
   - Keyboard Shortcuts: shortcuts.md
     
