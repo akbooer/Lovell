@@ -40,7 +40,7 @@ The workflow is retained between separate Lövell runs.
 
 This shows the menu layout of the selected plugin, and also its display name and filename.  The static and dynamic columns are sorted by filename, which is unique between plugins, whereas the plugin display name (ID) is not unique.  This is because plugins can provide alternative implementations of the same post-stack processing step.  CHROMA is one such class of plugins, with RGB and HSO (and possibly others) being options.
 
-Some help text for the controls is shows to the right of the menu layout.  All plugin menus may be pinned with a checkbox in the top right-hand corner of the menu, so that they remain displayed even when not hovered.  Some menus have an additional checkbox between two groups of controls.  Checking this splits out from the menu the items below it, to appear permanently in the main display control panel beneath the plugin button.  This is to allow the major (frequently used) controls to remain visible at all times, for easy access.
+Some help text for the controls is shown to the right of the menu layout.  All plugin menus may be pinned with a checkbox in the top right-hand corner of the menu, so that they remain displayed even when not hovered.  Some menus have an additional checkbox between two groups of controls.  Checking this splits out from the menu the items below it, to appear permanently in the main display control panel beneath the plugin button.  This is to allow the major (frequently used) controls to remain visible at all times, for easy access.
 
 
 !!! note

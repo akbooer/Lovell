@@ -19,6 +19,6 @@ The **Play** button animates sequence of subs, moving forwards and backwards thr
 
 The **Show stars** buttons indicates detected stars (in blue) and those matched for alignment (orange).
 
-Whilst viewing a particular sub, it may be removed (or added back) from the stack by the **omit from stack** checkbox.  Any changes made will cause a restack upon returning to the main display screen.
+Whilst viewing a particular sub, it may be removed from (or added back to) the stack by the **omit from stack** checkbox.  Any changes made will cause a restack upon returning to the main display screen.
 
 The aligment details show the translation **(x, y)** and image rotation **0.00º** of the current sub, relative to the image centre of the first sub in the stack.

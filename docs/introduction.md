@@ -12,8 +12,8 @@ Lövell does not control cameras, mounts, filter wheels, or similar equipment; p
 
 The philosophy of Jocular — that just about everything aside from the exposure and framing of the individual incoming subs can be changed on the fly — remains central to the design: 
 
- * preprocessing steps like hot pixel removal, applying calibration masters, and de-Bayering; 
- * stacking options of averaging or minimum variance; 
+ * preprocessing steps like hot pixel removal, applying calibration masters, and de-Bayering
+ * stacking options of averaging or minimum variance
  * post-stack processing for luminance, chrominance, smoothing, and sharpening 
  
 ...can all be changed or updated while new data continues to be acquired.

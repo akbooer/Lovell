@@ -67,3 +67,13 @@ Lövell creates a set of files and folders in the SAVE Directory to hold its met
 
 !!! tip
     The Settings page in Lövell gives easy shortcuts to some of these folders which can be browsed by the usual utilities (Preview, Finder, ...)
+    
+--------
+
+##Reporting issues
+
+The best way to report a genuine issue with Lövell is to open an issue on GitHub at [https://github.com/akbooer/Lovell/issues](https://github.com/akbooer/Lovell/issues).
+
+For things more in the way of comments or seeking advice, both Stargazer's Lounge and Cloudy Nights are an option.
+
+
