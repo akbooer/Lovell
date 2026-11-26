@@ -51,25 +51,38 @@ local snapButton = ''
 
 function _M.update(suit, controls, image)
   suit.Plugin = Plugin          -- ensure plugin helper function is installed in suit instance
-
   layout = suit.layout
+  
+  local W = margin - 40
+  local H = lg.getHeight()
+  local Wh = W / 2   -- half
+  local Hb = 25
+  local x,y
+  local w,h = W/2 - 2, Hb
+  local new_row
+  
+  local function place(plugin)
+    if new_row then
+      x,y = row(W/2 - 2, Hb)
+      suit: Plugin(plugin, x,y, w,h)
+    else
+      suit: Plugin(plugin, x + Wh + 2, y, w, h)
+    end
+    new_row = not new_row
+  end
+
   layout:reset(10,10)             -- position the layout origin...
   layout:padding(10,5)           -- ...and put extra pixels between cells in each direction
     
   suit:Checkbox(pin_controls, layout:row(20, 20))
   
-  local W = margin - 40
-  local Wh = W / 2   -- half
-  local H = lg.getHeight()
 
   suit: Plugin ("channel", row(W,Hb))
+  x,y = row()
   
   -- LUMINANCE
   
 --  row(0,0)
-  local Hb = 25
-  local x,y, w,h 
-  x,y, w,h = row(W/2 - 2, Hb)
   
   suit: Choosable(controls.gammaOptions, {id = '  ', shortcut= "G"}, x + Wh + 2, y, w, h)
   
@@ -78,7 +91,7 @@ function _M.update(suit, controls, image)
   -- CHROMINANCE
 
 --  row(0,0)
-  x,y, w,h = row(W/2 - 2, Hb)
+  x,y = row()
   suit: Choosable(controls.palette, {id = ' '}, x + Wh + 2, y, w, h)
   
   local chroma = controls.palette: get()    -- selected chroma workflow name
@@ -86,32 +99,29 @@ function _M.update(suit, controls, image)
   
   row(0,5)
   
-  x,y, w,h = row(W/2 - 2, Hb)
+  x,y = row(W/2 - 2, Hb)
   suit: Plugin("synth", x,y, w,h)
   
   -- CONFIGURABLE PLUGINS
   
-  local new_row
   for _, plugin in plugins.process_sequence() do
-    if new_row then
-      x,y, w,h = row(W/2 - 2, Hb)
-      suit: Plugin(plugin, x,y, w,h)
-    else
-      suit: Plugin(plugin, x + Wh + 2, y, w, h)
-    end
-    new_row = not new_row
+    place(plugin)
   end
+  
+--  place "platesolve"
       
   -- PRESTACK and STACK
   
   row(W, 5)
-  x,y, w,h = row(W/2 - 2, Hb)
+  new_row = true
+  
+  x,y = row(W/2 - 2, Hb)
   suit: Plugin("platesolve", x,y, w,h)
   suit: Controllable(controls.prestack, x + Wh + 2, y, w, h)
      
   -- DATABASES
   
-  x,y, w,h = row(W/2 - 2, Hb)
+  x,y = row(W/2 - 2, Hb)
   if suit: Choosable(controls.DBnames, {title = "Databases"}, x,y, w,h) .hit then
     le.push ("page", "database")
   end

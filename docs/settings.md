@@ -1,6 +1,6 @@
 # Settings
 
-The Settings page provides a useful home for a number of les-used input fields and buttons.
+The Settings page provides a useful home for a number of less-used input fields and buttons.
 
 ![Settings page](images/Settings.png)
 
@@ -22,24 +22,24 @@ Short observations notes are shown on the information panel on the main display,
 Short sessions notes are retained for the whole session over multiple observations and, again, shown on the main display page.
 
 !!! tip
-    Ech of the above items has a **Clear** button to delete all the input, but this may also be achieved by right-clicking the input box (two-fingered click for touch in put devices).
+    Each of the above items has a **Clear** button to delete all the input, but this may also be achieved by right-clicking the input box (two-fingered click for touch input devices).
     
 ## Navigation buttons
 
-The **open log file** button uses the system's document browser to access the file which is opened in a separate window.  The file is located in the Lövell's SAVE directory (see [Installation](installation.md))
+The **open log file** button uses the system's document browser to access the current session log file which is opened in a separate window.  The file is located in the Lövell's SAVE directory (see [Installation](installation.md))
 
 The **open snapshot folder** button provides a fast way to access previous screen snapshots stored in Lövell's SAVE directory in the **snapshots** folder.  It opens with the system file browser in a separate window.
 
 The **open masters folder** similarly opens the calibration master files folder in the SAVE directory.
 
-The **configure plugins** button is an insternal link to the [Plugin Workflow Editor](workflows.md) page.
+The **configure plugins** button is an internal link to the [Plugin Workflow Editor](workflows.md) page.
 
 !!! tip
     The workflow editor may also be accessed with the keyboard shortcut **command-P**.
 
 ##Location coordinates
 
-Latitude and longitude (negative for west of the meridian) may be entered here.  It's essential to do this so the DSO database to show the correct RA and DEC coordinates.  
+Latitude and longitude (negative for west of the meridian) may be entered here.  It's essential to do this for the DSO database to show the correct RA and DEC coordinates.  
 
 !!! note
     Currnet local time is taken from your system's settings.

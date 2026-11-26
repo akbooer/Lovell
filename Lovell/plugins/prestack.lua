@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.09",
+    VERSION = "2026.11.26",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – Prestack processing options",
   }
@@ -14,6 +14,7 @@ require "logger" (_M)
 -- 2026.11.06  Version 0 (extracted from prestacking.lua)
 -- 2026.11.08  added bespoke reset() function
 -- 2026.11.09  use love.event rather than target and pager threads
+-- 2026.11.26  fix reload loop, issue #22, thanks @roelboudry
 
 
 local love = _G.love
@@ -57,7 +58,7 @@ function plugin: reset()
   self.badpixel.checked = self.badpixel.default
   self.badratio.value = self.badratio.default
   self.bayer_opt.value = self.bayer_opt.default
-  le.push("target", "RELOAD")
+--  le.push("target", "RELOAD")   -- removed, Issue #22
 end
 
 -- RUN and DRAW methods
