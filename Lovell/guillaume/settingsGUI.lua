@@ -24,6 +24,7 @@ local _M = require "guillaume.objects" .GUIobject()
 -- 2026.10.08  add default stretch setting
 -- 2026.11.09  use love.event rather than pager thread
 -- 2026.11.12  use new Typeable widget to clear text input
+-- 2026.11.26  redact "retain controls" option (reopenedd issue #22)
 
 
 local _log = require "logger" (_M)
@@ -93,7 +94,8 @@ local coords = {}
 local ditto = _G.READONLY {}
 
   
-coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto, {200, 25}}
+--coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto, {200, 25}}
+coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto }
 
 local function stickies()  
  
@@ -104,10 +106,11 @@ local function stickies()
   
   -- possible update
   widgets {
-    coords = coords.stickies,
-    {stack_default},
-    {stretch_default},
-    {retainControls}}
+      coords = coords.stickies,
+      {stack_default},
+      {stretch_default},
+      {retainControls}
+    }
   
   -- save any changes
   settings.stacking = stack_default.selected

@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.20",
+    VERSION = "2026.11.26",
     AUTHOR = "AK Booer",
     DESCRIPTION = "PLUGIN – stacking and alignment options",
   }
@@ -12,6 +12,7 @@ local _M = {
 require "logger" (_M)
 
 -- 2026.11.20  Version 0, extracted from controls
+-- 2026.11.26  add reset(), but comment out temporarily for issue #22 (RELOAD loop)
 
 
 local stackOptions = require "shaders.stacker".stackOptions
@@ -43,6 +44,10 @@ plugin.documentation = [[
 
 -- RUN and DRAW methods
 
+
+--function plugin: reset()
+  
+--end
 
 function plugin: run()
   -- required, but does nothing

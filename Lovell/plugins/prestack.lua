@@ -50,21 +50,35 @@ Automatically reloads the stack if any of these prestack options (Bayer pattern 
 ]]
 
 -- RESET
+local default_reset
 
 -- explicit reset function to ensure that RELOAD happens when plugin reset
-function plugin: reset()
-  self.do_dark.checked = self.do_dark.default
-  self.do_flat.checked = self.do_flat.default
-  self.badpixel.checked = self.badpixel.default
-  self.badratio.value = self.badratio.default
-  self.bayer_opt.value = self.bayer_opt.default
---  le.push("target", "RELOAD")   -- removed, Issue #22
+local function reset(self)
+  local changed = false
+  local function default(x)
+    local var = x.checked and "checked" or x.value and "value" or x.selected and "selected"
+    if x[var] ~= x.default then 
+      changed = true 
+    end
+  end
+  
+  default(self.do_dark)
+  default(self.do_flat)
+  default(self.badpixel)
+  default(self.badratio)
+  default(self.bayer_opt)
+  
+  default_reset(self)   -- preform the actual reset
+
+  if changed then
+    le.push("target", "RELOAD")
+  end
 end
 
 -- RUN and DRAW methods
 
 
-function plugin: run(workflow, frame, bayerpat)
+function plugin: run(workflow, frame, bayerpat)  
   local ratio = self.badpixel.checked and self.badratio.value or 1e6   -- turn it on/off
 
   workflow: calibrate(frame, self.do_dark.checked, self.do_flat.checked)
@@ -74,6 +88,10 @@ end
 
  
 function plugin: draw(suit)  
+  -- hook into default plugin reset function
+  default_reset = default_reset or self.reset
+  self.reset = reset
+  
   local sl = suit.layout
   local W, Hb = 160, 25
   

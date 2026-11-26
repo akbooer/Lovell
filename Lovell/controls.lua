@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.20",
+    VERSION = "2026.11.26",
     AUTHOR = "AK Booer",
     DESCRIPTION = "Control settings: model, view, control (MVC) plugins",
   }
@@ -37,6 +37,7 @@ local _log = require "logger" (_M)
 -- 2026.11.06  remove RELOAD button... now automatic on dark/flat/bad checkbox changes
 -- 2026.11.09  use love.event rather than target and pager threads
 -- 2026.10.20  move stacking and alignment controls to the 'stack' plugin
+-- 2026.11.26  disable retainControls reset.. issue #22 (RELOAD loop)
 
 
 local json = require "lib.json"
@@ -174,7 +175,7 @@ function controls: reset()
     }
   
   if not self.settings.retainControls then
-    plugins: reset()
+--    plugins: reset()      -- issue #22
   end
 end
 
