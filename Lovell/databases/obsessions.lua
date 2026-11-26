@@ -4,7 +4,7 @@
 
 local _M = {
     NAME = ...,
-    VERSION = "2026.11.14",
+    VERSION = "2026.11.26",
     AUTHOR = "AK Booer",
     DESCRIPTION = "observations and sessions database manager",
   }
@@ -25,6 +25,7 @@ local _M = {
 -- 2026.11.09  use love.event rather than target and pager threads
 -- 2026.11.12  add show_observations(name) to set object filter name
 -- 2026.11.14  use "double" hit on spreadsheet to load observation
+-- 2026.11.26  use controls: plugin_reset() as partial solution, here, of issue #22 (reload loop)
 
 
 local _log, _err = require "logger" (_M)
@@ -314,6 +315,7 @@ function _M.update(suit, status)    -- status of the spreadsheet widget
 --  if suit: Button("Load Observation", layout: col(150, 30)) .hit or DOUBLE then
   if suit: Button("Load Observation", layout: col(150, 30)) .hit or status.hit == "double" then
     le.push ("target", {"READ", current})     -- send the whole metadata
+    controls: plugin_reset()                  -- solving issue #22
     le.push ("page", "main" )                 -- switch to main display
   end
   

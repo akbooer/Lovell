@@ -41,7 +41,7 @@ View Masters displays the calibration database.
 
 The Bayer Pattern dropdown overrides any setting from the FITS file headers.  Useful for capture software which doesn't include a definition in the headers.  Once set, this value is saved in the observation metadata, so that on subsequent reloads the Auto setting will work correctly.
 
-The dark/flat checkboxes emable/disable that type of calibration processing, even if a matching master is found.
+The dark/flat checkboxes enable/disable that type of calibration processing, even if a matching master is found.
 
 The bad pixel checkbox does the same for hot pixels. If the bad pixel threshold ratio slider is moved then the bad pixel option is deselected and should be manually checked to enable it again (avoids constant reprocessing as the slider is moved.)
 
@@ -54,6 +54,7 @@ local default_reset
 
 -- explicit reset function to ensure that RELOAD happens when plugin reset
 local function reset(self)
+  
   local changed = false
   local function default(x)
     local var = x.checked and "checked" or x.value and "value" or x.selected and "selected"

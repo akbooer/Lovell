@@ -92,6 +92,7 @@ end
 function _M.new(path)
   save()                            -- save the current observation metadata
   reader: push{"WATCH", path}       -- tell the reader thread to WATCH the path
+  controls: plugin_reset()          -- perhaps reset the plugins (depending on retain control settings, issue #22)
 end
 
 -------------------------------

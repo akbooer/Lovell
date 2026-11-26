@@ -165,17 +165,16 @@ end
 --end
 
 function controls: reset()
-  -- TODO: reset LRGB, Gamma, etc. to defaults??
-  
+  -- TODO: reset LRGB, Gamma, etc. to defaults??  
   plugins["platesolve"] : reset(controls)          -- clear previous platesolve data
   self.object.text = ''    -- forget the last object
   self.subs = nil
-  self.info = {
-    -- Nstack = 0,    -- number of stacked frames
-    }
-  
+  self.info = {}
+end
+
+function controls: plugin_reset()
   if not self.settings.retainControls then
---    plugins: reset()      -- issue #22
+    plugins: reset()      -- issue #22, this may cause a reload
   end
 end
 

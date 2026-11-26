@@ -94,8 +94,8 @@ local coords = {}
 local ditto = _G.READONLY {}
 
   
---coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto, {200, 25}}
-coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto }
+coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto, {200, 25}}
+--coords.stickies = layout: cols {pos = {120, 80}, padding = {20, 0}, {200, 30}, ditto }
 
 local function stickies()  
  
