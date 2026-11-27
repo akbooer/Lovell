@@ -12,7 +12,7 @@ markdown_extensions:
   - pymdownx.superfences
   
 nav:
-  - Introduction: introduction.md
+  - Introduction: index.md
   - Installation: installation.md
   - Quick Tour: quicktour.md
   - Main Display: maindisplay.md
