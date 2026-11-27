@@ -1,0 +1,931 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="User documentation for astronomical live-stacking and processing.">
+      
+      
+      
+      
+        <link rel="prev" href="../quicktour/">
+      
+      
+        <link rel="next" href="../databases/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Main Display - Lövell User Manual</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#the-main-display" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Lövell User Manual" class="md-header__button md-logo" aria-label="Lövell User Manual" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Lövell User Manual
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Main Display
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Lövell User Manual" class="md-nav__button md-logo" aria-label="Lövell User Manual" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Lövell User Manual
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quicktour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Main Display
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Main Display
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-area" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image area
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control Panel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control Panel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-channel-luminancemidtone-chromargb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Channel, Luminance/Midtone, Chroma/RGB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-post-stack-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Post-stack processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-pre-stack-and-stacking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Pre-stack and stacking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-display-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Display format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#information-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Information Panel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Information Panel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#panel-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Panel Controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stackview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stack Viewer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Snapshots
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../platesolving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plate Solving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Process Editor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plugins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-area" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image area
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control Panel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control Panel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-channel-luminancemidtone-chromargb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Channel, Luminance/Midtone, Chroma/RGB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-post-stack-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Post-stack processing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-pre-stack-and-stacking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Pre-stack and stacking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-display-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Display format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#information-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Information Panel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Information Panel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#panel-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Panel Controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="the-main-display">The Main Display</h1>
+<p>The main display shows a stacked image with controls for adjustments and an information panel.  </p>
+<p><img alt="Mainscreen" src="../images/Eyepiece.png" /></p>
+<h2 id="image-area">Image area</h2>
+<p>The central image area has two formats.  By default an eyepiece view is shown, a circular window onto generally the central portion of the image.  Alternatively, a rectangular (landscape) view of the image can be chosen.  The eyepiece view ('ocular') is stolen from Jocular for good reasons: it serves to focus the attention on the object of interest; it hides the corners of the image where optical abberations such as vignetting and coma are prevalent;  it allows manual rotation of the image by clicking and dragging the border which is highlighted when hovered; and it evokes a 'through the telescope' or possibly 'spaceship porthole' aesthetic.</p>
+<p>The control panel button in the lower left shows the current mode 'Eyepiece...' or 'Landscape...' and may be toggled by clicking on it.  Either view may be moved by clicking and dragging on the central part of the image.  The zoom level may be changed with a scroll gesture (mouse wheel / two-fingered drag on a touch pad).</p>
+<p>The checkboxes in the same left-hand corner may be used to flip the image vertically or horizontally to get a preferred view.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>There are also keyboard shortcuts to change the view: </p>
+<p><strong>Command-E</strong> is Eyepiece, <strong>Command-L</strong> Landscape, and <strong>Command-T</strong> toggles between them.</p>
+<p><strong>Command-'-'</strong> and <strong>Command-'+'</strong> zoom out and in.</p>
+<p><strong>Command-'/'</strong> and <strong>Command-'\'</strong> rotate clockwise and anti-clockwise.</p>
+<p>For a full list of keyboard shortcuts see that section in the documentation.</p>
+</div>
+<h2 id="control-panel">Control Panel</h2>
+<p>The control panel on the left hand side is mostly populated by buttons which display menus when clicked or hovered.  Many of these controls are plugins, which provide parameter adjustments for various different processing steps.  Some of them are permanently in place (static), others (dynamic) may be configured, moved around, or removed completely and replaced by others, through a separate <a href="../workflow/">Plugin Workflow editor page</a>.</p>
+<p>Additionally, many of the plugin menus have a checkbox which splits the controls between those which are retained in the drop-down and others which are moved to appead below the button and are visible and accessible all the time. This flexibility means that the order of the menu buttons, and the screen appearance, may vary depending on their configuration.  However, there are four main functional areas:</p>
+<p>static </p>
+<p><img alt="Panel areas" src="../images/Panel.png" /></p>
+<p><img alt="Lower left" src="../images/Lowerleft.png" /></p>
+<h3 id="1-channel-luminancemidtone-chromargb">1. Channel, Luminance/Midtone, Chroma/RGB</h3>
+<p>This group largely controls how the final stacked and processed image is rendered.  The <strong>Channel</strong> menu with <strong>LRGB</strong> as a default shows a full colour image (if any).  Other options show just the luminance or individual Red / Green / Blue channels, and also a photographic 'negative' view of the luminance – sometimes helpful in detecting low contrast features in some targets.</p>
+<p><strong>Midtone</strong> is one of several stretch functions MidTone / Asinh / Hyper / Linear / Log / Gamma / ... which may be selected from that menu.  <strong>RGB</strong> is one of several chroma processing modes.</p>
+<p>The <strong>Luminance</strong> menu drops down to show gradient / vignette / white point sliders plus the main controls of background level and stretch amount.</p>
+<p>The <strong>Chroma</strong> show controls for tint / SCNR (green) and the main controls of colour saturation and temperature for the RGB option.  Other chroma modes (HSO) have their own different controls.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The Luminance and Chroma menus may be 'split' using the checkboxes halfway down each menu.  This keeps the major controls showing in the panel beneath their respective buttons, even if their menus are not hovered.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Double-clicking on the image itself also toggles the normal/inverted mode.</p>
+</div>
+<h3 id="2-post-stack-processing">2. Post-stack processing</h3>
+<p>The next group shows a series of post-processing options, implemented by dynamic plugins.  These are selected with the <a href="../workflow/">Plugin workflow editor</a>  page, where the sequence and type of post-stack processing can be configured.  This section, then, may have a difference appearance from that imaged.</p>
+<p>This group begins with the <strong>SynthL</strong> plugin which is the first step in the post-stack workflow, constructing a synthetic luminance from separate RGB (and/or HSO) and L stacks, which may then be applied to whatever chroma processing has been selected.  In general, however, the following plugins include steps to smooth, sharpen, and refine the image.  Such options as Bilateral filtering, sharpening,  contrast enhancement may be configured.  Other plugins include additional colour saturation processing and statistical parameters from the stack.</p>
+<h3 id="3-pre-stack-and-stacking">3. Pre-stack and stacking</h3>
+<p><strong>Prestack / Stack</strong> menus give options for those stages of processing.</p>
+<p><strong>Databases</strong> gives access to various catalogs, etc.</p>
+<h3 id="4-display-format">4. Display format</h3>
+<p>Button to toggle between Eyepiece and Landscape layouts.</p>
+<p>Checkboxes to flip image in either axis.</p>
+<p><strong>Snapshot</strong> button, see <a href="../snapshots/">Snapshots</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The flip checkbox settings are over-ridden by the Platesolve plugin, along with the image rotation, in order to correctly orient the image as North-up / East-left.</p>
+</div>
+<h2 id="information-panel">Information Panel</h2>
+<p>Input field to name the object.</p>
+<p>Other useful info</p>
+<h3 id="panel-controls">Panel Controls</h3>
+<p>A small cluster of controls at the lower right-hand corner of the screen provides a button to switch to the <a href="../settings/">Settings</a> page, a button to <strong>Exit</strong> the application, and a label showing the current day and local time (so you don't stay up too late observing).</p>
+<p><img alt="Panel Controls" src="../images/Infocontrols.png" /></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Command-Q will also close Lövell, and on Mac OS command-W (close window) too.</p>
+<p>Command-M, on a Mac, will minimise the window to the dock.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
